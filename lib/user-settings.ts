@@ -5,6 +5,7 @@ const SETTINGS_FILE_PATH = "denizlg24.json";
 const userSettingsSchema = z.object({
   apiKey: z.string(),
   sidebarOpen: z.boolean(),
+  defaultNoteDownloadPath: z.string(),
 });
 
 export type UserSettings = z.infer<typeof userSettingsSchema>;
@@ -12,6 +13,7 @@ export type UserSettings = z.infer<typeof userSettingsSchema>;
 const defaultSettings: UserSettings = {
   apiKey: "",
   sidebarOpen: true,
+  defaultNoteDownloadPath: "",
 };
 
 async function getTauriFs() {

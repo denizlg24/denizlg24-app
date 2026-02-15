@@ -32,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { NoteEditor } from "./_components/note-editor";
 
 interface FileItem {
   type: "folder" | "note";
@@ -449,16 +450,16 @@ export default function NotesPage() {
                   fetchFiles(file._id);
                 }
                 if (!API) return;
-                const result = await API?.GET<INote>({
+                const result = await API?.GET<{ note: INote }>({
                   endpoint: `notes/${file._id}`,
                 });
                 if ("code" in result) {
                   return;
                 } else {
-                  setNote(result);
+                  setNote(result.note);
                   setDirectory((prev) => [
                     ...prev,
-                    { folderId: "", folderName: file.name + ".md" },
+                    { folderId: result.note._id, folderName: file.name + ".md" },
                   ]);
                 }
               }}
@@ -471,7 +472,7 @@ export default function NotesPage() {
           ))}
         </div>
       ) : (
-        <div></div>
+        <NoteEditor note={note} API={API} />
       )}
     </div>
   );

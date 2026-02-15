@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/context-menu";
 import { denizApi } from "@/lib/api-wrapper";
 import { format } from "date-fns";
-import { FileText, Folder } from "lucide-react";
+import { FileText, Folder, Trash2,Edit3 } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 
 interface FileItem {
@@ -49,7 +49,7 @@ export const FileItem = ({
       <ContextMenuContent>
         <ContextMenuItem className="text-xs!">
           Rename
-          <ContextMenuShortcut className="text-xs!">⌘R</ContextMenuShortcut>
+          <ContextMenuShortcut className="text-xs!"><Edit3 className="w-3 h-3"/></ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
           onClick={async () => {
@@ -62,7 +62,7 @@ export const FileItem = ({
           className="text-xs!"
         >
           Delete
-          <ContextMenuShortcut className="text-xs!">⌘D</ContextMenuShortcut>
+          <ContextMenuShortcut className="text-xs!"><Trash2 className="w-3 h-3"/></ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
