@@ -40,9 +40,9 @@
       }
     }
   },
-  "productName": "denizlg24-app",
+  "productName": "denizlg24 - Life Dashboard",
   "mainBinaryName": "denizlg24-app",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "identifier": "app.denizlg24.com",
   "plugins": {},
   "app": {
@@ -51,7 +51,7 @@
         "fullscreen": false,
         "height": 720,
         "resizable": true,
-        "title": "denizlg24",
+        "title": "denizlg24 - Life Dashboard",
         "decorations": false,
         "width": 1280,
         "useHttpsScheme": true
