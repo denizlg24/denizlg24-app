@@ -312,7 +312,7 @@ export function NavigationMenu() {
 
       <SidebarContent>
         {GROUPS.map((group) => (
-          <SidebarGroup key={group.groupLabel}>
+          <SidebarGroup className="py-0!" key={group.groupLabel}>
             <SidebarGroupLabel>{group.groupLabel}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
