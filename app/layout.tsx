@@ -1,5 +1,5 @@
 import { TitleBar } from "@/components/window/title-bar";
-import { UpdateNotifier } from "@/components/update-notifier";
+import { UpdateNotifier } from "@/components/window/update-notifier";
 import { Toaster } from "@/components/ui/sonner";
 import { UserSettingsProvider } from "@/context/user-context";
 import { Inter, Calistoga } from "next/font/google";
