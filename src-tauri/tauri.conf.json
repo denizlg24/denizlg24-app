@@ -42,16 +42,9 @@
   },
   "productName": "denizlg24 - Life Dashboard",
   "mainBinaryName": "denizlg24-app",
-  "version": "0.0.6",
+  "version": "0.0.1",
   "identifier": "app.denizlg24.com",
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/denizlg24/denizlg24-app/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERCNjRGRDc0NzdBOUQxMTcKUldRWDBhbDNkUDFrMjZ3cFI4WUMxUTRuaUFEY1RjNUR5YXpjYmtMUGtDbVNDMTdkZHZMUVVkRXUK"
-    }
-  },
+  "plugins": {},
   "app": {
     "windows": [
       {

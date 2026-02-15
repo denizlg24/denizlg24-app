@@ -62,7 +62,6 @@
     "fs:allow-video-write-recursive",
     "fs:write-all",
     "fs:write-files",
-    "updater:default",
     "core:webview:allow-create-webview-window",
     {
       "identifier": "http:default",
