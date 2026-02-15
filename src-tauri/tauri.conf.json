@@ -42,8 +42,8 @@
   },
   "productName": "denizlg24-app",
   "mainBinaryName": "denizlg24-app",
-  "version": "0.1.0",
-  "identifier": "com.denizlg24.app",
+  "version": "0.0.3",
+  "identifier": "app.denizlg24.com",
   "plugins": {},
   "app": {
     "windows": [
