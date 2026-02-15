@@ -1,4 +1,6 @@
 import { TitleBar } from "@/components/window/title-bar";
+import { UpdateNotifier } from "@/components/update-notifier";
+import { Toaster } from "@/components/ui/sonner";
 import { UserSettingsProvider } from "@/context/user-context";
 import { Inter, Calistoga } from "next/font/google";
 import "./globals.css";
@@ -28,6 +30,8 @@ export default function RootLayout({
       >
         <TitleBar />
         <UserSettingsProvider>{children}</UserSettingsProvider>
+        <Toaster />
+        <UpdateNotifier />
       </body>
     </html>
   );
