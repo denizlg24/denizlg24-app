@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 const PATHNAME_TITLE_MAP = {
   "/": "home",
   "/dashboard/notes": "notes",
+  "/dashboard/timetable": "timetable",
 };
 
 type AppWindow = {

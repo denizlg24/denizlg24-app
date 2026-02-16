@@ -178,7 +178,7 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
             {hours.map((hour) => (
               <div
                 key={hour}
-                className="absolute w-full border-b"
+                className="absolute w-full border-b pointer-events-none"
                 style={{
                   top: (hour - minHour) * hourHeight,
                   height: hourHeight,
@@ -209,7 +209,7 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
                     type="button"
                     onClick={() => onEntryClick?.(entry)}
                     className={cn(
-                      "absolute border-l-2 border-black/20 overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex flex-col",
+                      "absolute z-10 border-l-2 border-black/20 overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex flex-col",
                       colors.bg,
                       colors.text,
                     )}
