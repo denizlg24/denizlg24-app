@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const SETTINGS_FILE_PATH = "denizlg24.json";
+const STORE_FILENAME = "settings.json";
 
 const userSettingsSchema = z.object({
   apiKey: z.string(),
@@ -16,26 +16,9 @@ const defaultSettings: UserSettings = {
   defaultNoteDownloadPath: "",
 };
 
-async function getTauriFs() {
-  const { exists, BaseDirectory, readTextFile, create, writeTextFile } =
-    await import("@tauri-apps/plugin-fs");
-  return { exists, BaseDirectory, readTextFile, create, writeTextFile };
-}
-
-export async function createSettingsFile(): Promise<UserSettings> {
-  try {
-    const { create, writeTextFile, BaseDirectory } = await getTauriFs();
-    await create(SETTINGS_FILE_PATH, {
-      baseDir: BaseDirectory.AppLocalData,
-    });
-    await writeTextFile(SETTINGS_FILE_PATH, JSON.stringify(defaultSettings), {
-      baseDir: BaseDirectory.AppLocalData,
-    });
-    return defaultSettings;
-  } catch (error) {
-    console.error("Error creating settings file:", error);
-    return defaultSettings;
-  }
+async function getStore() {
+  const { load } = await import("@tauri-apps/plugin-store");
+  return load(STORE_FILENAME, { defaults: defaultSettings, autoSave: true });
 }
 
 export async function loadSettings(): Promise<UserSettings> {
@@ -43,28 +26,20 @@ export async function loadSettings(): Promise<UserSettings> {
     return defaultSettings;
   }
   try {
-    const { exists, readTextFile, BaseDirectory } = await getTauriFs();
+    const store = await getStore();
+    const apiKey = ((await store.get<string>("apiKey"))) ?? defaultSettings.apiKey;
+    const sidebarOpen = ((await store.get<boolean>("sidebarOpen"))) ?? defaultSettings.sidebarOpen;
+    const defaultNoteDownloadPath =
+      ((await store.get<string>("defaultNoteDownloadPath"))) ?? defaultSettings.defaultNoteDownloadPath;
 
-    let settingsExists = false;
-    try {
-      settingsExists = await exists(SETTINGS_FILE_PATH, {
-        baseDir: BaseDirectory.AppLocalData,
-      });
-    } catch {
-      settingsExists = false;
-    }
-
-    if (!settingsExists) {
-      return await createSettingsFile();
-    }
-
-    const settingsText = await readTextFile(SETTINGS_FILE_PATH, {
-      baseDir: BaseDirectory.AppLocalData,
+    const result = userSettingsSchema.safeParse({
+      apiKey,
+      sidebarOpen,
+      defaultNoteDownloadPath,
     });
-    const parsedSettings = JSON.parse(settingsText);
-    const result = userSettingsSchema.safeParse(parsedSettings);
+
     if (!result.success) {
-      return await createSettingsFile();
+      return defaultSettings;
     }
     return result.data;
   } catch (error) {
@@ -80,12 +55,10 @@ export async function updateSettings(
     return;
   }
   try {
-    const { writeTextFile, BaseDirectory } = await getTauriFs();
-    const currentSettings = await loadSettings();
-    const updatedSettings = { ...currentSettings, ...newSettings };
-    await writeTextFile(SETTINGS_FILE_PATH, JSON.stringify(updatedSettings), {
-      baseDir: BaseDirectory.AppLocalData,
-    });
+    const store = await getStore();
+    for (const [key, value] of Object.entries(newSettings)) {
+      await store.set(key, value);
+    }
   } catch (error) {
     console.error("Error updating settings:", error);
   }

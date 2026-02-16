@@ -14,11 +14,14 @@ type AppWindow = {
   toggleMaximize: () => Promise<void>;
   close: () => Promise<void>;
   isMaximized: () => Promise<boolean>;
+  isFullscreen: () => Promise<boolean>;
+  setFullscreen: (fullscreen: boolean) => Promise<void>;
   onResized: (handler: () => void) => Promise<() => void>;
 };
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [osPlatform, setOsPlatform] = useState<string>("windows");
   const [appWindow, setAppWindow] = useState<AppWindow | null>(null);
 
@@ -30,12 +33,22 @@ export function TitleBar() {
       const { platform } = await import("@tauri-apps/plugin-os");
 
       const win = WebviewWindow.getCurrent();
+      const os = platform();
       setAppWindow(win);
-      setIsMaximized(await win.isMaximized());
-      setOsPlatform(platform());
+      setOsPlatform(os);
+
+      if (os === "macos") {
+        setIsFullscreen(await win.isFullscreen());
+      } else {
+        setIsMaximized(await win.isMaximized());
+      }
 
       unlisten = await win.onResized(async () => {
-        setIsMaximized(await win.isMaximized());
+        if (os === "macos") {
+          setIsFullscreen(await win.isFullscreen());
+        } else {
+          setIsMaximized(await win.isMaximized());
+        }
       });
     })();
 
@@ -81,11 +94,11 @@ export function TitleBar() {
           </button>
           <button
             type="button"
-            onClick={() => appWindow?.toggleMaximize()}
+            onClick={() => appWindow?.setFullscreen(!isFullscreen)}
             className="size-3 rounded-full bg-[#28c840] flex items-center justify-center transition-[filter] hover:brightness-90 active:brightness-75"
-            aria-label={isMaximized ? "Exit Full Screen" : "Full Screen"}
+            aria-label={isFullscreen ? "Exit Full Screen" : "Full Screen"}
           >
-            {isMaximized ? (
+            {isFullscreen ? (
               <Minimize2
                 className="size-1.5 opacity-0 group-hover/traffic:opacity-100 transition-opacity text-[#006500]"
                 strokeWidth={4}

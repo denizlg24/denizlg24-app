@@ -36,9 +36,9 @@ export function UserSettingsProvider({
     loadSettings().then((loaded) => {
       setSettingsState(loaded);
       setLoading(false);
-      if (loaded.apiKey && !pathname.includes("dashboard")) {
+      if (loaded.apiKey && pathname === "/") {
         router.replace("/dashboard");
-      } else if (!loaded.apiKey && pathname.includes("dashboard")) {
+      } else if (!loaded.apiKey && pathname.startsWith("/dashboard")) {
         router.replace("/");
       }
     });

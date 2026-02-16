@@ -121,6 +121,8 @@
     "os:allow-arch",
     "os:allow-exe-extension",
     "os:allow-locale",
-    "os:allow-hostname"
+    "os:allow-hostname",
+
+    "store:default"
   ]
 }
