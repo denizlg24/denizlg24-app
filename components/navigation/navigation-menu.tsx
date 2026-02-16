@@ -12,6 +12,7 @@ import {
   FolderGit2,
   HomeIcon,
   Inbox,
+  MessageCircle,
   NotebookPen,
   PenTool,
   Plus,
@@ -88,7 +89,7 @@ const GROUPS: NavGroup[] = [
           {
             label: "Comments",
             href: "/blog/comments",
-            icon: HomeIcon,
+            icon: MessageCircle,
             kbd: ["⌘", "B", "C"],
           },
         ],

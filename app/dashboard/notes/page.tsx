@@ -33,6 +33,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { NoteEditor } from "./_components/note-editor";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface FileItem {
   type: "folder" | "note";
@@ -436,41 +443,71 @@ export default function NotesPage() {
         )}
       </div>
       {!note ? (
-        <div className="w-full flex flex-col gap-0">
-          {files.map((file) => (
-            <FileItem
-              API={API}
-              setFiles={setFiles}
-              onClick={async () => {
-                if (file.type === "folder") {
-                  setDirectory((prev) => [
-                    ...prev,
-                    { folderId: file._id, folderName: file.name },
-                  ]);
-                  fetchFiles(file._id);
-                }
-                if (!API) return;
-                const result = await API?.GET<{ note: INote }>({
-                  endpoint: `notes/${file._id}`,
-                });
-                if ("code" in result) {
-                  return;
-                } else {
-                  setNote(result.note);
-                  setDirectory((prev) => [
-                    ...prev,
-                    { folderId: result.note._id, folderName: file.name + ".md" },
-                  ]);
-                }
+        <ContextMenu>
+          <ContextMenuTrigger className="w-full flex flex-col gap-0 h-[calc(100vh-8rem)]">
+            {files.map((file) => (
+              <FileItem
+                API={API}
+                setFiles={setFiles}
+                onClick={async () => {
+                  if (file.type === "folder") {
+                    setDirectory((prev) => [
+                      ...prev,
+                      { folderId: file._id, folderName: file.name },
+                    ]);
+                    fetchFiles(file._id);
+                  }
+                  if (!API) return;
+                  const result = await API?.GET<{ note: INote }>({
+                    endpoint: `notes/${file._id}`,
+                  });
+                  if ("code" in result) {
+                    return;
+                  } else {
+                    setNote(result.note);
+                    setDirectory((prev) => [
+                      ...prev,
+                      {
+                        folderId: result.note._id,
+                        folderName: file.name + ".md",
+                      },
+                    ]);
+                  }
+                }}
+                key={file._id}
+                type={file.type}
+                _id={file._id}
+                name={file.name}
+                updatedAt={file.updatedAt}
+              />
+            ))}
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              onClick={() => {
+                setNewFolderDialogOpen(true);
               }}
-              key={file._id}
-              type={file.type}
-              _id={file._id}
-              name={file.name}
-              updatedAt={file.updatedAt}
-            />
-          ))}
-        </div>
+              className="text-xs!"
+            >
+              New Folder
+              <ContextMenuShortcut className="text-xs!">
+                <FolderPlus className="w-3 h-3" />
+              </ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={directory.length === 0}
+              onClick={() => {
+                setNewFileDialogOpen(true);
+              }}
+              className="text-xs!"
+            >
+              New File
+              <ContextMenuShortcut className="text-xs!">
+                <FilePlus2 className="w-3 h-3" />
+              </ContextMenuShortcut>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       ) : (
         <NoteEditor note={note} API={API} />
       )}

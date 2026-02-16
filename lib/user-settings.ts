@@ -44,18 +44,29 @@ export async function loadSettings(): Promise<UserSettings> {
   }
   try {
     const { exists, readTextFile, BaseDirectory } = await getTauriFs();
-    const settingsExists = await exists(SETTINGS_FILE_PATH, {
-      baseDir: BaseDirectory.AppLocalData,
-    });
+
+    let settingsExists = false;
+    try {
+      settingsExists = await exists(SETTINGS_FILE_PATH, {
+        baseDir: BaseDirectory.AppLocalData,
+      });
+    } catch {
+      settingsExists = false;
+    }
+
     if (!settingsExists) {
       return await createSettingsFile();
     }
+
     const settingsText = await readTextFile(SETTINGS_FILE_PATH, {
       baseDir: BaseDirectory.AppLocalData,
     });
     const parsedSettings = JSON.parse(settingsText);
-    const validatedSettings = userSettingsSchema.parse(parsedSettings);
-    return validatedSettings;
+    const result = userSettingsSchema.safeParse(parsedSettings);
+    if (!result.success) {
+      return await createSettingsFile();
+    }
+    return result.data;
   } catch (error) {
     console.error("Error loading settings:", error);
     return defaultSettings;

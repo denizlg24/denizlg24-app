@@ -9,7 +9,7 @@
   "bundle": {
     "active": true,
     "category": "DeveloperTool",
-    "copyright": "",
+    "copyright": "Copyright \u00a9 2026 denizlg24. All rights reserved.",
     "targets": "all",
     "externalBin": [],
     "icon": [
@@ -22,9 +22,14 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "both",
+        "displayLanguageSelector": false
+      }
     },
-    "longDescription": "",
+    "longDescription": "denizlg24 - Life Dashboard is a personal productivity and life management application. Organize your notes, track your goals, and manage your daily life all in one place.",
     "macOS": {
       "entitlements": null,
       "exceptionDomain": "",
@@ -33,7 +38,7 @@
       "signingIdentity": null
     },
     "resources": [],
-    "shortDescription": "",
+    "shortDescription": "Personal life dashboard and productivity tool",
     "linux": {
       "deb": {
         "depends": []
@@ -42,7 +47,7 @@
   },
   "productName": "denizlg24 - Life Dashboard",
   "mainBinaryName": "denizlg24-app",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "identifier": "app.denizlg24.com",
   "plugins": {},
   "app": {

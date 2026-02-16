@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { UserSettingsProvider } from "@/context/user-context";
 import { Inter, Calistoga } from "next/font/google";
 import "./globals.css";
+import { DisableContextMenu } from "@/components/window/disable-context-menu";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,10 +29,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${calistoga.variable} antialiased font-inter bg-background text-foreground`}
       >
-        <TitleBar />
-        <UserSettingsProvider>{children}</UserSettingsProvider>
-        <Toaster />
-        <UpdateNotifier />
+        <DisableContextMenu>
+          <TitleBar />
+          <UserSettingsProvider>{children}</UserSettingsProvider>
+          <Toaster />
+          <UpdateNotifier />
+        </DisableContextMenu>
       </body>
     </html>
   );

@@ -1,6 +1,8 @@
 "use client";
 import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
+import { pdf } from "@react-pdf/renderer";
+import { toast } from "sonner";
 import {
   ChevronLeftCircle,
   ChevronRightCircle,
@@ -13,9 +15,9 @@ import {
   Save,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
+import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -64,7 +66,7 @@ export const NoteEditor = ({
 
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [showHeader, setShowHeader] = useState(true);
-  const [printReady, setPrintReady] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const [enhancing, setEnhancing] = useState(false);
   const [additionalInfo, setAdditionalInfo] = useState("");
@@ -95,26 +97,45 @@ export const NoteEditor = ({
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     setPdfDialogOpen(false);
-    setPrintReady(true);
+
+    const path = await save({
+      filters: [{ name: "PDF Files", extensions: ["pdf"] }],
+      defaultPath: `${settings.defaultNoteDownloadPath}${note.title || "note"}.pdf`,
+    });
+
+    if (!path) return;
+
+    const lastSep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+    const dir = path.substring(0, lastSep + 1);
+    if (dir.trim()) {
+      setSettings({ defaultNoteDownloadPath: dir });
+    }
+
+    setExportingPdf(true);
+    const toastId = toast.loading("Generating PDF...");
+
+    try {
+      const blob = await pdf(
+        <MarkdownPdfDocument
+          content={content}
+          title={note.title}
+          showHeader={showHeader}
+        />,
+      ).toBlob();
+
+      const arrayBuffer = await blob.arrayBuffer();
+      await writeFile(path, new Uint8Array(arrayBuffer));
+
+      toast.success("PDF exported!", { id: toastId });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast.error("Failed to export PDF", { id: toastId });
+    } finally {
+      setExportingPdf(false);
+    }
   };
-
-  useEffect(() => {
-    if (!printReady) return;
-
-    const timer = setTimeout(() => {
-      window.print();
-    }, 150);
-
-    const handleAfterPrint = () => setPrintReady(false);
-    window.addEventListener("afterprint", handleAfterPrint);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("afterprint", handleAfterPrint);
-    };
-  }, [printReady]);
 
   const handleAIEnhance = async () => {
     if (!API) return;
@@ -258,11 +279,11 @@ export const NoteEditor = ({
           <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
             <DialogTrigger asChild>
               <Button
-                disabled={content !== initialContent || loading}
+                disabled={content !== initialContent || loading || exportingPdf}
                 variant={"outline"}
                 size={"icon"}
               >
-                <FileText />
+                {exportingPdf ? <Loader2 className="animate-spin" /> : <FileText />}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -352,29 +373,6 @@ export const NoteEditor = ({
         </div>
       )}
 
-      {printReady &&
-        createPortal(
-          <div id="print-overlay">
-            {showHeader && (
-              <>
-                <div className="flex justify-between items-center gap-2 font-calistoga px-6 pt-2">
-                  <p className="text-xs">denizlg24</p>
-                  <p className="text-xs font-mono">
-                    {note.title || "note"}.md
-                  </p>
-                  <p className="text-xs">
-                    {new Date().toLocaleDateString()}
-                  </p>
-                </div>
-                <Separator className="my-1" />
-              </>
-            )}
-            <div className="p-6">
-              <MarkdownRenderer content={content} />
-            </div>
-          </div>,
-          document.body,
-        )}
     </div>
   );
 };

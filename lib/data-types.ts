@@ -177,7 +177,7 @@ export interface ITimetableEntry {
   endTime: string;
   place?: string;
   links: {
-    _id: unknown;
+    _id: string;
     label: string;
     url: string;
     icon?: string;

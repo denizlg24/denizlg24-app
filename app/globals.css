@@ -296,22 +296,3 @@
   background-color: rgba(212, 163, 115, 0.15);
 }
 
-/* Print: remove browser header/footer (URL, page number) and show only #print-overlay */
-@page {
-  margin: 0;
-}
-
-#print-overlay {
-  display: none;
-}
-
-@media print {
-  body > *:not(#print-overlay) {
-    display: none !important;
-  }
-
-  #print-overlay {
-    display: block !important;
-    padding: 15mm;
-  }
-}
