@@ -1,10 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type {
-  ITimetableEntry,
-  TimetableColor,
-} from "@/lib/data-types";
+import type { ITimetableEntry, TimetableColor } from "@/lib/data-types";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -143,18 +140,19 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
         className="grid min-w-225"
         style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}
       >
-        
         <div className="sticky left-0 z-10 bg-background border-b border-r p-2" />
-        {DAYS.map((day) => (
+        {DAYS.map((day, index) => (
           <div
             key={day}
-            className="border-b border-r last:border-r-0 p-2 text-center font-medium text-sm"
+            className={cn(
+              "border-b border-r p-2 text-center font-medium text-sm",
+              index === 6 && "border-r-0",
+            )}
           >
             {day}
           </div>
         ))}
 
-        
         <div className="sticky left-0 z-10 bg-background border-r">
           {hours.map((hour) => (
             <div
@@ -167,18 +165,16 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
           ))}
         </div>
 
-        
         {DAYS.map((day, dayIndex) => (
           <div
             key={day}
             className="relative border-r last:border-r-0"
             style={{ height: hours.length * hourHeight }}
           >
-            
-            {hours.map((hour) => (
+            {hours.map((hour,index) => (
               <div
                 key={hour}
-                className="absolute w-full border-b pointer-events-none"
+                className={cn("absolute w-full border-b pointer-events-none", index === hours.length - 1 && "border-b-0")}
                 style={{
                   top: (hour - minHour) * hourHeight,
                   height: hourHeight,
@@ -186,7 +182,6 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
               />
             ))}
 
-            
             {layoutByDay[dayIndex].map(
               ({ entry, columnIndex, totalColumns }) => {
                 const startMin = timeToMinutes(entry.startTime);
@@ -209,7 +204,7 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
                     type="button"
                     onClick={() => onEntryClick?.(entry)}
                     className={cn(
-                      "absolute z-10 border-l-2 border-black/20 overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex flex-col",
+                      "absolute z-10 border-l-2 border-black/20 overflow-hidden cursor-pointer transition-opacity hover:opacity-80 flex flex-col min-w-0",
                       colors.bg,
                       colors.text,
                     )}
@@ -220,15 +215,15 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
                       width: `calc(${widthPercent}%)`,
                     }}
                   >
-                    <div className="text-[10px] leading-tight opacity-80 text-left px-1.5 pt-1 pb-0.5 bg-black/10">
+                    <div className="text-[10px] leading-tight opacity-80 text-left px-1.5 pt-1 pb-0.5 bg-black/10 w-full shrink-0">
                       {entry.startTime}–{entry.endTime}
                     </div>
-                    <div className="flex-1 flex flex-col justify-between px-1.5 py-0.5 min-h-0">
-                      <div className="text-xs font-semibold leading-tight truncate text-left">
+                    <div className="flex-1 flex flex-col justify-between px-1.5 py-0.5 min-h-0 min-w-0 w-full overflow-hidden">
+                      <div className="text-xs font-semibold leading-tight truncate text-left w-full">
                         {entry.title}
                       </div>
                       {entry.place && (
-                        <div className="text-[10px] leading-tight opacity-60 truncate text-left">
+                        <div className="text-[10px] leading-tight opacity-60 truncate text-left w-full">
                           {entry.place}
                         </div>
                       )}

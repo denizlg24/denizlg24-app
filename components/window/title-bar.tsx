@@ -8,6 +8,7 @@ const PATHNAME_TITLE_MAP = {
   "/": "home",
   "/dashboard/notes": "notes",
   "/dashboard/timetable": "timetable",
+  "/dashboard/calendar": "calendar",
 };
 
 type AppWindow = {

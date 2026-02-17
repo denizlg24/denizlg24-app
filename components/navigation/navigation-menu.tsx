@@ -6,12 +6,15 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
+  Calendar,
+  CalendarDays,
   ChevronRight,
   Clock,
   Folder,
   FolderGit2,
   HomeIcon,
   Inbox,
+  Kanban,
   MessageCircle,
   NotebookPen,
   PenTool,
@@ -150,13 +153,13 @@ const GROUPS: NavGroup[] = [
       {
         label: "Calendar",
         href: "/calendar",
-        icon: Clock,
+        icon: Calendar,
         kbd: ["⌘", "K"],
       },
       {
         label: "Timetable",
         href: "/timetable",
-        icon: Clock,
+        icon: CalendarDays,
         kbd: ["⌘", "K", "T"],
       },
     ],
@@ -176,6 +179,12 @@ const GROUPS: NavGroup[] = [
         icon: PenTool,
         kbd: ["⌘", "W"],
       },
+      {
+        label: "Kanban Board",
+        href: "/kanban",
+        icon: Kanban,
+        kbd: ["⌘", "K"],
+      }
     ],
   },
 ];
