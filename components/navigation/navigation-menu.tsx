@@ -180,7 +180,7 @@ const GROUPS: NavGroup[] = [
         kbd: ["⌘", "W"],
       },
       {
-        label: "Kanban Board",
+        label: "Kanban Boards",
         href: "/kanban",
         icon: Kanban,
         kbd: ["⌘", "K"],
@@ -240,7 +240,7 @@ export function NavigationMenu() {
     }
 
     function handleKeyDown(e: KeyboardEvent) {
-      const key = e.key.toUpperCase();
+      const key = e.key?.toUpperCase();
 
       if (chordBuffer.length > 0) {
         if (["CONTROL", "META", "SHIFT", "ALT"].includes(key)) return;

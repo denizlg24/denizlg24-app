@@ -59,7 +59,7 @@ export const NoteEditor = ({
 }) => {
   const { settings, setSettings } = useUserSettings();
 
-  const [togglePreview, setTogglePreview] = useState(false);
+  const [togglePreview, setTogglePreview] = useState(true);
   const [initialContent, setInitialContent] = useState(note.content || "");
   const [content, setContent] = useState(initialContent);
   const [loading, setLoading] = useState(false);
@@ -73,7 +73,7 @@ export const NoteEditor = ({
   const [model, setModel] = useState<(typeof AnthropicModels)[number]>(
     "claude-sonnet-4-5-20250929",
   );
-  const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [toolbarOpen, setToolbarOpen] = useState(true);
 
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
 

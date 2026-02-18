@@ -3,12 +3,13 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
-import { IFolder, INote } from "@/lib/data-types";
-import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { IFolder, IKanbanBoard, INote } from "@/lib/data-types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileItem } from "./_components/file-item";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, FolderPlus, MoveLeft } from "lucide-react";
+import { FilePlus2, FolderPlus, Loader2, MoveLeft } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -29,9 +30,11 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { NoteEditor } from "./_components/note-editor";
 import {
   ContextMenu,
@@ -61,10 +64,25 @@ export default function NotesPage() {
     return new denizApi(settings.apiKey);
   }, [settings, loadingSettings]);
 
+  const filesCache = useRef<Map<string, FileItem[]>>(new Map());
+
+  const cacheKey = useCallback(
+    (parentId: string | undefined, searchQuery: string, sortOrder: string) =>
+      `${parentId ?? "root"}|${searchQuery}|${sortOrder}`,
+    [],
+  );
+
   const [loading, setLoading] = useState(true);
   const [noteLoading, setNoteLoading] = useState(false);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [directory, setDirectory] = useState<BreadcrumbItem[]>([]);
+  const [breadcrumbDragOver, setBreadcrumbDragOver] = useState<
+    string | "home" | "back" | null
+  >(null);
+  const [dragging, setDragging] = useState<{
+    _id: string;
+    type: "folder" | "note";
+  } | null>(null);
 
   const [note, setNote] = useState<INote | undefined>(undefined);
 
@@ -80,32 +98,166 @@ export default function NotesPage() {
     "nameAsc" | "nameDesc" | "dateAsc" | "dateDesc"
   >("dateDesc");
 
-  const fetchFiles = async (parentId?: string) => {
-    if (!API) return;
-    setLoading(true);
-    const endpoint = parentId
-      ? `files?folderId=${parentId}&search=${search}&sort=${sort}`
-      : `files?search=${search}&sort=${sort}`;
-    const result = await API.GET<{
-      items: FileItem[];
-      breadcrumbs: BreadcrumbItem[];
-    }>({ endpoint });
-    if ("code" in result) {
-      setFiles([]);
-    } else {
-      setFiles(result.items);
-      setDirectory(result.breadcrumbs);
+  const [addToBoardItem, setAddToBoardItem] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [kanbanBoards, setKanbanBoards] = useState<IKanbanBoard[]>([]);
+  const [kanbanBoardsLoading, setKanbanBoardsLoading] = useState(false);
+  const [addingToBoard, setAddingToBoard] = useState(false);
+
+  useEffect(() => {
+    if (!addToBoardItem || !API) return;
+    setKanbanBoardsLoading(true);
+    API.GET<{ boards: IKanbanBoard[] }>({ endpoint: "kanban/boards" })
+      .then((result) => {
+        if (!("code" in result)) setKanbanBoards(result.boards ?? []);
+      })
+      .finally(() => setKanbanBoardsLoading(false));
+  }, [addToBoardItem, API]);
+
+  const handleAddToBoard = async (board: IKanbanBoard) => {
+    if (!API || !addToBoardItem) return;
+    setAddingToBoard(true);
+    try {
+      const boardResult = await API.GET<{
+        board: { columns: { _id: string; order: number }[] };
+      }>({ endpoint: `kanban/boards/${board._id}` });
+      if ("code" in boardResult) {
+        toast.error("Failed to fetch board");
+        return;
+      }
+      const columns = (boardResult.board.columns ?? []).sort(
+        (a, b) => a.order - b.order,
+      );
+      if (columns.length === 0) {
+        toast.error("This board has no columns");
+        return;
+      }
+      const cardResult = await API.POST<{}>({
+        endpoint: `kanban/boards/${board._id}/cards`,
+        body: {
+          columnId: columns[0]._id,
+          title: `Read ${addToBoardItem.name}`,
+          description: `[note](${addToBoardItem.id},${addToBoardItem.name})`,
+          priority: "none",
+        },
+      });
+      if ("code" in cardResult) {
+        toast.error("Failed to add card to board");
+        return;
+      }
+      toast.success(`Added to "${board.title}"`);
+      setAddToBoardItem(null);
+    } finally {
+      setAddingToBoard(false);
     }
-    setLoading(false);
-    setNote(undefined);
+  };
+
+  const fetchFiles = useCallback(
+    async (parentId?: string, skipCache = false, resetNote = true) => {
+      if (!API) return;
+      const key = cacheKey(parentId, search, sort);
+      if (!skipCache && filesCache.current.has(key)) {
+        setFiles(filesCache.current.get(key)!);
+        if (resetNote) setNote(undefined);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const endpoint = parentId
+        ? `files?folderId=${parentId}&search=${search}&sort=${sort}`
+        : `files?search=${search}&sort=${sort}`;
+      const result = await API.GET<{
+        items: FileItem[];
+        breadcrumbs: BreadcrumbItem[];
+      }>({ endpoint });
+      if ("code" in result) {
+        setFiles([]);
+      } else {
+        filesCache.current.set(key, result.items);
+        setFiles(result.items);
+        setDirectory(result.breadcrumbs);
+      }
+      setLoading(false);
+      if (resetNote) setNote(undefined);
+    },
+    [API, cacheKey, search, sort],
+  );
+
+  const currentFolderId =
+    directory.length > 0 ? directory[directory.length - 1].folderId : undefined;
+
+  const invalidateFolderCache = useCallback((folderId: string | undefined) => {
+    const prefix = `${folderId ?? "root"}|`;
+    for (const key of filesCache.current.keys()) {
+      if (key.startsWith(prefix)) {
+        filesCache.current.delete(key);
+      }
+    }
+  }, []);
+
+  const handleMouseUpMove = async (targetFolderId: string | undefined) => {
+    if (!dragging || !API) return;
+    const item = dragging;
+    setDragging(null);
+    setBreadcrumbDragOver(null);
+    await API.PATCH({
+      endpoint:
+        item.type === "folder" ? `folders/${item._id}` : `notes/${item._id}`,
+      body: { parentId: targetFolderId ?? "null" },
+    });
+    setFiles((prev) => prev.filter((f) => f._id !== item._id));
+    invalidateFolderCache(targetFolderId);
   };
 
   useEffect(() => {
-    if (!API || !loading) {
-      return;
-    }
-    fetchFiles();
+    if (!dragging) return;
+    document.body.style.cursor = "grabbing";
+    const handleMouseUp = () => {
+      document.body.style.cursor = "";
+      setDragging(null);
+      setBreadcrumbDragOver(null);
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.body.style.cursor = "";
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragging]);
+
+  useEffect(() => {
+    if (!API) return;
+    const hasNoteParam = new URLSearchParams(window.location.search).has(
+      "note",
+    );
+    fetchFiles(currentFolderId, false, !hasNoteParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [API, sort]);
+
+  useEffect(() => {
+    if (!API) return;
+    const params = new URLSearchParams(window.location.search);
+    const noteId = params.get("note");
+    if (!noteId) return;
+    window.history.replaceState({}, "", "/dashboard/notes");
+    setNoteLoading(true);
+    API.GET<{ note: INote }>({ endpoint: `notes/${noteId}` })
+      .then((result) => {
+        if (!("code" in result)) {
+          setNote(result.note);
+        }
+      })
+      .finally(() => setNoteLoading(false));
+  }, [API]);
+
+  //
+  useEffect(() => {
+    const key = cacheKey(currentFolderId, search, sort);
+    if (filesCache.current.has(key)) {
+      filesCache.current.set(key, files);
+    }
+  }, [files, cacheKey, currentFolderId, search, sort]);
 
   if (loading) {
     return (
@@ -275,7 +427,19 @@ export default function NotesPage() {
                 : undefined,
             );
           }}
-          variant="outline"
+          onMouseEnter={() => {
+            if (dragging && directory.length > 0) setBreadcrumbDragOver("back");
+          }}
+          onMouseLeave={() => setBreadcrumbDragOver(null)}
+          onMouseUp={async () => {
+            if (!dragging || directory.length === 0) return;
+            const parentFolderId =
+              directory.length > 1
+                ? directory[directory.length - 2].folderId
+                : undefined;
+            await handleMouseUpMove(parentFolderId);
+          }}
+          variant={breadcrumbDragOver === "back" ? "default" : "outline"}
           size="icon"
           disabled={directory.length === 0}
         >
@@ -315,11 +479,21 @@ export default function NotesPage() {
           >
             <BreadcrumbList className="text-sm">
               <BreadcrumbItemUI
-                className="hover:cursor-pointer"
+                className={cn(
+                  "hover:cursor-pointer transition-colors",
+                  breadcrumbDragOver === "home" && "text-primary underline",
+                )}
                 onClick={(e) => {
                   e.stopPropagation();
                   setDirectory([]);
                   fetchFiles(undefined);
+                }}
+                onMouseEnter={() => {
+                  if (dragging) setBreadcrumbDragOver("home");
+                }}
+                onMouseLeave={() => setBreadcrumbDragOver(null)}
+                onMouseUp={async () => {
+                  await handleMouseUpMove(undefined);
                 }}
               >
                 <BreadcrumbLink>home</BreadcrumbLink>
@@ -328,7 +502,11 @@ export default function NotesPage() {
                 <React.Fragment key={parent.folderId}>
                   <BreadcrumbSeparator />
                   <BreadcrumbItemUI
-                    className="hover:cursor-pointer"
+                    className={cn(
+                      "hover:cursor-pointer transition-colors",
+                      breadcrumbDragOver === parent.folderId &&
+                        "text-primary underline",
+                    )}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (index === directory.length - 1) return;
@@ -339,6 +517,13 @@ export default function NotesPage() {
                           ? newDirectory[newDirectory.length - 1].folderId
                           : undefined,
                       );
+                    }}
+                    onMouseEnter={() => {
+                      if (dragging) setBreadcrumbDragOver(parent.folderId);
+                    }}
+                    onMouseLeave={() => setBreadcrumbDragOver(null)}
+                    onMouseUp={async () => {
+                      await handleMouseUpMove(parent.folderId);
                     }}
                   >
                     <BreadcrumbLink>{parent.folderName}</BreadcrumbLink>
@@ -513,6 +698,10 @@ export default function NotesPage() {
               <FileItem
                 API={API}
                 setFiles={setFiles}
+                currentFolderId={currentFolderId}
+                dragging={dragging}
+                setDragging={setDragging}
+                invalidateFolderCache={invalidateFolderCache}
                 onClick={async () => {
                   if (file.type === "folder") {
                     setDirectory((prev) => [
@@ -520,6 +709,7 @@ export default function NotesPage() {
                       { folderId: file._id, folderName: file.name },
                     ]);
                     fetchFiles(file._id);
+                    return;
                   }
                   if (!API) return;
                   setNoteLoading(true);
@@ -546,6 +736,12 @@ export default function NotesPage() {
                 _id={file._id}
                 name={file.name}
                 updatedAt={file.updatedAt}
+                onAddToBoard={
+                  file.type === "note"
+                    ? () =>
+                        setAddToBoardItem({ id: file._id, name: file.name })
+                    : undefined
+                }
               />
             ))}
           </ContextMenuTrigger>
@@ -578,6 +774,52 @@ export default function NotesPage() {
       ) : (
         <NoteEditor note={note} API={API} />
       )}
+
+      <Dialog
+        open={!!addToBoardItem}
+        onOpenChange={(open) => !open && setAddToBoardItem(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add to board</DialogTitle>
+            <DialogDescription>
+              Select a board to add &quot;{addToBoardItem?.name}&quot; as a
+              card.
+            </DialogDescription>
+          </DialogHeader>
+          {kanbanBoardsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : kanbanBoards.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No boards found. Create a board in Kanban first.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {kanbanBoards.map((board) => (
+                <button
+                  key={board._id}
+                  disabled={addingToBoard}
+                  onClick={() => handleAddToBoard(board)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors text-left disabled:opacity-50"
+                >
+                  <div
+                    className="size-3 rounded-full shrink-0"
+                    style={{ backgroundColor: board.color ?? "#6366f1" }}
+                  />
+                  <span className="text-sm font-medium truncate">
+                    {board.title}
+                  </span>
+                  {addingToBoard && (
+                    <Loader2 className="size-3 animate-spin ml-auto shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -217,3 +217,40 @@ export interface IWhiteboardMeta {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface IKanbanBoard {
+  _id: string;
+  title: string;
+  description?: string;
+  color?: string;
+  isArchived: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type KanbanPriority = "none" | "low" | "medium" | "high" | "urgent";
+export interface IKanbanCard {
+  _id: string;
+  boardId: string;
+  columnId: string;
+  title: string;
+  description?: string;
+  order: number;
+  labels: string[];
+  priority: KanbanPriority;
+  dueDate?: Date;
+  isArchived: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IKanbanColumn {
+  _id: string;
+  boardId: string;
+  title: string;
+  color?: string;
+  order: number;
+  wipLimit?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
