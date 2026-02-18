@@ -50,7 +50,7 @@ export default function Loading() {
       <div className="w-full flex flex-col gap-0">
         {Array.from({ length: 8 }).map((_, index) => (
           <div key={index}>
-            <div className="w-full relative pl-3">
+            <div className="w-full relative">
               <div className="flex flex-row items-center gap-1">
                 <Skeleton className="h-4 w-4 rounded" />
                 <Skeleton className="h-3 w-24 rounded" />

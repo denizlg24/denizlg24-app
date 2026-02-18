@@ -62,6 +62,7 @@ export default function NotesPage() {
   }, [settings, loadingSettings]);
 
   const [loading, setLoading] = useState(true);
+  const [noteLoading, setNoteLoading] = useState(false);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [directory, setDirectory] = useState<BreadcrumbItem[]>([]);
 
@@ -104,14 +105,7 @@ export default function NotesPage() {
       return;
     }
     fetchFiles();
-  }, [API]);
-
-  useEffect(() => {
-    if (!API || loading) {
-      return;
-    }
-    fetchFiles();
-  }, [sort]);
+  }, [API, sort]);
 
   if (loading) {
     return (
@@ -180,7 +174,7 @@ export default function NotesPage() {
         <div className="w-full flex flex-col gap-0">
           {Array.from({ length: 8 }).map((_, index) => (
             <div key={index}>
-              <div className="w-full relative pl-3">
+              <div className="w-full relative">
                 <div className="flex flex-row items-center gap-1">
                   <Skeleton className="h-4 w-4 rounded" />
                   <Skeleton className="h-3 w-24 rounded" />
@@ -192,6 +186,76 @@ export default function NotesPage() {
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (noteLoading) {
+    return (
+      <div className="w-full flex flex-col gap-4 px-4 py-2">
+        <div className="flex flex-row items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={directory.length === 0}
+          >
+            <MoveLeft />
+          </Button>
+          {searching ? (
+            <Input
+              placeholder=""
+              className="w-full border-border"
+              onChange={(e) => {
+                setSearch(e.target.value);
+              }}
+              value={search}
+            />
+          ) : (
+            <Breadcrumb className="h-9 border border-border w-full px-3 py-1 rounded-md flex items-center">
+              <BreadcrumbList className="text-sm">
+                <BreadcrumbItemUI>
+                  <BreadcrumbLink>home</BreadcrumbLink>
+                </BreadcrumbItemUI>
+                {directory.map((parent, index) => (
+                  <React.Fragment key={parent.folderId}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItemUI>{parent.folderName}</BreadcrumbItemUI>
+                  </React.Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          )}
+
+          <Select
+            value={sort ?? "dateAsc"}
+            onValueChange={(value) => {
+              setSort(value as typeof sort);
+            }}
+          >
+            <SelectTrigger className="w-40 border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nameAsc">Name A-Z</SelectItem>
+              <SelectItem value="nameDesc">Name Z-A</SelectItem>
+              <SelectItem value="dateDesc">Recent First</SelectItem>
+              <SelectItem value="dateAsc">Oldest first</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="icon">
+            <FolderPlus />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={directory.length === 0}
+          >
+            <FilePlus2 />
+          </Button>
+        </div>
+
+        <Skeleton className="h-[calc(100vh-16rem)] w-full rounded" />
       </div>
     );
   }
@@ -458,10 +522,12 @@ export default function NotesPage() {
                     fetchFiles(file._id);
                   }
                   if (!API) return;
+                  setNoteLoading(true);
                   const result = await API?.GET<{ note: INote }>({
                     endpoint: `notes/${file._id}`,
                   });
                   if ("code" in result) {
+                    setNoteLoading(false);
                     return;
                   } else {
                     setNote(result.note);
@@ -472,6 +538,7 @@ export default function NotesPage() {
                         folderName: file.name + ".md",
                       },
                     ]);
+                    setNoteLoading(false);
                   }
                 }}
                 key={file._id}

@@ -93,7 +93,7 @@ export const FileItem = ({
     <ContextMenu>
       <ContextMenuTrigger>
         <button
-          className="w-full group flex flex-row items-center gap-1"
+          className="w-full group flex flex-row items-center gap-1 pb-1 border-b mb-1"
           onClick={(e) => {
             if (renaming) {
               e.preventDefault();
