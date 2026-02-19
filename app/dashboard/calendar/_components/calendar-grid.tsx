@@ -51,7 +51,6 @@ interface CalendarGridProps {
   events?: ICalendarEvent[];
   onEventClick?: (event: ICalendarEvent) => void;
   onDayClick?: (date: Date) => void;
-  onAddEvent?: (date?: Date) => void;
   onMonthChange?: (start: Date, end: Date) => void;
 }
 
@@ -59,7 +58,6 @@ export function CalendarGrid({
   events = [],
   onEventClick,
   onDayClick,
-  onAddEvent,
   onMonthChange,
 }: CalendarGridProps) {
   const today = new Date();
@@ -121,13 +119,9 @@ export function CalendarGrid({
     year === today.getFullYear() && month === today.getMonth();
 
   return (
-    <div className="flex flex-col gap-3 max-w-5xl w-full">
+    <div className="flex flex-col gap-3 max-w-5xl w-full mx-auto px-4">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-        <div className="justify-self-start">
-          <Button size="xs" onClick={() => onAddEvent?.()}>
-            Add Event
-          </Button>
-        </div>
+        <div className="justify-self-start" />
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon-xs" onClick={prevMonth}>
             <ChevronLeft />

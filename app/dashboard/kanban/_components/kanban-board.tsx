@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { denizApi } from "@/lib/api-wrapper";
 import { IKanbanBoard, IKanbanCard, IKanbanColumn } from "@/lib/data-types";
 import {
@@ -11,7 +12,7 @@ import {
 import { CardDialog } from "./card-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 type FullBoard = IKanbanBoard & { columns: ColumnWithCards[] };
@@ -30,12 +31,19 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
   const [newColumnTitle, setNewColumnTitle] = useState("");
 
   const [dragging, setDragging] = useState<DraggingState | null>(null);
+  const [trashHover, setTrashHover] = useState(false);
+  const trashHoverRef = useRef(false);
+  const draggingRef = useRef<DraggingState | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
   const ghostRef = useRef<HTMLDivElement>(null);
   const insertionPointRef = useRef<{
     columnId: string;
     beforeCardId: string | null;
   } | null>(null);
+
+  useEffect(() => {
+    draggingRef.current = dragging;
+  }, [dragging]);
 
   useEffect(() => {
     const track = (e: MouseEvent) => {
@@ -58,6 +66,16 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
     const handleMouseUp = () => {
       document.body.style.cursor = "";
+      if (trashHoverRef.current && draggingRef.current) {
+        const d = draggingRef.current;
+        if (d.kind === "card") {
+          handleDeleteCard(d.cardId);
+        } else if (d.kind === "column") {
+          handleDeleteColumn(d.columnId);
+        }
+        trashHoverRef.current = false;
+        setTrashHover(false);
+      }
       setDragging(null);
       insertionPointRef.current = null;
     };
@@ -310,11 +328,11 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
   if (loading) {
     const CARD_COUNTS = [3, 5, 2];
     return (
-      <div className="flex gap-4 p-4 h-full items-start">
+      <div className="flex gap-4 p-4 h-full items-start w-full">
         {CARD_COUNTS.map((cardCount, i) => (
           <div
             key={i}
-            className="min-w-52 flex-1 flex flex-col rounded-lg border bg-muted/30 animate-pulse"
+            className="min-w-64 flex-1 flex flex-col rounded-lg border bg-muted/30 animate-pulse"
           >
             <div className="flex items-center gap-2 p-3 border-b">
               <div className="size-4 rounded bg-muted" />
@@ -371,7 +389,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
           />
         ))}
 
-        <div className="shrink-0 min-w-52">
+        <div className="shrink-0 min-w-64">
           {addingColumn ? (
             <div className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg border border-dashed">
               <Input
@@ -413,7 +431,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
               className="w-full justify-start text-muted-foreground"
               onClick={() => setAddingColumn(true)}
             >
-              <Plus className="size-4 mr-1.5" />
+              <Plus />
               Add column
             </Button>
           )}
@@ -428,6 +446,31 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
           onUpdate={handleUpdateCard}
           onDelete={handleDeleteCard}
         />
+      )}
+
+      {createPortal(
+        <div
+          className={`fixed bottom-6 right-6 z-[9999] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 ${
+            dragging
+              ? "opacity-100 scale-100"
+              : "opacity-0 scale-75 pointer-events-none"
+          } ${
+            trashHover
+              ? "border-destructive bg-destructive/15 text-destructive scale-110"
+              : "border-muted-foreground/40 bg-background/80 text-muted-foreground backdrop-blur-sm"
+          } size-14`}
+          onMouseEnter={() => {
+            trashHoverRef.current = true;
+            setTrashHover(true);
+          }}
+          onMouseLeave={() => {
+            trashHoverRef.current = false;
+            setTrashHover(false);
+          }}
+        >
+          <Trash2 className={`transition-all duration-200 ${trashHover ? "size-6" : "size-5"}`} />
+        </div>,
+        document.body,
       )}
 
       {dragging &&

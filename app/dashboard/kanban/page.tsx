@@ -413,14 +413,14 @@ export default function KanbanPage() {
             <LayoutGrid className="size-4 text-muted-foreground" />
             <span className="text-sm font-semibold flex-1">Kanban Boards</span>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4 mr-1" /> New Board
+              <Plus /> New Board
             </Button>
           </>
         )}
       </div>
 
       {selectedBoardId ? (
-        <div className="flex-1 min-h-0 overflow-x-auto min-w-0 max-w-screen" >
+        <div className="flex-1 min-h-0 overflow-x-auto min-w-0 max-w-screen">
           <KanbanBoard API={API} boardId={selectedBoardId} />
         </div>
       ) : (

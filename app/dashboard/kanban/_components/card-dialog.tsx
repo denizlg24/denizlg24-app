@@ -129,7 +129,7 @@ export function CardDialog({
                   );
                 }}
               >
-                <ExternalLink className="size-3.5 mr-1.5" />
+                <ExternalLink className="size-3.5" />
                 Open
               </Button>
             </div>
@@ -233,7 +233,7 @@ export function CardDialog({
                 className="text-destructive hover:text-destructive"
                 onClick={() => setConfirmDelete(true)}
               >
-                <Trash2 className="size-3.5 mr-1.5" />
+                <Trash2 className="size-3.5" />
                 Delete
               </Button>
             )}
@@ -243,7 +243,7 @@ export function CardDialog({
               disabled={isSaving || !title.trim()}
               size="sm"
             >
-              <Save className="size-3.5 mr-1.5" />
+              <Save className="size-3.5" />
               {isSaving ? "Saving…" : "Save"}
             </Button>
           </div>

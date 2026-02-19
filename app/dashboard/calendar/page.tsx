@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Plus,
   CalendarDays,
+  CalendarIcon,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -63,12 +64,17 @@ export default function CalendarPage() {
 
   const eventsCache = useRef<Map<string, ICalendarEvent[]>>(new Map());
 
-  const cacheKey = useCallback((start: Date, end: Date) =>
-    `${start.toISOString()}|${end.toISOString()}`, []);
+  const cacheKey = useCallback(
+    (start: Date, end: Date) => `${start.toISOString()}|${end.toISOString()}`,
+    [],
+  );
 
-  const invalidateCache = useCallback((start: Date, end: Date) => {
-    eventsCache.current.delete(cacheKey(start, end));
-  }, [cacheKey]);
+  const invalidateCache = useCallback(
+    (start: Date, end: Date) => {
+      eventsCache.current.delete(cacheKey(start, end));
+    },
+    [cacheKey],
+  );
 
   const now = new Date();
   const [startDate, setStartDate] = useState(
@@ -271,13 +277,25 @@ export default function CalendarPage() {
   }, []);
 
   return (
-    <div className="p-4 w-full flex items-center justify-center">
+    <div className="pb-4 w-full flex flex-col gap-4">
+      <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
+        <CalendarIcon className="size-4 text-muted-foreground" />
+        <span className="text-sm font-semibold flex-1">Calendar</span>
+        <Button
+          onClick={() => {
+            openAddEvent();
+          }}
+          size={"sm"}
+        >
+          <Plus />
+          Add Event
+        </Button>
+      </div>
       <CalendarGrid
         events={events}
         onMonthChange={handleMonthChange}
         onEventClick={openViewEvent}
         onDayClick={openDayView}
-        onAddEvent={openAddEvent}
       />
 
       <Dialog

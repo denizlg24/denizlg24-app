@@ -2,8 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import {
   Briefcase,
   Calendar,
@@ -19,6 +17,7 @@ import {
   NotebookPen,
   PenTool,
   Plus,
+  Settings,
   UserSquare,
 } from "lucide-react";
 
@@ -35,40 +34,36 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 
-type NavChild = {
+export type NavChild = {
   label: string;
   href: string;
   icon: LucideIcon;
-  kbd?: string[];
 };
 
-type NavItem = {
+export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
-  kbd?: string[];
   children?: NavChild[];
 };
 
-type NavGroup = {
+export type NavGroup = {
   groupLabel: string;
   items: NavItem[];
 };
 
-const DASHBOARD_PREFIX = "/dashboard";
+export const DASHBOARD_PREFIX = "/dashboard";
 
-const GROUPS: NavGroup[] = [
+export const GROUPS: NavGroup[] = [
   {
     groupLabel: "Portfolio",
     items: [
@@ -81,19 +76,16 @@ const GROUPS: NavGroup[] = [
             label: "All Posts",
             href: "/blog",
             icon: HomeIcon,
-            kbd: ["⌘", "B"],
           },
           {
             label: "New",
             href: "/blog/new",
             icon: Plus,
-            kbd: ["⌘", "B", "N"],
           },
           {
             label: "Comments",
             href: "/blog/comments",
             icon: MessageCircle,
-            kbd: ["⌘", "B", "C"],
           },
         ],
       },
@@ -106,13 +98,11 @@ const GROUPS: NavGroup[] = [
             label: "All Projects",
             href: "/projects",
             icon: HomeIcon,
-            kbd: ["⌘", "P"],
           },
           {
             label: "New",
             href: "/projects/new",
             icon: Plus,
-            kbd: ["⌘", "P", "N"],
           },
         ],
       },
@@ -120,13 +110,11 @@ const GROUPS: NavGroup[] = [
         label: "Timeline",
         href: "/timeline",
         icon: Briefcase,
-        kbd: ["⌘", "T"],
       },
       {
         label: "Now Page",
         href: "/now",
         icon: Clock,
-        kbd: ["⌘", "N"],
       },
     ],
   },
@@ -137,13 +125,11 @@ const GROUPS: NavGroup[] = [
         label: "Contacts",
         href: "/contacts",
         icon: UserSquare,
-        kbd: ["⌘", "M"],
       },
       {
         label: "Inbox",
         href: "/inbox",
         icon: Inbox,
-        kbd: ["⌘", "I"],
       },
     ],
   },
@@ -154,13 +140,11 @@ const GROUPS: NavGroup[] = [
         label: "Calendar",
         href: "/calendar",
         icon: Calendar,
-        kbd: ["⌘", "K"],
       },
       {
         label: "Timetable",
         href: "/timetable",
         icon: CalendarDays,
-        kbd: ["⌘", "K", "T"],
       },
     ],
   },
@@ -171,134 +155,33 @@ const GROUPS: NavGroup[] = [
         label: "Notes",
         href: "/notes",
         icon: Folder,
-        kbd: ["⌘", "N"],
       },
       {
         label: "Whiteboard",
         href: "/whiteboard",
         icon: PenTool,
-        kbd: ["⌘", "W"],
       },
       {
         label: "Kanban Boards",
         href: "/kanban",
         icon: Kanban,
-        kbd: ["⌘", "K"],
       }
+    ],
+  },
+  {
+    groupLabel: "App",
+    items: [
+      {
+        label: "Settings",
+        href: "/settings",
+        icon: Settings,
+      },
     ],
   },
 ];
 
-function buildShortcutMap(groups: NavGroup[]) {
-  const map: { keys: string[]; href: string }[] = [];
-
-  for (const group of groups) {
-    for (const item of group.items) {
-      if (item.kbd && item.href) {
-        map.push({ keys: item.kbd, href: item.href });
-      }
-      if (item.children) {
-        for (const child of item.children) {
-          if (child.kbd && child.href) {
-            map.push({ keys: child.kbd, href: child.href });
-          }
-        }
-      }
-    }
-  }
-  return map;
-}
-
-function KbdShortcut({ keys }: { keys: string[] }) {
-  return (
-    <KbdGroup>
-      {keys.map((key, i) => (
-        <Kbd key={`${key}-${i}`}>{key}</Kbd>
-      ))}
-    </KbdGroup>
-  );
-}
-
 export function NavigationMenu() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { setOpen, open } = useSidebar();
-
-  const sidebarRef = useRef({ setOpen, open });
-  sidebarRef.current = { setOpen, open };
-
-  useEffect(() => {
-    const shortcuts = buildShortcutMap(GROUPS);
-
-    let chordBuffer: string[] = [];
-    let chordTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function resetChord() {
-      chordBuffer = [];
-      if (chordTimer) clearTimeout(chordTimer);
-      chordTimer = null;
-    }
-
-    function handleKeyDown(e: KeyboardEvent) {
-      const key = e.key?.toUpperCase();
-
-      if (chordBuffer.length > 0) {
-        if (["CONTROL", "META", "SHIFT", "ALT"].includes(key)) return;
-
-        chordBuffer.push(key);
-      } else {
-        if (!(e.metaKey || e.ctrlKey)) return;
-        chordBuffer = ["⌘", key];
-      }
-
-      if (chordTimer) clearTimeout(chordTimer);
-
-      const hasLongerMatch = shortcuts.some(
-        (s) =>
-          s.keys.length > chordBuffer.length &&
-          chordBuffer.every((k, i) => k === s.keys[i]),
-      );
-
-      const exactMatch = shortcuts.find(
-        (s) =>
-          s.keys.length === chordBuffer.length &&
-          s.keys.every((k, i) => k === chordBuffer[i]),
-      );
-
-      if (exactMatch && !hasLongerMatch) {
-        e.preventDefault();
-        e.stopPropagation();
-        resetChord();
-        router.push(DASHBOARD_PREFIX + exactMatch.href);
-        return;
-      }
-
-      if (exactMatch && hasLongerMatch) {
-        e.preventDefault();
-        chordTimer = setTimeout(() => {
-          const href = DASHBOARD_PREFIX + exactMatch.href;
-          resetChord();
-          router.push(href);
-        }, 500);
-        return;
-      }
-
-      if (hasLongerMatch) {
-        e.preventDefault();
-        e.stopPropagation();
-        chordTimer = setTimeout(resetChord, 800);
-        return;
-      }
-
-      resetChord();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      resetChord();
-    };
-  }, [router]);
 
   return (
     <Sidebar collapsible="icon" className="top-8 h-[calc(100vh-2rem)]!">
@@ -360,7 +243,6 @@ function LeafNavItem({ item, pathname }: { item: NavItem; pathname: string }) {
         <Link href={DASHBOARD_PREFIX + item.href}>
           <Icon />
           <span className="flex-1">{item.label}</span>
-          {item.kbd && <KbdShortcut keys={item.kbd} />}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -404,7 +286,6 @@ function CollapsibleNavItem({
                     <Link href={DASHBOARD_PREFIX + child.href}>
                       <ChildIcon />
                       <span className="flex-1">{child.label}</span>
-                      {child.kbd && <KbdShortcut keys={child.kbd} />}
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

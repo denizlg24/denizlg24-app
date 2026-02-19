@@ -122,7 +122,7 @@ export function TimetableForm({
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select day" />
                 </SelectTrigger>
-                <SelectContent className="z-99">
+                <SelectContent className="z-99" position="popper">
                   {DAYS.map((day) => (
                     <SelectItem key={day.value} value={day.value}>
                       {day.label}
@@ -147,7 +147,7 @@ export function TimetableForm({
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select color" />
                 </SelectTrigger>
-                <SelectContent className="z-99">
+                <SelectContent className="z-99" position="popper">
                   {TIMETABLE_COLORS.map((color) => (
                     <SelectItem key={color} value={color}>
                       <span className="flex items-center gap-2">
@@ -223,7 +223,7 @@ export function TimetableForm({
               setValue("links", [...links, { label: "", url: "", icon: "" }])
             }
           >
-            <Plus className="w-4 h-4 mr-1" />
+            <Plus className="w-4 h-4" />
             Add Link
           </Button>
         </div>

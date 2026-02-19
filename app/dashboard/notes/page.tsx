@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileItem } from "./_components/file-item";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { FilePlus2, FolderPlus, Loader2, MoveLeft } from "lucide-react";
+import { FilePlus2, FileText, Folder, FolderPlus, Loader2, MoveLeft } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -83,6 +83,9 @@ export default function NotesPage() {
     _id: string;
     type: "folder" | "note";
   } | null>(null);
+
+  const mousePosRef = useRef({ x: 0, y: 0 });
+  const ghostRef = useRef<HTMLDivElement>(null);
 
   const [note, setNote] = useState<INote | undefined>(undefined);
 
@@ -214,14 +217,23 @@ export default function NotesPage() {
   useEffect(() => {
     if (!dragging) return;
     document.body.style.cursor = "grabbing";
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePosRef.current = { x: e.clientX, y: e.clientY };
+      if (ghostRef.current) {
+        ghostRef.current.style.left = `${e.clientX + 12}px`;
+        ghostRef.current.style.top = `${e.clientY - 12}px`;
+      }
+    };
     const handleMouseUp = () => {
       document.body.style.cursor = "";
       setDragging(null);
       setBreadcrumbDragOver(null);
     };
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => {
       document.body.style.cursor = "";
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [dragging]);
@@ -774,6 +786,30 @@ export default function NotesPage() {
       ) : (
         <NoteEditor note={note} API={API} />
       )}
+
+      {dragging &&
+        (() => {
+          const file = files.find((f) => f._id === dragging._id);
+          if (!file) return null;
+          const GhostIcon = file.type === "folder" ? Folder : FileText;
+          return (
+            <div
+              ref={ghostRef}
+              className="fixed z-50 pointer-events-none opacity-75"
+              style={{
+                left: mousePosRef.current.x + 12,
+                top: mousePosRef.current.y - 12,
+              }}
+            >
+              <div className="bg-card rounded-lg border shadow-2xl px-3 py-2 flex items-center gap-2 select-none">
+                <GhostIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-medium truncate max-w-48">
+                  {file.name}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
       <Dialog
         open={!!addToBoardItem}

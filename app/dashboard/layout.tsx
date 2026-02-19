@@ -1,5 +1,4 @@
-import { NavigationMenu } from "@/components/navigation/navigation-menu";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { CommandPalette } from "@/components/navigation/command-palette";
 
 export default async function RootLayout({
   children,
@@ -8,9 +7,9 @@ export default async function RootLayout({
 }>) {
 
   return (
-    <SidebarProvider>
-      <NavigationMenu />
-      <SidebarInset className="pt-8">{children}</SidebarInset>
-    </SidebarProvider>
+    <main className="pt-8">
+      {children}
+      <CommandPalette />
+    </main>
   );
 }

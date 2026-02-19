@@ -201,6 +201,11 @@
     scrollbar-width: thin;
     scrollbar-color: theme("colors.muted") theme("colors.background");
   }
+
+  html{
+    scrollbar-gutter: stable;
+    
+  }
 }
 
 .hljs {

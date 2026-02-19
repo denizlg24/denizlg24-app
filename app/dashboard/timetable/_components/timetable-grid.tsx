@@ -135,7 +135,7 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
   );
 
   return (
-    <div className="overflow-x-auto border rounded-lg">
+    <div className="overflow-x-auto border rounded-lg mx-4 w-[calc(100%-2rem)]">
       <div
         className="grid min-w-225"
         style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}

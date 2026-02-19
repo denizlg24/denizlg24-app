@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   Clock,
   ExternalLink,
   MapPin,
@@ -90,12 +91,16 @@ export default function TimetableManager({
 
   if (loadingSettings || !API || initialLoading) {
     return (
-      <div className="flex flex-col gap-2 px-2 pb-2">
+      <div className="flex flex-col gap-2 pb-4">
+        <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
+          <CalendarDays className="size-4 text-muted-foreground" />
+          <span className="text-sm font-semibold flex-1">Timetable</span>
+          <Button size={"sm"}>
+            <Plus />
+            Add Entry
+          </Button>
+        </div>
         <TimetableGrid entries={[]} onEntryClick={() => {}} />
-        <Button className="w-full">
-          <Plus className="size-4" />
-          Add Entry
-        </Button>
       </div>
     );
   }
@@ -183,20 +188,24 @@ export default function TimetableManager({
   };
 
   return (
-    <div className="flex flex-col gap-2 px-2 pb-2">
+    <div className="flex flex-col gap-2 pb-4">
+      <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
+        <CalendarDays className="size-4 text-muted-foreground" />
+        <span className="text-sm font-semibold flex-1">Timetable</span>
+        <Button
+          size={"sm"}
+          onClick={() => {
+            setFormOpen(true);
+          }}
+        >
+          <Plus />
+          Add Entry
+        </Button>
+      </div>
       <TimetableGrid
         entries={entries}
         onEntryClick={(entry) => setViewingEntry(entry)}
       />
-      <Button
-        className="w-full"
-        onClick={() => {
-          setFormOpen(true);
-        }}
-      >
-        <Plus className="size-4" />
-        Add Entry
-      </Button>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -279,7 +288,7 @@ export default function TimetableManager({
                     setViewingEntry(null);
                   }}
                 >
-                  <Trash2 className="size-4 mr-1" />
+                  <Trash2 />
                   Delete
                 </Button>
                 <Button
@@ -289,7 +298,7 @@ export default function TimetableManager({
                     setViewingEntry(null);
                   }}
                 >
-                  <Pencil className="size-4 mr-1" />
+                  <Pencil />
                   Edit
                 </Button>
               </DialogFooter>
