@@ -23,11 +23,9 @@ import {
 } from "./_components/whiteboard-canvas";
 import { WhiteboardTopBar } from "./_components/whiteboard-top-bar";
 
-
 function elementToSVGString(el: IWhiteboardElement): string {
   const data = el.data as Record<string, unknown>;
 
-  
   if (data.points) {
     const d = data as unknown as DrawingData;
     if (!d.points || d.points.length < 2) return "";
@@ -44,7 +42,6 @@ function elementToSVGString(el: IWhiteboardElement): string {
     return `<g transform="translate(${el.x}, ${el.y})"><path d="${pathD}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
   }
 
-  
   if (data.shapeType) {
     const d = data as unknown as ShapeData;
     const w = el.width ?? 0;
@@ -68,12 +65,10 @@ function elementToSVGString(el: IWhiteboardElement): string {
       return `<ellipse cx="${el.x + rx}" cy="${el.y + ry}" rx="${rx}" ry="${ry}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}"/>`;
     }
 
-    
     const cornerR = d.shapeType === "square" ? 0 : 2;
     return `<rect x="${el.x}" y="${el.y}" width="${w}" height="${h}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}" rx="${cornerR}"/>`;
   }
 
-  
   if (data.text !== undefined) {
     const d = data as unknown as TextData;
     const w = el.width ?? 100;
@@ -88,7 +83,6 @@ function elementToSVGString(el: IWhiteboardElement): string {
 
   return "";
 }
-
 
 const CURSOR_MAP: Record<WhiteboardTool, string> = {
   pen: "cursor-[url(/assets/drawing-cursor.png),_pointer]",
@@ -119,23 +113,18 @@ export default function WhiteboardPage({
   const [loading, setLoading] = useState(true);
   const [whiteboard, setWhiteboard] = useState<IWhiteboard | null>(null);
 
-  
   const [selectedTool, setSelectedTool] = useState<WhiteboardTool>("pen");
   const [selectedThickness, setSelectedThickness] = useState(4);
   const [selectedColor, setSelectedColor] = useState("#000000");
 
-  
   const history = useWhiteboardHistory([]);
 
-  
   const canvas = useWhiteboardCanvas(history);
 
-  
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const initialElementsRef = useRef<string>("");
 
-  
   useEffect(() => {
     const current = JSON.stringify(history.elements);
     if (initialElementsRef.current && current !== initialElementsRef.current) {
@@ -145,7 +134,6 @@ export default function WhiteboardPage({
     }
   }, [history.elements, history.revision]);
 
-  
   const fetchWhiteboard = useCallback(async () => {
     if (!API || !id) return;
     setLoading(true);
@@ -173,7 +161,6 @@ export default function WhiteboardPage({
     fetchWhiteboard();
   }, [API, id, loading, fetchWhiteboard]);
 
-  
   const handleSave = useCallback(async () => {
     if (!API || !whiteboard) return;
     setIsSaving(true);
@@ -189,13 +176,10 @@ export default function WhiteboardPage({
         initialElementsRef.current = JSON.stringify(history.elements);
         setHasChanges(false);
       }
-    } catch (_error) {
-      
-    }
+    } catch (_error) {}
     setIsSaving(false);
   }, [API, whiteboard, history.elements, canvas.viewState]);
 
-  
   const handleDiscard = useCallback(() => {
     if (!whiteboard) return;
     history.replaceAll(whiteboard.elements);
@@ -204,7 +188,6 @@ export default function WhiteboardPage({
     setHasChanges(false);
   }, [whiteboard, history, canvas]);
 
-  
   const handleRename = useCallback(
     async (newName: string) => {
       if (!API || !whiteboard) return;
@@ -216,14 +199,11 @@ export default function WhiteboardPage({
         if (!("code" in result)) {
           setWhiteboard((prev) => (prev ? { ...prev, name: newName } : prev));
         }
-      } catch (_error) {
-        
-      }
+      } catch (_error) {}
     },
     [API, whiteboard],
   );
 
-  
   const handleZoomIn = useCallback(() => {
     canvas.setViewState((prev) => ({
       ...prev,
@@ -242,9 +222,7 @@ export default function WhiteboardPage({
     canvas.setViewState({ x: 0, y: 0, zoom: 1 });
   }, [canvas]);
 
-  
   const handleExportPNG = useCallback(async () => {
-    
     const targetElements =
       canvas.selectedElementIds.size > 0
         ? history.elements.filter((el) => canvas.selectedElementIds.has(el.id))
@@ -252,7 +230,6 @@ export default function WhiteboardPage({
 
     if (targetElements.length === 0) return;
 
-    
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
@@ -272,12 +249,10 @@ export default function WhiteboardPage({
     const vw = maxX - minX + padding * 2;
     const vh = maxY - minY + padding * 2;
 
-    
     const scale = 2;
     const canvasWidth = Math.ceil(vw * scale);
     const canvasHeight = Math.ceil(vh * scale);
 
-    
     const sorted = [...targetElements].sort((a, b) => a.zIndex - b.zIndex);
     let svgContent = "";
     for (const el of sorted) {
@@ -291,7 +266,6 @@ export default function WhiteboardPage({
       "</svg>",
     ].join("");
 
-    
     const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
 
@@ -331,10 +305,8 @@ export default function WhiteboardPage({
     }
   }, [whiteboard, history.elements, canvas.selectedElementIds]);
 
-  
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -343,20 +315,17 @@ export default function WhiteboardPage({
         return;
       }
 
-      
       if (e.key === "Delete" || e.key === "Backspace") {
         canvas.deleteSelected();
         return;
       }
 
-      
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         history.undo();
         return;
       }
 
-      
       if (
         ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") ||
         ((e.ctrlKey || e.metaKey) && e.key === "y")
@@ -366,14 +335,12 @@ export default function WhiteboardPage({
         return;
       }
 
-      
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSave();
         return;
       }
 
-      
       switch (e.key) {
         case "p":
           setSelectedTool("pen");
@@ -413,7 +380,6 @@ export default function WhiteboardPage({
     return () => window.removeEventListener("keydown", handler);
   }, [canvas, history, handleSave]);
 
-  
   const wrappedPointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       canvas.onPointerDown(e, selectedTool, selectedColor, selectedThickness);
@@ -450,7 +416,6 @@ export default function WhiteboardPage({
     canvas.setTextBox(null);
   }, [canvas]);
 
-  
   if (loading || !whiteboard) {
     return (
       <div className="w-dvw h-[calc(100vh-2rem)] overflow-clip relative flex items-center justify-center">
@@ -468,7 +433,6 @@ export default function WhiteboardPage({
         selectedCursor,
       )}
     >
-      
       <WhiteboardCanvas
         elements={history.elements}
         viewState={canvas.viewState}
@@ -488,7 +452,6 @@ export default function WhiteboardPage({
         onDeleteSelected={canvas.deleteSelected}
       />
 
-      
       <WhiteboardTopBar
         boardName={whiteboard.name}
         hasChanges={hasChanges}
@@ -505,7 +468,6 @@ export default function WhiteboardPage({
         onRename={handleRename}
       />
 
-      
       <WhiteboardBottomBar
         selectedTool={selectedTool}
         selectedThickness={selectedThickness}

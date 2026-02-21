@@ -42,9 +42,7 @@ export function WhiteboardCard({
       if ("code" in result) return;
       setElements(result.whiteboard.elements ?? []);
       setElementCount(result.whiteboard.elements?.length ?? 0);
-    } catch {
-      
-    }
+    } catch {}
   }, [api, board._id]);
 
   useEffect(() => {
@@ -62,13 +60,11 @@ export function WhiteboardCard({
       }
       className="group rounded-2xl border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      
       <WhiteboardPreview
         elements={elements}
         className="h-32 bg-[#f9f8f6] border-b"
       />
 
-      
       <div className="p-3 flex flex-col">
         <p className="text-sm font-semibold leading-snug line-clamp-1">
           {board.name}
