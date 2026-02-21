@@ -1,34 +1,107 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/context/user-context";
+import { useWhiteboardCanvas } from "@/hooks/use-whiteboard-canvas";
+import { useWhiteboardHistory } from "@/hooks/use-whiteboard-history";
 import { denizApi } from "@/lib/api-wrapper";
-import { IWhiteboard } from "@/lib/data-types";
+import type { IWhiteboard, IWhiteboardElement } from "@/lib/data-types";
 import { cn } from "@/lib/utils";
+import type {
+  DrawingData,
+  ShapeData,
+  TextData,
+  WhiteboardTool,
+} from "@/lib/whiteboard-types";
+import { WhiteboardBottomBar } from "./_components/whiteboard-bottom-bar";
 import {
-  ArrowUpRight,
-  BoxSelectIcon,
-  Circle,
-  Eraser,
-  Hand,
-  LineSquiggle,
-  MousePointer,
-  Plus,
-  RectangleHorizontal,
-  Redo,
-  Shapes,
-  Square,
-  TextCursorIcon,
-  Undo,
-} from "lucide-react";
-import { use, useEffect, useMemo, useState } from "react";
+  getElementBoundsForCanvas,
+  WhiteboardCanvas,
+} from "./_components/whiteboard-canvas";
+import { WhiteboardTopBar } from "./_components/whiteboard-top-bar";
+
+
+function elementToSVGString(el: IWhiteboardElement): string {
+  const data = el.data as Record<string, unknown>;
+
+  
+  if (data.points) {
+    const d = data as unknown as DrawingData;
+    if (!d.points || d.points.length < 2) return "";
+    let pathD = `M ${d.points[0].x} ${d.points[0].y}`;
+    for (let i = 1; i < d.points.length; i++) {
+      const prev = d.points[i - 1];
+      const curr = d.points[i];
+      const mx = (prev.x + curr.x) / 2;
+      const my = (prev.y + curr.y) / 2;
+      pathD += ` Q ${prev.x} ${prev.y} ${mx} ${my}`;
+    }
+    const last = d.points[d.points.length - 1];
+    pathD += ` L ${last.x} ${last.y}`;
+    return `<g transform="translate(${el.x}, ${el.y})"><path d="${pathD}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+  }
+
+  
+  if (data.shapeType) {
+    const d = data as unknown as ShapeData;
+    const w = el.width ?? 0;
+    const h = el.height ?? 0;
+
+    if (d.shapeType === "arrow") {
+      const x2 = d.x2 ?? 0;
+      const y2 = d.y2 ?? 0;
+      const angle = Math.atan2(y2, x2);
+      const headLen = Math.min(16, Math.sqrt(x2 * x2 + y2 * y2) * 0.3);
+      const a1x = x2 - headLen * Math.cos(angle - Math.PI / 6);
+      const a1y = y2 - headLen * Math.sin(angle - Math.PI / 6);
+      const a2x = x2 - headLen * Math.cos(angle + Math.PI / 6);
+      const a2y = y2 - headLen * Math.sin(angle + Math.PI / 6);
+      return `<g transform="translate(${el.x}, ${el.y})"><line x1="0" y1="0" x2="${x2}" y2="${y2}" stroke="${d.color}" stroke-width="${d.thickness}" stroke-linecap="round"/><polygon points="${x2},${y2} ${a1x},${a1y} ${a2x},${a2y}" fill="${d.color}"/></g>`;
+    }
+
+    if (d.shapeType === "circle") {
+      const rx = w / 2;
+      const ry = h / 2;
+      return `<ellipse cx="${el.x + rx}" cy="${el.y + ry}" rx="${rx}" ry="${ry}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}"/>`;
+    }
+
+    
+    const cornerR = d.shapeType === "square" ? 0 : 2;
+    return `<rect x="${el.x}" y="${el.y}" width="${w}" height="${h}" fill="none" stroke="${d.color}" stroke-width="${d.thickness}" rx="${cornerR}"/>`;
+  }
+
+  
+  if (data.text !== undefined) {
+    const d = data as unknown as TextData;
+    const w = el.width ?? 100;
+    const h = el.height ?? 40;
+    const fontSize = d.fontSize ?? 16;
+    const escaped = d.text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    return `<foreignObject x="${el.x}" y="${el.y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;color:${d.color};font-size:${fontSize}px;line-height:1.3;font-family:sans-serif;word-wrap:break-word;overflow-wrap:break-word;overflow:hidden;white-space:pre-wrap;padding:2px">${escaped}</div></foreignObject>`;
+  }
+
+  return "";
+}
+
+
+const CURSOR_MAP: Record<WhiteboardTool, string> = {
+  pen: "cursor-[url(/assets/drawing-cursor.png),_pointer]",
+  square: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  rectangle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  circle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  arrow: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  select: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  text: "cursor-[url(/assets/text-cursor.png),_pointer]",
+  eraser: "cursor-[url(/assets/eraser-cursor.png),_pointer]",
+  hand: "cursor-grab",
+  pointer: "cursor-auto",
+};
 
 export default function WhiteboardPage({
   searchParams,
@@ -36,7 +109,6 @@ export default function WhiteboardPage({
   searchParams: Promise<{ id: string }>;
 }) {
   const { id } = use(searchParams);
-
   const { settings, loading: loadingSettings } = useUserSettings();
 
   const API = useMemo(() => {
@@ -45,62 +117,36 @@ export default function WhiteboardPage({
   }, [settings, loadingSettings]);
 
   const [loading, setLoading] = useState(true);
-
   const [whiteboard, setWhiteboard] = useState<IWhiteboard | null>(null);
 
-  const [selectedCursor, setSelectedCursor] = useState<
-    | "cursor-[url(/assets/drawing-cursor.png),_pointer]"
-    | "cursor-[url(/assets/shape-cursor.png),_pointer]"
-    | "cursor-[url(/assets/text-cursor.png),_pointer]"
-    | "cursor-[url(/assets/eraser-cursor.png),_pointer]"
-    | "cursor-auto"
-    | "cursor-grab"
-  >("cursor-[url(/assets/drawing-cursor.png),_pointer]");
-
-  //TOOLBAR
-  const [selectedTool, setSelectedTool] = useState<
-    | "pen"
-    | "square"
-    | "rectangle"
-    | "circle"
-    | "arrow"
-    | "text"
-    | "eraser"
-    | "hand"
-    | "pointer"
-    | "select"
-  >("pen");
-  const [selectedThickness, setSelectedThickness] = useState(0);
+  
+  const [selectedTool, setSelectedTool] = useState<WhiteboardTool>("pen");
+  const [selectedThickness, setSelectedThickness] = useState(4);
   const [selectedColor, setSelectedColor] = useState("#000000");
 
-  useEffect(() => {
-    switch (selectedTool) {
-      case "pen":
-        setSelectedCursor("cursor-[url(/assets/drawing-cursor.png),_pointer]");
-        break;
-      case "square":
-      case "rectangle":
-      case "circle":
-      case "arrow":
-      case "select":
-        setSelectedCursor("cursor-[url(/assets/shape-cursor.png),_pointer]");
-        break;
-      case "text":
-        setSelectedCursor("cursor-[url(/assets/text-cursor.png),_pointer]");
-        break;
-      case "eraser":
-        setSelectedCursor("cursor-[url(/assets/eraser-cursor.png),_pointer]");
-        break;
-      case "hand":
-        setSelectedCursor("cursor-grab");
-        break;
-      default:
-        setSelectedCursor("cursor-auto");
-        break;
-    }
-  }, [selectedTool]);
+  
+  const history = useWhiteboardHistory([]);
 
-  const fetchWhiteboard = async () => {
+  
+  const canvas = useWhiteboardCanvas(history);
+
+  
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const initialElementsRef = useRef<string>("");
+
+  
+  useEffect(() => {
+    const current = JSON.stringify(history.elements);
+    if (initialElementsRef.current && current !== initialElementsRef.current) {
+      setHasChanges(true);
+    } else {
+      setHasChanges(false);
+    }
+  }, [history.elements, history.revision]);
+
+  
+  const fetchWhiteboard = useCallback(async () => {
     if (!API || !id) return;
     setLoading(true);
     try {
@@ -113,294 +159,365 @@ export default function WhiteboardPage({
         return;
       }
       setWhiteboard(result.whiteboard);
+      history.replaceAll(result.whiteboard.elements);
+      canvas.initializeView(result.whiteboard.viewState);
+      initialElementsRef.current = JSON.stringify(result.whiteboard.elements);
       setLoading(false);
-    } catch (error) {
+    } catch (_error) {
       setLoading(false);
     }
-  };
+  }, [API, id, history, canvas]);
 
   useEffect(() => {
     if (!API || !id || !loading) return;
     fetchWhiteboard();
-  }, [API, id, loading]);
+  }, [API, id, loading, fetchWhiteboard]);
 
-  if (loading || !whiteboard)
+  
+  const handleSave = useCallback(async () => {
+    if (!API || !whiteboard) return;
+    setIsSaving(true);
+    try {
+      const result = await API.PUT<{ whiteboard: IWhiteboard }>({
+        endpoint: `whiteboard/${whiteboard._id}`,
+        body: {
+          elements: history.elements,
+          viewState: canvas.viewState,
+        },
+      });
+      if (!("code" in result)) {
+        initialElementsRef.current = JSON.stringify(history.elements);
+        setHasChanges(false);
+      }
+    } catch (_error) {
+      
+    }
+    setIsSaving(false);
+  }, [API, whiteboard, history.elements, canvas.viewState]);
+
+  
+  const handleDiscard = useCallback(() => {
+    if (!whiteboard) return;
+    history.replaceAll(whiteboard.elements);
+    canvas.initializeView(whiteboard.viewState);
+    canvas.setSelectedElementIds(new Set());
+    setHasChanges(false);
+  }, [whiteboard, history, canvas]);
+
+  
+  const handleRename = useCallback(
+    async (newName: string) => {
+      if (!API || !whiteboard) return;
+      try {
+        const result = await API.PUT<{ whiteboard: IWhiteboard }>({
+          endpoint: `whiteboard/${whiteboard._id}`,
+          body: { name: newName },
+        });
+        if (!("code" in result)) {
+          setWhiteboard((prev) => (prev ? { ...prev, name: newName } : prev));
+        }
+      } catch (_error) {
+        
+      }
+    },
+    [API, whiteboard],
+  );
+
+  
+  const handleZoomIn = useCallback(() => {
+    canvas.setViewState((prev) => ({
+      ...prev,
+      zoom: Math.min(5, prev.zoom * 1.25),
+    }));
+  }, [canvas]);
+
+  const handleZoomOut = useCallback(() => {
+    canvas.setViewState((prev) => ({
+      ...prev,
+      zoom: Math.max(0.1, prev.zoom / 1.25),
+    }));
+  }, [canvas]);
+
+  const handleResetView = useCallback(() => {
+    canvas.setViewState({ x: 0, y: 0, zoom: 1 });
+  }, [canvas]);
+
+  
+  const handleExportPNG = useCallback(async () => {
+    
+    const targetElements =
+      canvas.selectedElementIds.size > 0
+        ? history.elements.filter((el) => canvas.selectedElementIds.has(el.id))
+        : history.elements;
+
+    if (targetElements.length === 0) return;
+
+    
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const el of targetElements) {
+      const b = getElementBoundsForCanvas(el);
+      if (b.x < minX) minX = b.x;
+      if (b.y < minY) minY = b.y;
+      if (b.x + b.w > maxX) maxX = b.x + b.w;
+      if (b.y + b.h > maxY) maxY = b.y + b.h;
+    }
+    if (minX === Number.POSITIVE_INFINITY) return;
+
+    const padding = Math.max(maxX - minX, maxY - minY) * 0.05;
+    const vx = minX - padding;
+    const vy = minY - padding;
+    const vw = maxX - minX + padding * 2;
+    const vh = maxY - minY + padding * 2;
+
+    
+    const scale = 2;
+    const canvasWidth = Math.ceil(vw * scale);
+    const canvasHeight = Math.ceil(vh * scale);
+
+    
+    const sorted = [...targetElements].sort((a, b) => a.zIndex - b.zIndex);
+    let svgContent = "";
+    for (const el of sorted) {
+      svgContent += elementToSVGString(el);
+    }
+
+    const svgString = [
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}" viewBox="${vx} ${vy} ${vw} ${vh}">`,
+      `<rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="white"/>`,
+      svgContent,
+      "</svg>",
+    ].join("");
+
+    
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    try {
+      const img = new Image();
+      img.width = canvasWidth;
+      img.height = canvasHeight;
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load SVG for export"));
+        img.src = url;
+      });
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = canvasWidth;
+      offscreen.height = canvasHeight;
+      const ctx = offscreen.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+      const pngBlob = await new Promise<Blob | null>((resolve) =>
+        offscreen.toBlob(resolve, "image/png"),
+      );
+      if (!pngBlob) return;
+
+      const path = await save({
+        filters: [{ name: "PNG Image", extensions: ["png"] }],
+        defaultPath: `${whiteboard?.name ?? "whiteboard"}.png`,
+      });
+      if (!path) return;
+
+      const arrayBuffer = await pngBlob.arrayBuffer();
+      await writeFile(path, new Uint8Array(arrayBuffer));
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }, [whiteboard, history.elements, canvas.selectedElementIds]);
+
+  
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        canvas.textBox !== null
+      ) {
+        return;
+      }
+
+      
+      if (e.key === "Delete" || e.key === "Backspace") {
+        canvas.deleteSelected();
+        return;
+      }
+
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        history.undo();
+        return;
+      }
+
+      
+      if (
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") ||
+        ((e.ctrlKey || e.metaKey) && e.key === "y")
+      ) {
+        e.preventDefault();
+        history.redo();
+        return;
+      }
+
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+        return;
+      }
+
+      
+      switch (e.key) {
+        case "p":
+          setSelectedTool("pen");
+          break;
+        case "r":
+          setSelectedTool("rectangle");
+          break;
+        case "c":
+          setSelectedTool("circle");
+          break;
+        case "a":
+          setSelectedTool("arrow");
+          break;
+        case "t":
+          setSelectedTool("text");
+          break;
+        case "e":
+          setSelectedTool("eraser");
+          break;
+        case "h":
+          setSelectedTool("hand");
+          break;
+        case "v":
+          setSelectedTool("pointer");
+          break;
+        case "s":
+          if (!e.ctrlKey && !e.metaKey) setSelectedTool("select");
+          break;
+        case "Escape":
+          canvas.setSelectedElementIds(new Set());
+          canvas.setTextBox(null);
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [canvas, history, handleSave]);
+
+  
+  const wrappedPointerDown = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      canvas.onPointerDown(e, selectedTool, selectedColor, selectedThickness);
+    },
+    [canvas, selectedTool, selectedColor, selectedThickness],
+  );
+
+  const wrappedPointerMove = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      canvas.onPointerMove(e, selectedTool);
+    },
+    [canvas, selectedTool],
+  );
+
+  const wrappedPointerUp = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      canvas.onPointerUp(e, selectedTool);
+    },
+    [canvas, selectedTool],
+  );
+
+  const handleTextCommit = useCallback(
+    (text: string) => {
+      canvas.commitText(
+        text,
+        selectedColor,
+        Math.max(selectedThickness * 2, 16),
+      );
+    },
+    [canvas, selectedColor, selectedThickness],
+  );
+
+  const handleTextCancel = useCallback(() => {
+    canvas.setTextBox(null);
+  }, [canvas]);
+
+  
+  if (loading || !whiteboard) {
     return (
-      <div className="w-dvw h-[calc(100vh-2rem)] overflow-clip relative">
-        <div className="mx-auto my-auto flex items-center justify-center">
-          <Spinner />
-        </div>
+      <div className="w-dvw h-[calc(100vh-2rem)] overflow-clip relative flex items-center justify-center">
+        <Spinner />
       </div>
     );
+  }
+
+  const selectedCursor = CURSOR_MAP[selectedTool];
 
   return (
     <div
       className={cn(
-        "w-dvw h-[calc(100vh-2rem)] overflow-clip relative ",
+        "whiteboard-container w-dvw h-[calc(100vh-2rem)] overflow-clip relative",
         selectedCursor,
       )}
     >
-      <div className="absolute cursor-auto z-50 border bg-surface shadow-xs bottom-2 left-1/2 -translate-x-1/2 w-fit rounded-full py-2 px-3 flex flex-row items-center gap-2">
-        <Popover>
-          <PopoverTrigger
-            onClick={() => {
-              setSelectedTool("pen");
-            }}
-            asChild
-          >
-            <Button className={cn(selectedTool === "pen" && "border-2 border-primary")} size="icon-sm" variant={"outline"}>
-              <LineSquiggle />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="center"
-            className="border rounded-full w-fit! px-1 py-1.5 bg-muted flex flex-col gap-1 items-center z-99!"
-          >
-            <div className="w-3.5 h-3.5 bg-primary rounded-full"></div>
+      
+      <WhiteboardCanvas
+        elements={history.elements}
+        viewState={canvas.viewState}
+        selectedTool={selectedTool}
+        selectedElementIds={canvas.selectedElementIds}
+        selectionRect={canvas.selectionRect}
+        activeDrawing={canvas.activeDrawing}
+        textBox={canvas.textBox}
+        selectedColor={selectedColor}
+        selectedThickness={selectedThickness}
+        onPointerDown={wrappedPointerDown}
+        onPointerMove={wrappedPointerMove}
+        onPointerUp={wrappedPointerUp}
+        onWheel={canvas.onWheel}
+        onTextCommit={handleTextCommit}
+        onTextCancel={handleTextCancel}
+        onDeleteSelected={canvas.deleteSelected}
+      />
 
-            <Slider
-              orientation="vertical"
-              min={2}
-              max={24}
-              value={[selectedThickness]}
-              onValueChange={(e) => {
-                setSelectedThickness(e[0]);
-              }}
-              thumbClassName="bg-primary"
-              thumbSize={
-                selectedThickness > 16
-                  ? 16
-                  : selectedThickness > 8
-                    ? selectedThickness
-                    : 8
-              }
-            />
-            <div className="w-1 h-1 bg-primary rounded-full"></div>
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button className={cn((selectedTool === "square" || selectedTool === "rectangle" || selectedTool === "circle" || selectedTool === "arrow") && "border-2 border-primary")} size="icon-sm" variant={"outline"}>
-              <Shapes />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="center"
-            className="border rounded-full w-fit! px-1 py-1.5 bg-muted flex flex-col gap-2 items-center z-99!"
-          >
-            <Button
-            className={cn(selectedTool === "square" && "border border-primary")}
-              onClick={() => {
-                setSelectedTool("square");
-              }}
-              variant={"outline"}
-              size={"icon-xs"}
-            >
-              <Square />
-            </Button>
-            <Button
-            className={cn(selectedTool === "rectangle" && "border border-primary")}
-              onClick={() => {
-                setSelectedTool("rectangle");
-              }}
-              variant={"outline"}
-              size={"icon-xs"}
-            >
-              <RectangleHorizontal />
-            </Button>
-            <Button
-            className={cn(selectedTool === "circle" && "border border-primary")}
-              onClick={() => {
-                setSelectedTool("circle");
-              }}
-              variant={"outline"}
-              size={"icon-xs"}
-            >
-              <Circle />
-            </Button>
-            <Button
-            className={cn(selectedTool === "arrow" && "border border-primary")}
-              onClick={() => {
-                setSelectedTool("arrow");
-              }}
-              variant={"outline"}
-              size={"icon-xs"}
-            >
-              <ArrowUpRight />
-            </Button>
-          </PopoverContent>
-        </Popover>
-        <Button
-        className={cn(selectedTool === "text" && "border-2 border-primary")}
-          onClick={() => {
-            setSelectedTool("text");
-          }}
-          size="icon-sm"
-          variant={"outline"}
-        >
-          <TextCursorIcon />
-        </Button>
+      
+      <WhiteboardTopBar
+        boardName={whiteboard.name}
+        hasChanges={hasChanges}
+        isSaving={isSaving}
+        viewState={canvas.viewState}
+        selectedCount={canvas.selectedElementIds.size}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        onDeleteSelected={canvas.deleteSelected}
+        onResetView={handleResetView}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onExportPNG={handleExportPNG}
+        onRename={handleRename}
+      />
 
-        <Button
-        className={cn(selectedTool === "eraser" && "border-2 border-primary")}
-          onClick={() => {
-            setSelectedTool("eraser");
-          }}
-          size="icon-sm"
-          variant={"outline"}
-        >
-          <Eraser />
-        </Button>
-        <div className="w-px h-5 bg-primary"></div>
-        <Button
-        className={cn(selectedTool === "hand" && "border-2 border-primary")}
-          onClick={() => {
-            setSelectedTool("hand");
-          }}
-          size="icon-sm"
-          variant={"outline"}
-        >
-          <Hand />
-        </Button>
-        <Button
-        className={cn(selectedTool === "pointer" && "border-2 border-primary")}
-          onClick={() => {
-            setSelectedTool("pointer");
-          }}
-          size="icon-sm"
-          variant={"outline"}
-        >
-          <MousePointer />
-        </Button>
-        <Button
-        className={cn(selectedTool === "select" && "border-2 border-primary")}
-          onClick={() => {
-            setSelectedTool("select");
-          }}
-          size="icon-sm"
-          variant={"outline"}
-        >
-          <BoxSelectIcon />
-        </Button>
-        <div className="w-px h-5 bg-primary"></div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button size="icon-sm" variant={"outline"}>
-              <svg
-                style={{ backgroundColor: selectedColor }}
-                className="w-full h-full rounded-full"
-              ></svg>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="center"
-            className="border rounded-full w-fit! px-1 py-1.5 bg-muted flex flex-col gap-2 items-center z-99!"
-          >
-            <button
-              onClick={() => {
-                setSelectedColor("#000000");
-              }}
-              className={cn(
-                selectedColor == "#000000" && "border-primary!",
-                "w-4 h-4 rounded-full bg-black hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#6366f1");
-              }}
-              className={cn(
-                selectedColor == "#6366f1" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#6366f1] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#ec4899");
-              }}
-              className={cn(
-                selectedColor == "#ec4899" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#ec4899] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#ef4444");
-              }}
-              className={cn(
-                selectedColor == "#ef4444" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#ef4444] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#f97316");
-              }}
-              className={cn(
-                selectedColor == "#f97316" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#f97316] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#eab308");
-              }}
-              className={cn(
-                selectedColor == "#eab308" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#eab308] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#a1bc98");
-              }}
-              className={cn(
-                selectedColor == "#a1bc98" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#a1bc98] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#14b8a6");
-              }}
-              className={cn(
-                selectedColor == "#14b8a6" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#14b8a6] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#3b82f6");
-              }}
-              className={cn(
-                selectedColor == "#3b82f6" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#3b82f6] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-            <button
-              onClick={() => {
-                setSelectedColor("#64748b");
-              }}
-              className={cn(
-                selectedColor == "#64748b" && "border-primary!",
-                "w-4 h-4 rounded-full bg-[#64748b] hover:shadow-xs border border-transparent hover:border-primary transition-all",
-              )}
-            ></button>
-          </PopoverContent>
-        </Popover>
-        <Button size="icon-sm" variant={"outline"}>
-          <Undo />
-        </Button>
-        <Button size="icon-sm" variant={"outline"}>
-          <Redo />
-        </Button>
-        <Button size="icon-sm" variant={"outline"}>
-          <Plus />
-        </Button>
-      </div>
+      
+      <WhiteboardBottomBar
+        selectedTool={selectedTool}
+        selectedThickness={selectedThickness}
+        selectedColor={selectedColor}
+        canUndo={history.canUndo}
+        canRedo={history.canRedo}
+        onToolChange={setSelectedTool}
+        onThicknessChange={setSelectedThickness}
+        onColorChange={setSelectedColor}
+        onUndo={history.undo}
+        onRedo={history.redo}
+      />
     </div>
   );
 }
