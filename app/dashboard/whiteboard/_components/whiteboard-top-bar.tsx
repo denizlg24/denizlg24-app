@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   Download,
   Loader2,
   RotateCcw,
@@ -28,6 +29,7 @@ export interface WhiteboardTopBarProps {
   onZoomOut: () => void;
   onExportPNG: () => void;
   onRename: (newName: string) => void;
+  onBack: () => void;
 }
 
 export function WhiteboardTopBar({
@@ -44,6 +46,7 @@ export function WhiteboardTopBar({
   onZoomOut,
   onExportPNG,
   onRename,
+  onBack,
 }: WhiteboardTopBarProps) {
   const zoomPercent = Math.round(viewState.zoom * 100);
   const [isEditing, setIsEditing] = useState(false);
@@ -83,6 +86,17 @@ export function WhiteboardTopBar({
 
   return (
     <div className="absolute cursor-auto top-2 left-1/2 -translate-x-1/2 z-50 border bg-surface shadow-xs rounded-full py-2 px-3 flex flex-row items-center gap-2">
+      <Button
+        size="icon-xs"
+        variant="outline"
+        onClick={onBack}
+        title="Back to boards"
+      >
+        <ArrowLeft />
+      </Button>
+
+      <div className="h-5 w-px bg-border" />
+
       {isEditing ? (
         <input
           ref={inputRef}

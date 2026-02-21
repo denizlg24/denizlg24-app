@@ -1,7 +1,6 @@
 "use client";
 
 import { PenTool, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,9 +18,9 @@ import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type { IWhiteboardMeta } from "@/lib/data-types";
 import { WhiteboardCard } from "./_components/whiteboard-card";
+import { WhiteboardEditor } from "./_components/whiteboard-editor";
 
 export default function Page() {
-  const router = useRouter();
   const { settings, loading: loadingSettings } = useUserSettings();
 
   const API = useMemo(() => {
@@ -29,6 +28,7 @@ export default function Page() {
     return new denizApi(settings.apiKey);
   }, [settings, loadingSettings]);
 
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [whiteboards, setWhiteboards] = useState<IWhiteboardMeta[]>([]);
@@ -81,7 +81,7 @@ export default function Page() {
       setCreateOpen(false);
       setCreateName("");
       toast.success("Board created");
-      router.push(`/dashboard/whiteboard/id?id=${result.whiteboard._id}`);
+      setActiveId(result.whiteboard._id);
     } finally {
       setIsSubmitting(false);
     }
@@ -135,10 +135,19 @@ export default function Page() {
     }
   };
 
+  const handleBack = useCallback(() => {
+    setActiveId(null);
+    setLoading(true);
+  }, []);
+
   useEffect(() => {
     if (!API || !loading) return;
     fetchWhiteboards();
   }, [API, loading]);
+
+  if (activeId) {
+    return <WhiteboardEditor id={activeId} onBack={handleBack} />;
+  }
 
   return (
     <div className="flex flex-col gap-2 pb-4">
@@ -176,6 +185,7 @@ export default function Page() {
               api={API}
               onRename={openRenameDialog}
               onDelete={setDeleteTarget}
+              onOpen={setActiveId}
             />
           ))}
 

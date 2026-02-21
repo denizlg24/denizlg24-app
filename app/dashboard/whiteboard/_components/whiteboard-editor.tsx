@@ -2,7 +2,7 @@
 
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useUserSettings } from "@/context/user-context";
 import { useWhiteboardCanvas } from "@/hooks/use-whiteboard-canvas";
@@ -16,12 +16,12 @@ import type {
   TextData,
   WhiteboardTool,
 } from "@/lib/whiteboard-types";
-import { WhiteboardBottomBar } from "./_components/whiteboard-bottom-bar";
+import { WhiteboardBottomBar } from "./whiteboard-bottom-bar";
 import {
   getElementBoundsForCanvas,
   WhiteboardCanvas,
-} from "./_components/whiteboard-canvas";
-import { WhiteboardTopBar } from "./_components/whiteboard-top-bar";
+} from "./whiteboard-canvas";
+import { WhiteboardTopBar } from "./whiteboard-top-bar";
 
 function elementToSVGString(el: IWhiteboardElement): string {
   const data = el.data as Record<string, unknown>;
@@ -97,12 +97,12 @@ const CURSOR_MAP: Record<WhiteboardTool, string> = {
   pointer: "cursor-auto",
 };
 
-export default function WhiteboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ id: string }>;
-}) {
-  const { id } = use(searchParams);
+interface WhiteboardEditorProps {
+  id: string;
+  onBack: () => void;
+}
+
+export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
   const { settings, loading: loadingSettings } = useUserSettings();
 
   const API = useMemo(() => {
@@ -466,6 +466,7 @@ export default function WhiteboardPage({
         onZoomOut={handleZoomOut}
         onExportPNG={handleExportPNG}
         onRename={handleRename}
+        onBack={onBack}
       />
 
       <WhiteboardBottomBar

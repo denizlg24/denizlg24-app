@@ -2,7 +2,6 @@
 
 import { format } from "date-fns";
 import { Edit3, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +18,7 @@ interface WhiteboardCardProps {
   api: denizApi;
   onRename: (board: IWhiteboardMeta) => void;
   onDelete: (board: IWhiteboardMeta) => void;
+  onOpen: (id: string) => void;
 }
 
 export function WhiteboardCard({
@@ -26,8 +26,8 @@ export function WhiteboardCard({
   api,
   onRename,
   onDelete,
+  onOpen,
 }: WhiteboardCardProps) {
-  const router = useRouter();
   const [elements, setElements] = useState<IWhiteboardElement[] | null>(null);
   const [elementCount, setElementCount] = useState<number | null>(null);
   const fetchedRef = useRef(false);
@@ -53,11 +53,8 @@ export function WhiteboardCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => router.push(`/dashboard/whiteboard/id?id=${board._id}`)}
-      onKeyDown={(e) =>
-        e.key === "Enter" &&
-        router.push(`/dashboard/whiteboard/id?id=${board._id}`)
-      }
+      onClick={() => onOpen(board._id)}
+      onKeyDown={(e) => e.key === "Enter" && onOpen(board._id)}
       className="group rounded-2xl border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <WhiteboardPreview
