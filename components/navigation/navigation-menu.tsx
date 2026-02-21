@@ -158,8 +158,20 @@ export const GROUPS: NavGroup[] = [
       },
       {
         label: "Whiteboard",
-        href: "/whiteboard",
+        href: "",
         icon: PenTool,
+        children: [
+          {
+            label: "All Whiteboards",
+            href: "/whiteboard",
+            icon: PenTool,
+          },
+          {
+            label: "Today's Whiteboard",
+            href: "/whiteboard/today",
+            icon: Clock,
+          },
+        ],
       },
       {
         label: "Kanban Boards",
