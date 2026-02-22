@@ -9,6 +9,7 @@ import { useWhiteboardCanvas } from "@/hooks/use-whiteboard-canvas";
 import { useWhiteboardHistory } from "@/hooks/use-whiteboard-history";
 import { denizApi } from "@/lib/api-wrapper";
 import type { IWhiteboard, IWhiteboardElement } from "@/lib/data-types";
+import { extractDirectory } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 import type {
   DrawingData,
@@ -108,7 +109,7 @@ export function WhiteboardEditor({
   onBack,
   todayMode,
 }: WhiteboardEditorProps) {
-  const { settings, loading: loadingSettings } = useUserSettings();
+  const { settings, loading: loadingSettings, setSettings } = useUserSettings();
 
   const API = useMemo(() => {
     if (loadingSettings) return null;
@@ -322,18 +323,33 @@ export function WhiteboardEditor({
       );
       if (!pngBlob) return;
 
+      const fileName = `${whiteboard?.name ?? "whiteboard"}.png`;
+      const defaultDir = settings.defaultWhiteboardDownloadPath;
+      const defaultPath = defaultDir ? `${defaultDir}${fileName}` : fileName;
+
       const path = await save({
         filters: [{ name: "PNG Image", extensions: ["png"] }],
-        defaultPath: `${whiteboard?.name ?? "whiteboard"}.png`,
+        defaultPath,
       });
       if (!path) return;
+
+      const dir = extractDirectory(path);
+      if (dir.trim()) {
+        setSettings({ defaultWhiteboardDownloadPath: dir });
+      }
 
       const arrayBuffer = await pngBlob.arrayBuffer();
       await writeFile(path, new Uint8Array(arrayBuffer));
     } finally {
       URL.revokeObjectURL(url);
     }
-  }, [whiteboard, history.elements, canvas.selectedElementIds]);
+  }, [
+    whiteboard,
+    history.elements,
+    canvas.selectedElementIds,
+    settings.defaultWhiteboardDownloadPath,
+    setSettings,
+  ]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

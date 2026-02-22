@@ -6,10 +6,26 @@ const userSettingsSchema = z.object({
   apiKey: z.string(),
   sidebarOpen: z.boolean(),
   defaultNoteDownloadPath: z.string(),
+  defaultWhiteboardDownloadPath: z.string(),
   defaultPage: z.string(),
 });
 
 export type UserSettings = z.infer<typeof userSettingsSchema>;
+
+export function ensureTrailingSeparator(dirPath: string): string {
+  if (!dirPath) return dirPath;
+  const sep = dirPath.includes("\\") ? "\\" : "/";
+  return dirPath.endsWith(sep) ? dirPath : dirPath + sep;
+}
+
+export function extractDirectory(filePath: string): string {
+  const lastSep = Math.max(
+    filePath.lastIndexOf("/"),
+    filePath.lastIndexOf("\\"),
+  );
+  if (lastSep < 0) return "";
+  return filePath.substring(0, lastSep + 1);
+}
 
 export type SettingsFieldMeta = {
   label: string;
@@ -38,6 +54,11 @@ export const settingsFieldMeta: Record<keyof UserSettings, SettingsFieldMeta> =
       label: "Default Note Download Path",
       description:
         "Default directory used when downloading or exporting notes.",
+      type: "path",
+    },
+    defaultWhiteboardDownloadPath: {
+      label: "Default Whiteboard Download Path",
+      description: "Default directory used when exporting whiteboard images.",
       type: "path",
     },
     defaultPage: {
@@ -70,6 +91,7 @@ const defaultSettings: UserSettings = {
   apiKey: "",
   sidebarOpen: true,
   defaultNoteDownloadPath: "",
+  defaultWhiteboardDownloadPath: "",
   defaultPage: "/dashboard",
 };
 
@@ -96,6 +118,13 @@ const buildDefaultSettings = (current: unknown): UserSettings => {
       typeof current.defaultNoteDownloadPath === "string"
         ? current.defaultNoteDownloadPath
         : defaultSettings.defaultNoteDownloadPath,
+    defaultWhiteboardDownloadPath:
+      typeof current === "object" &&
+      current !== null &&
+      "defaultWhiteboardDownloadPath" in current &&
+      typeof current.defaultWhiteboardDownloadPath === "string"
+        ? current.defaultWhiteboardDownloadPath
+        : defaultSettings.defaultWhiteboardDownloadPath,
     defaultPage:
       typeof current === "object" &&
       current !== null &&
@@ -124,6 +153,9 @@ export async function loadSettings(): Promise<UserSettings> {
     const defaultNoteDownloadPath =
       (await store.get<string>("defaultNoteDownloadPath")) ??
       defaultSettings.defaultNoteDownloadPath;
+    const defaultWhiteboardDownloadPath =
+      (await store.get<string>("defaultWhiteboardDownloadPath")) ??
+      defaultSettings.defaultWhiteboardDownloadPath;
     const defaultPage =
       (await store.get<string>("defaultPage")) ?? defaultSettings.defaultPage;
 
@@ -131,6 +163,7 @@ export async function loadSettings(): Promise<UserSettings> {
       apiKey,
       sidebarOpen,
       defaultNoteDownloadPath,
+      defaultWhiteboardDownloadPath,
       defaultPage,
     });
 
@@ -139,6 +172,7 @@ export async function loadSettings(): Promise<UserSettings> {
         apiKey,
         sidebarOpen,
         defaultNoteDownloadPath,
+        defaultWhiteboardDownloadPath,
         defaultPage,
       });
     }

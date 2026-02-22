@@ -1,8 +1,9 @@
 "use client";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
+import { DialogClose } from "@radix-ui/react-dialog";
+import { SelectValue } from "@radix-ui/react-select";
 import { pdf } from "@react-pdf/renderer";
-import { toast } from "sonner";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import {
   ChevronLeftCircle,
   ChevronRightCircle,
@@ -16,8 +17,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
+import { toast } from "sonner";
 import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
+import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -30,19 +32,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { SelectValue } from "@radix-ui/react-select";
 import { Separator } from "@/components/ui/separator";
-import { DialogClose } from "@radix-ui/react-dialog";
-import { INote } from "@/lib/data-types";
+import { Textarea } from "@/components/ui/textarea";
 import { useUserSettings } from "@/context/user-context";
-import { denizApi } from "@/lib/api-wrapper";
+import type { denizApi } from "@/lib/api-wrapper";
+import type { INote } from "@/lib/data-types";
+import { extractDirectory } from "@/lib/user-settings";
 
 export const AnthropicModels = [
   "claude-sonnet-4-5-20250929",
@@ -107,8 +108,7 @@ export const NoteEditor = ({
 
     if (!path) return;
 
-    const lastSep = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-    const dir = path.substring(0, lastSep + 1);
+    const dir = extractDirectory(path);
     if (dir.trim()) {
       setSettings({ defaultNoteDownloadPath: dir });
     }
@@ -197,9 +197,7 @@ export const NoteEditor = ({
                   </Label>
                   <Select
                     value={model}
-                    onValueChange={(value) =>
-                      setModel(value)
-                    }
+                    onValueChange={(value) => setModel(value)}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select model" />
@@ -259,10 +257,7 @@ export const NoteEditor = ({
                 defaultPath: `${settings.defaultNoteDownloadPath}${note.title || "note"}.md`,
               });
               if (path) {
-                const pathWithoutNoteName = path.substring(
-                  0,
-                  path.lastIndexOf("/") + 1,
-                );
+                const pathWithoutNoteName = extractDirectory(path);
                 if (pathWithoutNoteName.trim()) {
                   setSettings({ defaultNoteDownloadPath: pathWithoutNoteName });
                 }
@@ -283,7 +278,11 @@ export const NoteEditor = ({
                 variant={"outline"}
                 size={"icon"}
               >
-                {exportingPdf ? <Loader2 className="animate-spin" /> : <FileText />}
+                {exportingPdf ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <FileText />
+                )}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -372,7 +371,6 @@ export const NoteEditor = ({
           <MarkdownRenderer content={content} />
         </div>
       )}
-
     </div>
   );
 };

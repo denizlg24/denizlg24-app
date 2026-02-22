@@ -150,7 +150,7 @@ export default function Page() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pb-4">
+    <div className="flex flex-col h-[calc(100dvh-2rem)]">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <PenTool className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Whiteboards</span>
@@ -159,47 +159,49 @@ export default function Page() {
           Add Board
         </Button>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-4">
-        {loading && (
-          <>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl border bg-card overflow-hidden animate-pulse"
-              >
-                <div className="h-32 bg-muted/40" />
-                <div className="p-3 flex flex-col gap-2">
-                  <div className="h-4 w-3/4 bg-muted rounded" />
-                  <div className="h-3 w-1/2 bg-muted rounded" />
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {loading && (
+            <>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border bg-card overflow-hidden animate-pulse"
+                >
+                  <div className="h-32 bg-muted/40" />
+                  <div className="p-3 flex flex-col gap-2">
+                    <div className="h-4 w-3/4 bg-muted rounded" />
+                    <div className="h-3 w-1/2 bg-muted rounded" />
+                  </div>
                 </div>
-              </div>
+              ))}
+            </>
+          )}
+          {!loading &&
+            API &&
+            whiteboards.map((board) => (
+              <WhiteboardCard
+                key={board._id}
+                board={board}
+                api={API}
+                onRename={openRenameDialog}
+                onDelete={setDeleteTarget}
+                onOpen={setActiveId}
+              />
             ))}
-          </>
-        )}
-        {!loading &&
-          API &&
-          whiteboards.map((board) => (
-            <WhiteboardCard
-              key={board._id}
-              board={board}
-              api={API}
-              onRename={openRenameDialog}
-              onDelete={setDeleteTarget}
-              onOpen={setActiveId}
-            />
-          ))}
 
-        {!loading && (
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="rounded-2xl border-2 border-dashed bg-transparent hover:bg-muted/50 transition-colors h-full min-h-29 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <div className="size-8 rounded-full border-2 border-dashed flex items-center justify-center">
-              <Plus className="size-4" />
-            </div>
-            <span className="text-xs font-medium">New Board</span>
-          </button>
-        )}
+          {!loading && (
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="rounded-2xl border-2 border-dashed bg-transparent hover:bg-muted/50 transition-colors h-full min-h-29 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <div className="size-8 rounded-full border-2 border-dashed flex items-center justify-center">
+                <Plus className="size-4" />
+              </div>
+              <span className="text-xs font-medium">New Board</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <Dialog

@@ -1,16 +1,9 @@
 "use client";
 
-import { useState, useRef, type KeyboardEvent } from "react";
-import { FolderOpen, Settings as SettingsIcon } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useUserSettings } from "@/context/user-context";
-import {
-  settingsFieldMeta,
-  type SettingsFieldMeta,
-  type UserSettings,
-} from "@/lib/user-settings";
+import { FolderOpen, Settings as SettingsIcon } from "lucide-react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,6 +15,14 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useUserSettings } from "@/context/user-context";
+import {
+  ensureTrailingSeparator,
+  type SettingsFieldMeta,
+  settingsFieldMeta,
+  type UserSettings,
+} from "@/lib/user-settings";
 
 function SettingsFieldRow({
   fieldKey,
@@ -77,10 +78,7 @@ function SettingsFieldRow({
           <Label className="text-sm font-medium">{meta.label}</Label>
           <p className="text-xs text-muted-foreground">{meta.description}</p>
         </div>
-        <Select
-          value={value as string}
-          onValueChange={(val) => onChange(val)}
-        >
+        <Select value={value as string} onValueChange={(val) => onChange(val)}>
           <SelectTrigger className="w-xs">
             <SelectValue />
           </SelectTrigger>
@@ -104,8 +102,9 @@ function SettingsFieldRow({
         defaultPath: localValue || undefined,
       });
       if (selected) {
-        setLocalValue(selected+"\\");
-        onChange(selected+"\\");
+        const withSep = ensureTrailingSeparator(selected);
+        setLocalValue(withSep);
+        onChange(withSep);
       }
     };
 
