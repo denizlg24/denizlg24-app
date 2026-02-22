@@ -3,12 +3,14 @@
 import type { IWhiteboardElement } from "@/lib/data-types";
 import type {
   DrawingData,
+  ResizeHandle,
   SelectionRect,
   ShapeData,
   TextData,
   ViewState,
   WhiteboardTool,
 } from "@/lib/whiteboard-types";
+import { templateRegistry } from "./templates";
 import { WhiteboardElement } from "./whiteboard-element";
 
 const GRID_SIZE = 40;
@@ -62,14 +64,24 @@ function SelectionOverlay({
 function SelectedElementHighlight({
   element,
   zoom,
+  onStartResize,
+  isPointerTool,
 }: {
   element: IWhiteboardElement;
   zoom: number;
+  onStartResize: (elementId: string, handle: ResizeHandle) => void;
+  isPointerTool: boolean;
 }) {
   const padding = 4 / zoom;
   const sw = 1.5 / zoom;
+  const handleSize = 8 / zoom;
 
   const data = element.data as Record<string, unknown>;
+  let bx: number;
+  let by: number;
+  let bw: number;
+  let bh: number;
+
   if (data.points) {
     const points = data.points as { x: number; y: number }[];
     if (points.length === 0) return null;
@@ -83,35 +95,66 @@ function SelectedElementHighlight({
       if (p.x > maxX) maxX = p.x;
       if (p.y > maxY) maxY = p.y;
     }
-    return (
+    bx = element.x + minX - padding;
+    by = element.y + minY - padding;
+    bw = maxX - minX + padding * 2;
+    bh = maxY - minY + padding * 2;
+  } else {
+    const w = element.width ?? 0;
+    const h = element.height ?? 0;
+    bx = element.x - padding;
+    by = element.y - padding;
+    bw = w + padding * 2;
+    bh = h + padding * 2;
+  }
+
+  const handles: {
+    handle: ResizeHandle;
+    cx: number;
+    cy: number;
+    cursor: string;
+  }[] = [
+    { handle: "top-left", cx: bx, cy: by, cursor: "nwse-resize" },
+    { handle: "top-right", cx: bx + bw, cy: by, cursor: "nesw-resize" },
+    { handle: "bottom-left", cx: bx, cy: by + bh, cursor: "nesw-resize" },
+    { handle: "bottom-right", cx: bx + bw, cy: by + bh, cursor: "nwse-resize" },
+  ];
+
+  return (
+    <g>
       <rect
-        x={element.x + minX - padding}
-        y={element.y + minY - padding}
-        width={maxX - minX + padding * 2}
-        height={maxY - minY + padding * 2}
+        x={bx}
+        y={by}
+        width={bw}
+        height={bh}
         fill="none"
         stroke="var(--accent)"
         strokeWidth={sw}
         strokeDasharray={`${3 / zoom}`}
         rx={2 / zoom}
       />
-    );
-  }
-
-  const w = element.width ?? 0;
-  const h = element.height ?? 0;
-  return (
-    <rect
-      x={element.x - padding}
-      y={element.y - padding}
-      width={w + padding * 2}
-      height={h + padding * 2}
-      fill="none"
-      stroke="var(--accent)"
-      strokeWidth={sw}
-      strokeDasharray={`${3 / zoom}`}
-      rx={2 / zoom}
-    />
+      {isPointerTool &&
+        handles.map((h) => (
+          <rect
+            key={h.handle}
+            x={h.cx - handleSize / 2}
+            y={h.cy - handleSize / 2}
+            width={handleSize}
+            height={handleSize}
+            fill="white"
+            stroke="var(--accent)"
+            strokeWidth={sw}
+            rx={1 / zoom}
+            style={{ cursor: h.cursor }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              const svg = (e.target as SVGElement).ownerSVGElement;
+              if (svg) svg.setPointerCapture(e.pointerId);
+              onStartResize(element.id, h.handle);
+            }}
+          />
+        ))}
+    </g>
   );
 }
 
@@ -221,6 +264,12 @@ export interface WhiteboardCanvasProps {
   onTextCommit: (text: string) => void;
   onTextCancel: () => void;
   onDeleteSelected: () => void;
+  onStartResize: (elementId: string, handle: ResizeHandle) => void;
+  onComponentDataChange: (
+    elementId: string,
+    data: Record<string, unknown>,
+  ) => void;
+  onComponentDelete: (elementId: string) => void;
 }
 
 export function WhiteboardCanvas({
@@ -240,9 +289,13 @@ export function WhiteboardCanvas({
   onTextCommit,
   onTextCancel,
   onDeleteSelected,
+  onStartResize,
+  onComponentDataChange,
+  onComponentDelete,
 }: WhiteboardCanvasProps) {
   const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex);
   const selectionBBox = getSelectionBoundingBox(elements, selectedElementIds);
+  const isPointerTool = selectedTool === "pointer" || selectedTool === "select";
 
   return (
     <div className="relative w-full h-full">
@@ -281,6 +334,8 @@ export function WhiteboardCanvas({
                   key={`sel-${el.id}`}
                   element={el}
                   zoom={viewState.zoom}
+                  onStartResize={onStartResize}
+                  isPointerTool={isPointerTool}
                 />
               ))}
 
@@ -289,6 +344,59 @@ export function WhiteboardCanvas({
           )}
         </g>
       </svg>
+
+      {sorted
+        .filter(
+          (el): el is IWhiteboardElement & { componentType: string } =>
+            el.type === "component" && !!el.componentType,
+        )
+        .map((el) => {
+          const templateDef = templateRegistry[el.componentType];
+          if (!templateDef) return null;
+
+          const TemplateComponent = templateDef.component;
+          const screenX = el.x * viewState.zoom + viewState.x;
+          const screenY = el.y * viewState.zoom + viewState.y;
+          const screenW =
+            (el.width ?? templateDef.defaultSize.width) * viewState.zoom;
+          const screenH =
+            (el.height ?? templateDef.defaultSize.height) * viewState.zoom;
+
+          return (
+            <div
+              key={`component-${el.id}`}
+              className="absolute origin-top-left"
+              style={{
+                left: screenX,
+                top: screenY,
+                width: screenW,
+                height: screenH,
+                pointerEvents: isPointerTool ? "auto" : "none",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  width: el.width ?? templateDef.defaultSize.width,
+                  height: el.height ?? templateDef.defaultSize.height,
+                  transform: `scale(${viewState.zoom})`,
+                  transformOrigin: "top left",
+                }}
+              >
+                <TemplateComponent
+                  id={el.id}
+                  data={el.data}
+                  onDataChange={(newData) =>
+                    onComponentDataChange(el.id, newData)
+                  }
+                  onDelete={() => onComponentDelete(el.id)}
+                  width={el.width ?? templateDef.defaultSize.width}
+                  height={el.height ?? templateDef.defaultSize.height}
+                />
+              </div>
+            </div>
+          );
+        })}
 
       {textBox && (
         <div

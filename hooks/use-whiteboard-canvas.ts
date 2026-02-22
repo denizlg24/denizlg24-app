@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { IWhiteboardElement } from "@/lib/data-types";
 import type {
   DrawingData,
+  ResizeHandle,
   SelectionRect,
   ShapeData,
   TextData,
@@ -134,7 +135,6 @@ function pointInElement(
   );
 }
 
-
 function lineSegmentIntersectsRect(
   x1: number,
   y1: number,
@@ -173,7 +173,6 @@ function lineSegmentIntersectsRect(
   return false;
 }
 
-
 function pointToSegmentDist(
   px: number,
   py: number,
@@ -192,7 +191,6 @@ function pointToSegmentDist(
   const closestY = ay + t * dy;
   return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
 }
-
 
 function segmentToSegmentDist(
   a1x: number,
@@ -303,8 +301,7 @@ function eraserHitsElement(
 export function useWhiteboardCanvas(
   history: ReturnType<typeof useWhiteboardHistory>,
 ) {
-  const { elements, addElements, removeElements, updateElements, pushAction } =
-    history;
+  const { elements, addElements, removeElements, pushAction } = history;
 
   const [viewState, setViewState] = useState<ViewState>({
     x: 0,
@@ -340,6 +337,11 @@ export function useWhiteboardCanvas(
   const eraserLastPos = useRef({ x: 0, y: 0 });
   const eraserTouchedIds = useRef<Set<string>>(new Set());
 
+  const isResizing = useRef(false);
+  const resizeHandle = useRef<ResizeHandle | null>(null);
+  const resizeElementId = useRef<string | null>(null);
+  const resizeOriginal = useRef<IWhiteboardElement | null>(null);
+
   const [textBox, setTextBox] = useState<{
     worldX: number;
     worldY: number;
@@ -366,6 +368,18 @@ export function useWhiteboardCanvas(
       return screenToWorld(sx, sy, viewState);
     },
     [viewState],
+  );
+
+  const startResize = useCallback(
+    (elementId: string, handle: ResizeHandle) => {
+      const el = elements.find((e) => e.id === elementId);
+      if (!el) return;
+      isResizing.current = true;
+      resizeHandle.current = handle;
+      resizeElementId.current = elementId;
+      resizeOriginal.current = { ...el };
+    },
+    [elements],
   );
 
   const onPointerDown = useCallback(
@@ -408,6 +422,10 @@ export function useWhiteboardCanvas(
           }
         }
 
+        
+        isAreaSelecting.current = true;
+        areaSelectStart.current = { x: w.x, y: w.y };
+        setSelectionRect({ x: w.x, y: w.y, width: 0, height: 0 });
         setSelectedElementIds(new Set());
         return;
       }
@@ -520,6 +538,121 @@ export function useWhiteboardCanvas(
           const movedMap = new Map(moved.map((m) => [m.id, m]));
           return prev.map((el) => movedMap.get(el.id) ?? el);
         });
+        return;
+      }
+
+      if (
+        isResizing.current &&
+        resizeOriginal.current &&
+        resizeHandle.current
+      ) {
+        const w = toWorld(e);
+        const orig = resizeOriginal.current;
+        const handle = resizeHandle.current;
+        const origBounds = getElementBounds(orig);
+        const MIN_SIZE = 20;
+
+        const offsetX = origBounds.x - orig.x;
+        const offsetY = origBounds.y - orig.y;
+
+        let newBoundsX = origBounds.x;
+        let newBoundsY = origBounds.y;
+        let newW = origBounds.w;
+        let newH = origBounds.h;
+
+        if (handle === "top-left") {
+          newW = origBounds.x + origBounds.w - w.x;
+          newH = origBounds.y + origBounds.h - w.y;
+          newBoundsX = w.x;
+          newBoundsY = w.y;
+        } else if (handle === "top-right") {
+          newW = w.x - origBounds.x;
+          newH = origBounds.y + origBounds.h - w.y;
+          newBoundsY = w.y;
+        } else if (handle === "bottom-left") {
+          newW = origBounds.x + origBounds.w - w.x;
+          newH = w.y - origBounds.y;
+          newBoundsX = w.x;
+        } else if (handle === "bottom-right") {
+          newW = w.x - origBounds.x;
+          newH = w.y - origBounds.y;
+        }
+
+        if (newW < MIN_SIZE) {
+          if (handle === "top-left" || handle === "bottom-left") {
+            newBoundsX = origBounds.x + origBounds.w - MIN_SIZE;
+          }
+          newW = MIN_SIZE;
+        }
+        if (newH < MIN_SIZE) {
+          if (handle === "top-left" || handle === "top-right") {
+            newBoundsY = origBounds.y + origBounds.h - MIN_SIZE;
+          }
+          newH = MIN_SIZE;
+        }
+
+        const scaleX = origBounds.w > 0 ? newW / origBounds.w : 1;
+        const scaleY = origBounds.h > 0 ? newH / origBounds.h : 1;
+
+        const newElX = newBoundsX - offsetX * scaleX;
+        const newElY = newBoundsY - offsetY * scaleY;
+
+        const data = orig.data as Record<string, unknown>;
+        let updated: IWhiteboardElement;
+
+        if (data.points) {
+          const d = data as unknown as DrawingData;
+          if (d.points.length < 2) return;
+          const scaledPoints = d.points.map((p) => ({
+            x: p.x * scaleX,
+            y: p.y * scaleY,
+          }));
+          updated = {
+            ...orig,
+            x: newElX,
+            y: newElY,
+            data: {
+              ...d,
+              points: scaledPoints,
+            } as unknown as Record<string, unknown>,
+          };
+        } else if (data.shapeType) {
+          const d = data as unknown as ShapeData;
+          if (d.shapeType === "arrow") {
+            updated = {
+              ...orig,
+              x: newElX,
+              y: newElY,
+              width: newW,
+              height: newH,
+              data: {
+                ...d,
+                x2: (d.x2 ?? 0) * scaleX,
+                y2: (d.y2 ?? 0) * scaleY,
+              } as unknown as Record<string, unknown>,
+            };
+          } else {
+            updated = {
+              ...orig,
+              x: newBoundsX,
+              y: newBoundsY,
+              width: newW,
+              height: newH,
+            };
+          }
+        } else {
+          updated = {
+            ...orig,
+            x: newBoundsX,
+            y: newBoundsY,
+            width: newW,
+            height: newH,
+          };
+        }
+
+        history.setElements((prev) =>
+          prev.map((el) => (el.id === updated.id ? updated : el)),
+        );
         return;
       }
 
@@ -680,6 +813,32 @@ export function useWhiteboardCanvas(
         return;
       }
 
+      if (isResizing.current) {
+        isResizing.current = false;
+        const orig = resizeOriginal.current;
+        const elId = resizeElementId.current;
+        if (orig && elId) {
+          const current = elements.find((el) => el.id === elId);
+          if (
+            current &&
+            (current.x !== orig.x ||
+              current.y !== orig.y ||
+              current.width !== orig.width ||
+              current.height !== orig.height)
+          ) {
+            pushAction({
+              type: "update",
+              before: [orig],
+              after: [current],
+            });
+          }
+        }
+        resizeHandle.current = null;
+        resizeElementId.current = null;
+        resizeOriginal.current = null;
+        return;
+      }
+
       if (isAreaSelecting.current) {
         isAreaSelecting.current = false;
         if (selectionRect) {
@@ -801,6 +960,105 @@ export function useWhiteboardCanvas(
     [textBox, addElements, getNextZIndex],
   );
 
+  const findNonOverlappingPosition = useCallback(
+    (
+      targetW: number,
+      targetH: number,
+      preferX: number,
+      preferY: number,
+    ): { x: number; y: number } => {
+      const PADDING = 20;
+      const candidate = { x: preferX, y: preferY, w: targetW, h: targetH };
+
+      const existingBounds = elements.map((el) => getElementBounds(el));
+
+      const overlaps = (cx: number, cy: number): boolean => {
+        const c = { x: cx, y: cy, w: targetW, h: targetH };
+        for (const b of existingBounds) {
+          if (rectsOverlap(c, b)) return true;
+        }
+        return false;
+      };
+
+      if (!overlaps(preferX, preferY)) {
+        return { x: preferX, y: preferY };
+      }
+
+      
+      const step = PADDING + Math.max(targetW, targetH) * 0.5;
+      for (let ring = 1; ring <= 20; ring++) {
+        const dist = ring * step;
+        
+        for (let angle = 0; angle < 8; angle++) {
+          const rad = (angle / 8) * Math.PI * 2;
+          const cx = preferX + Math.cos(rad) * dist;
+          const cy = preferY + Math.sin(rad) * dist;
+          if (!overlaps(cx, cy)) {
+            return { x: cx, y: cy };
+          }
+        }
+      }
+
+      
+      return {
+        x: preferX + targetW + PADDING,
+        y: preferY,
+      };
+    },
+    [elements],
+  );
+
+  const addComponent = useCallback(
+    (
+      componentType: string,
+      defaultSize: { width: number; height: number },
+      defaultData: Record<string, unknown>,
+    ) => {
+      const centerX =
+        (-viewState.x + window.innerWidth / 2) / viewState.zoom -
+        defaultSize.width / 2;
+      const centerY =
+        (-viewState.y + window.innerHeight / 2) / viewState.zoom -
+        defaultSize.height / 2;
+
+      const pos = findNonOverlappingPosition(
+        defaultSize.width,
+        defaultSize.height,
+        centerX,
+        centerY,
+      );
+
+      const el: IWhiteboardElement = {
+        id: newId(),
+        type: "component",
+        componentType,
+        x: pos.x,
+        y: pos.y,
+        width: defaultSize.width,
+        height: defaultSize.height,
+        zIndex: getNextZIndex(),
+        data: { ...defaultData },
+      };
+      addElements([el]);
+      setSelectedElementIds(new Set([el.id]));
+    },
+    [viewState, getNextZIndex, addElements, findNonOverlappingPosition],
+  );
+
+  const updateComponentData = useCallback(
+    (elementId: string, newData: Record<string, unknown>) => {
+      history.setElements((prev) => {
+        const el = prev.find((e) => e.id === elementId);
+        if (!el) return prev;
+        const before = el;
+        const after = { ...el, data: newData };
+        pushAction({ type: "update", before: [before], after: [after] });
+        return prev.map((e) => (e.id === elementId ? after : e));
+      });
+    },
+    [history, pushAction],
+  );
+
   const deleteSelected = useCallback(() => {
     if (selectedElementIds.size === 0) return;
     removeElements(selectedElementIds);
@@ -827,5 +1085,8 @@ export function useWhiteboardCanvas(
     commitText,
     deleteSelected,
     initializeView,
+    startResize,
+    addComponent,
+    updateComponentData,
   };
 }

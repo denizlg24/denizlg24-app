@@ -76,6 +76,7 @@
     "fs:scope-appcache-recursive",
     "fs:scope-applog",
     "fs:scope-applog-recursive",
+    "fs:scope-home-recursive",
 
     "dialog:default",
     "dialog:allow-open",
@@ -98,10 +99,7 @@
 
     {
       "identifier": "http:default",
-      "allow": [
-        { "url": "http://*:*" },
-        { "url": "https://*:*" }
-      ]
+      "allow": [{ "url": "http://*:*" }, { "url": "https://*:*" }]
     },
 
     "notification:default",

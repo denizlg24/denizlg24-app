@@ -49,6 +49,12 @@ export interface HistoryEntry {
   after: IWhiteboardElement[];
 }
 
+export type ResizeHandle =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
 export interface SelectionRect {
   x: number;
   y: number;

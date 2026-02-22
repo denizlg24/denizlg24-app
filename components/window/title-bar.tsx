@@ -10,6 +10,8 @@ const PATHNAME_TITLE_MAP = {
   "/dashboard/timetable": "timetable",
   "/dashboard/calendar": "calendar",
   "/dashboard/kanban": "kanban boards",
+  "/dashboard/whiteboard": "whiteboard",
+  "/dashboard/whiteboard/today": "today's board",
 };
 
 type AppWindow = {

@@ -90,7 +90,7 @@ const CURSOR_MAP: Record<WhiteboardTool, string> = {
   rectangle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
   circle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
   arrow: "cursor-[url(/assets/shape-cursor.png),_pointer]",
-  select: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  select: "cursor-auto",
   text: "cursor-[url(/assets/text-cursor.png),_pointer]",
   eraser: "cursor-[url(/assets/eraser-cursor.png),_pointer]",
   hand: "cursor-grab",
@@ -394,10 +394,8 @@ export function WhiteboardEditor({
           setSelectedTool("hand");
           break;
         case "v":
-          setSelectedTool("pointer");
-          break;
         case "s":
-          if (!e.ctrlKey && !e.metaKey) setSelectedTool("select");
+          if (!e.ctrlKey && !e.metaKey) setSelectedTool("pointer");
           break;
         case "Escape":
           canvas.setSelectedElementIds(new Set());
@@ -480,6 +478,12 @@ export function WhiteboardEditor({
         onTextCommit={handleTextCommit}
         onTextCancel={handleTextCancel}
         onDeleteSelected={canvas.deleteSelected}
+        onStartResize={canvas.startResize}
+        onComponentDataChange={canvas.updateComponentData}
+        onComponentDelete={(elementId) => {
+          history.removeElements(new Set([elementId]));
+          canvas.setSelectedElementIds(new Set());
+        }}
       />
 
       <WhiteboardTopBar
@@ -511,6 +515,10 @@ export function WhiteboardEditor({
         onColorChange={setSelectedColor}
         onUndo={history.undo}
         onRedo={history.redo}
+        onAddComponent={(componentType, defaultSize, defaultData) => {
+          canvas.addComponent(componentType, defaultSize, defaultData);
+          setSelectedTool("pointer");
+        }}
       />
     </div>
   );

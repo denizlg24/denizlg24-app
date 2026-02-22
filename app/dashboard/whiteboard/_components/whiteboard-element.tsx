@@ -138,27 +138,14 @@ function ComponentElement({ element }: { element: IWhiteboardElement }) {
   const w = element.width ?? 100;
   const h = element.height ?? 60;
   return (
-    <g transform={`translate(${element.x}, ${element.y})`}>
-      <rect
-        width={w}
-        height={h}
-        fill="var(--surface)"
-        stroke="var(--border)"
-        strokeWidth={1}
-        rx={4}
-      />
-      <text
-        x={w / 2}
-        y={h / 2}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill="var(--foreground)"
-        fontSize={12}
-        style={{ userSelect: "none" }}
-      >
-        {element.componentType ?? "Component"}
-      </text>
-    </g>
+    <rect
+      x={element.x}
+      y={element.y}
+      width={w}
+      height={h}
+      fill="transparent"
+      stroke="none"
+    />
   );
 }
 

@@ -2,7 +2,6 @@
 
 import {
   ArrowUpRight,
-  BoxSelectIcon,
   Circle,
   Eraser,
   Hand,
@@ -25,6 +24,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import type { WhiteboardTool } from "@/lib/whiteboard-types";
+import { templateRegistry } from "./templates";
 
 const COLORS = [
   "#000000",
@@ -50,6 +50,11 @@ export interface WhiteboardBottomBarProps {
   onColorChange: (color: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onAddComponent: (
+    componentType: string,
+    defaultSize: { width: number; height: number },
+    defaultData: Record<string, unknown>,
+  ) => void;
 }
 
 export function WhiteboardBottomBar({
@@ -63,6 +68,7 @@ export function WhiteboardBottomBar({
   onColorChange,
   onUndo,
   onRedo,
+  onAddComponent,
 }: WhiteboardBottomBarProps) {
   return (
     <div className="absolute cursor-auto z-50 border bg-surface shadow-xs bottom-2 left-1/2 -translate-x-1/2 w-fit rounded-full py-2 px-3 flex flex-row items-center gap-2">
@@ -197,15 +203,6 @@ export function WhiteboardBottomBar({
         <MousePointer />
       </Button>
 
-      <Button
-        className={cn(selectedTool === "select" && "border-2 border-primary")}
-        onClick={() => onToolChange("select")}
-        size="icon-sm"
-        variant="outline"
-      >
-        <BoxSelectIcon />
-      </Button>
-
       <div className="w-px h-5 bg-primary" />
 
       <Popover>
@@ -255,9 +252,35 @@ export function WhiteboardBottomBar({
         <Redo />
       </Button>
 
-      <Button size="icon-sm" variant="outline">
-        <Plus />
-      </Button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="icon-sm" variant="outline">
+            <Plus />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="center"
+          className="border rounded-lg w-fit! px-2 py-2 bg-muted flex flex-col gap-1 items-stretch z-99!"
+        >
+          {Object.entries(templateRegistry).map(([key, def]) => {
+            const Icon = def.icon;
+            return (
+              <Button
+                key={key}
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  onAddComponent(key, def.defaultSize, { ...def.defaultData })
+                }
+              >
+                <Icon />
+                {def.name}
+              </Button>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
