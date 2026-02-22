@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Download,
+  Eraser,
   Loader2,
   RotateCcw,
   Save,
@@ -28,8 +29,9 @@ export interface WhiteboardTopBarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onExportPNG: () => void;
-  onRename: (newName: string) => void;
-  onBack: () => void;
+  onRename?: (newName: string) => void;
+  onBack?: () => void;
+  onClear?: () => void;
 }
 
 export function WhiteboardTopBar({
@@ -47,6 +49,7 @@ export function WhiteboardTopBar({
   onExportPNG,
   onRename,
   onBack,
+  onClear,
 }: WhiteboardTopBarProps) {
   const zoomPercent = Math.round(viewState.zoom * 100);
   const [isEditing, setIsEditing] = useState(false);
@@ -66,7 +69,7 @@ export function WhiteboardTopBar({
   const handleCommitRename = useCallback(() => {
     const trimmed = editValue.trim();
     setIsEditing(false);
-    if (trimmed && trimmed !== boardName) {
+    if (trimmed && trimmed !== boardName && onRename) {
       onRename(trimmed);
     }
   }, [editValue, boardName, onRename]);
@@ -86,36 +89,48 @@ export function WhiteboardTopBar({
 
   return (
     <div className="absolute cursor-auto top-2 left-1/2 -translate-x-1/2 z-50 border bg-surface shadow-xs rounded-full py-2 px-3 flex flex-row items-center gap-2">
-      <Button
-        size="icon-xs"
-        variant="outline"
-        onClick={onBack}
-        title="Back to boards"
-      >
-        <ArrowLeft />
-      </Button>
+      {onBack && (
+        <>
+          <Button
+            size="icon-xs"
+            variant="outline"
+            onClick={onBack}
+            title="Back to boards"
+          >
+            <ArrowLeft />
+          </Button>
 
-      <div className="h-5 w-px bg-border" />
+          <div className="h-5 w-px bg-border" />
+        </>
+      )}
 
-      {isEditing ? (
-        <input
-          ref={inputRef}
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleCommitRename}
-          onKeyDown={handleKeyDown}
-          className="text-xs font-medium max-w-36 bg-transparent border-b border-primary outline-none text-foreground px-0.5"
-        />
+      {onRename ? (
+        <>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleCommitRename}
+              onKeyDown={handleKeyDown}
+              className="text-xs font-medium max-w-36 bg-transparent border-b border-primary outline-none text-foreground px-0.5"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              className="text-xs text-muted-foreground font-medium max-w-28 truncate hover:text-foreground transition-colors cursor-text"
+              title="Click to rename"
+            >
+              {boardName}
+            </button>
+          )}
+        </>
       ) : (
-        <button
-          type="button"
-          onClick={handleStartEdit}
-          className="text-xs text-muted-foreground font-medium max-w-28 truncate hover:text-foreground transition-colors cursor-text"
-          title="Click to rename"
-        >
+        <span className="text-xs text-muted-foreground font-medium max-w-28 truncate">
           {boardName}
-        </button>
+        </span>
       )}
 
       <div className="h-5 w-px bg-border" />
@@ -139,6 +154,19 @@ export function WhiteboardTopBar({
       >
         <X />
       </Button>
+
+      {onClear && (
+        <Button
+          size="icon-xs"
+          variant="outline"
+          onClick={onClear}
+          disabled={isSaving}
+          title="Clear board"
+          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+        >
+          <Eraser />
+        </Button>
+      )}
 
       {selectedCount > 0 && (
         <>

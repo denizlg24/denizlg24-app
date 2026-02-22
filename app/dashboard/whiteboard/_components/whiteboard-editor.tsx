@@ -85,7 +85,7 @@ function elementToSVGString(el: IWhiteboardElement): string {
 }
 
 const CURSOR_MAP: Record<WhiteboardTool, string> = {
-  pen: "cursor-[url(/assets/drawing-cursor.png),_pointer]",
+  pen: "cursor-[url(/assets/drawing-cursor.png)_1_16,_pointer]",
   square: "cursor-[url(/assets/shape-cursor.png),_pointer]",
   rectangle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
   circle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
@@ -98,11 +98,16 @@ const CURSOR_MAP: Record<WhiteboardTool, string> = {
 };
 
 interface WhiteboardEditorProps {
-  id: string;
-  onBack: () => void;
+  id?: string;
+  onBack?: () => void;
+  todayMode?: boolean;
 }
 
-export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
+export function WhiteboardEditor({
+  id,
+  onBack,
+  todayMode,
+}: WhiteboardEditorProps) {
   const { settings, loading: loadingSettings } = useUserSettings();
 
   const API = useMemo(() => {
@@ -134,12 +139,14 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
     }
   }, [history.elements, history.revision]);
 
+  const endpoint = todayMode ? "whiteboard/today" : `whiteboard/${id}`;
+
   const fetchWhiteboard = useCallback(async () => {
-    if (!API || !id) return;
+    if (!API || (!todayMode && !id)) return;
     setLoading(true);
     try {
       const result = await API.GET<{ whiteboard: IWhiteboard }>({
-        endpoint: `whiteboard/${id}`,
+        endpoint,
       });
       if ("code" in result) {
         console.error(result);
@@ -154,19 +161,19 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
     } catch (_error) {
       setLoading(false);
     }
-  }, [API, id, history, canvas]);
+  }, [API, id, todayMode, endpoint, history, canvas]);
 
   useEffect(() => {
-    if (!API || !id || !loading) return;
+    if (!API || (!todayMode && !id) || !loading) return;
     fetchWhiteboard();
-  }, [API, id, loading, fetchWhiteboard]);
+  }, [API, id, todayMode, loading, fetchWhiteboard]);
 
   const handleSave = useCallback(async () => {
     if (!API || !whiteboard) return;
     setIsSaving(true);
     try {
       const result = await API.PUT<{ whiteboard: IWhiteboard }>({
-        endpoint: `whiteboard/${whiteboard._id}`,
+        endpoint,
         body: {
           elements: history.elements,
           viewState: canvas.viewState,
@@ -178,7 +185,7 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
       }
     } catch (_error) {}
     setIsSaving(false);
-  }, [API, whiteboard, history.elements, canvas.viewState]);
+  }, [API, whiteboard, endpoint, history.elements, canvas.viewState]);
 
   const handleDiscard = useCallback(() => {
     if (!whiteboard) return;
@@ -193,7 +200,7 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
       if (!API || !whiteboard) return;
       try {
         const result = await API.PUT<{ whiteboard: IWhiteboard }>({
-          endpoint: `whiteboard/${whiteboard._id}`,
+          endpoint,
           body: { name: newName },
         });
         if (!("code" in result)) {
@@ -201,8 +208,31 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
         }
       } catch (_error) {}
     },
-    [API, whiteboard],
+    [API, whiteboard, endpoint],
   );
+
+  const handleClear = useCallback(async () => {
+    if (!API || !whiteboard) return;
+    setIsSaving(true);
+    try {
+      const result = await API.DELETE<{ whiteboard: IWhiteboard }>({
+        endpoint,
+      });
+      if (!("code" in result)) {
+        history.replaceAll([]);
+        canvas.initializeView({ x: 0, y: 0, zoom: 1 });
+        canvas.setSelectedElementIds(new Set());
+        initialElementsRef.current = JSON.stringify([]);
+        setHasChanges(false);
+        setWhiteboard((prev) =>
+          prev
+            ? { ...prev, elements: [], viewState: { x: 0, y: 0, zoom: 1 } }
+            : prev,
+        );
+      }
+    } catch (_error) {}
+    setIsSaving(false);
+  }, [API, whiteboard, endpoint, history, canvas]);
 
   const handleZoomIn = useCallback(() => {
     canvas.setViewState((prev) => ({
@@ -465,8 +495,9 @@ export function WhiteboardEditor({ id, onBack }: WhiteboardEditorProps) {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onExportPNG={handleExportPNG}
-        onRename={handleRename}
+        onRename={todayMode ? undefined : handleRename}
         onBack={onBack}
+        onClear={todayMode ? handleClear : undefined}
       />
 
       <WhiteboardBottomBar

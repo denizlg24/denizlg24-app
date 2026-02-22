@@ -1,5 +1,7 @@
 "use client";
 
-export default function WhiteboardPage() {
-  return <div className="w-dvh overflow-clip relative"></div>;
+import { WhiteboardEditor } from "../_components/whiteboard-editor";
+
+export default function WhiteboardTodayPage() {
+  return <WhiteboardEditor todayMode />;
 }
