@@ -126,6 +126,74 @@ function pointInElement(
   el: IWhiteboardElement,
   tolerance: number,
 ): boolean {
+  const data = el.data as Record<string, unknown>;
+
+  if (data.points) {
+    const d = data as unknown as DrawingData;
+    if (d.points.length < 2) return false;
+    const strokeTol = tolerance + (d.thickness ?? 2) / 2;
+    for (let i = 1; i < d.points.length; i++) {
+      const p0 = d.points[i - 1];
+      const p1 = d.points[i];
+      const dist = pointToSegmentDist(
+        wx,
+        wy,
+        el.x + p0.x,
+        el.y + p0.y,
+        el.x + p1.x,
+        el.y + p1.y,
+      );
+      if (dist <= strokeTol) return true;
+    }
+    return false;
+  }
+
+  if (data.shapeType) {
+    const d = data as unknown as ShapeData;
+    const strokeTol = tolerance + (d.thickness ?? 2) / 2;
+
+    if (d.shapeType === "arrow") {
+      const x2 = d.x2 ?? 0;
+      const y2 = d.y2 ?? 0;
+      const dist = pointToSegmentDist(wx, wy, el.x, el.y, el.x + x2, el.y + y2);
+      return dist <= strokeTol;
+    }
+
+    if (d.shapeType === "circle") {
+      const w = el.width ?? 0;
+      const h = el.height ?? 0;
+      const cx = el.x + w / 2;
+      const cy = el.y + h / 2;
+      const rx = w / 2;
+      const ry = h / 2;
+      if (rx <= 0 || ry <= 0) return false;
+
+      const nx = (wx - cx) / rx;
+      const ny = (wy - cy) / ry;
+      const d2 = nx * nx + ny * ny;
+
+      const outerR = 1 + strokeTol / Math.min(rx, ry);
+      const innerR = Math.max(0, 1 - strokeTol / Math.min(rx, ry));
+      return d2 <= outerR * outerR && d2 >= innerR * innerR;
+    }
+
+    const bx = el.x;
+    const by = el.y;
+    const bw = el.width ?? 0;
+    const bh = el.height ?? 0;
+    const edges: [number, number, number, number][] = [
+      [bx, by, bx + bw, by],
+      [bx + bw, by, bx + bw, by + bh],
+      [bx + bw, by + bh, bx, by + bh],
+      [bx, by + bh, bx, by],
+    ];
+    for (const [ex1, ey1, ex2, ey2] of edges) {
+      const dist = pointToSegmentDist(wx, wy, ex1, ey1, ex2, ey2);
+      if (dist <= strokeTol) return true;
+    }
+    return false;
+  }
+
   const b = getElementBounds(el);
   return (
     wx >= b.x - tolerance &&
@@ -422,7 +490,6 @@ export function useWhiteboardCanvas(
           }
         }
 
-        
         isAreaSelecting.current = true;
         areaSelectStart.current = { x: w.x, y: w.y };
         setSelectionRect({ x: w.x, y: w.y, width: 0, height: 0 });
@@ -984,11 +1051,10 @@ export function useWhiteboardCanvas(
         return { x: preferX, y: preferY };
       }
 
-      
       const step = PADDING + Math.max(targetW, targetH) * 0.5;
       for (let ring = 1; ring <= 20; ring++) {
         const dist = ring * step;
-        
+
         for (let angle = 0; angle < 8; angle++) {
           const rad = (angle / 8) * Math.PI * 2;
           const cx = preferX + Math.cos(rad) * dist;
@@ -999,7 +1065,6 @@ export function useWhiteboardCanvas(
         }
       }
 
-      
       return {
         x: preferX + targetW + PADDING,
         y: preferY,

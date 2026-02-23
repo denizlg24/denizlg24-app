@@ -170,13 +170,56 @@ export function TimetableForm({
 
       <div className="grid grid-cols-2 gap-4">
         <Field data-invalid={!!errors.startTime}>
-          <FieldLabel htmlFor="startTime">Start Time</FieldLabel>
+          <FieldLabel>Start Time</FieldLabel>
           <Controller
             name="startTime"
             control={control}
-            render={({ field }) => (
-              <Input {...field} id="startTime" type="time" />
-            )}
+            render={({ field }) => {
+              const [h = "09", m = "00"] = field.value
+                ? field.value.split(":")
+                : [];
+              return (
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={h}
+                    onValueChange={(v) => field.onChange(`${v}:${m}`)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="HH" />
+                    </SelectTrigger>
+                    <SelectContent className="z-99 max-h-48" position="popper">
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const val = String(i).padStart(2, "0");
+                        return (
+                          <SelectItem key={val} value={val}>
+                            {val}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">:</span>
+                  <Select
+                    value={m}
+                    onValueChange={(v) => field.onChange(`${h}:${v}`)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="MM" />
+                    </SelectTrigger>
+                    <SelectContent className="z-99 max-h-48" position="popper">
+                      {Array.from({ length: 60 }, (_, i) => {
+                        const val = String(i).padStart(2, "0");
+                        return (
+                          <SelectItem key={val} value={val}>
+                            {val}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            }}
           />
           {errors.startTime && (
             <FieldError>{errors.startTime.message}</FieldError>
@@ -184,13 +227,56 @@ export function TimetableForm({
         </Field>
 
         <Field data-invalid={!!errors.endTime}>
-          <FieldLabel htmlFor="endTime">End Time</FieldLabel>
+          <FieldLabel>End Time</FieldLabel>
           <Controller
             name="endTime"
             control={control}
-            render={({ field }) => (
-              <Input {...field} id="endTime" type="time" />
-            )}
+            render={({ field }) => {
+              const [h = "10", m = "00"] = field.value
+                ? field.value.split(":")
+                : [];
+              return (
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={h}
+                    onValueChange={(v) => field.onChange(`${v}:${m}`)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="HH" />
+                    </SelectTrigger>
+                    <SelectContent className="z-99 max-h-48" position="popper">
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const val = String(i).padStart(2, "0");
+                        return (
+                          <SelectItem key={val} value={val}>
+                            {val}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">:</span>
+                  <Select
+                    value={m}
+                    onValueChange={(v) => field.onChange(`${h}:${v}`)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="MM" />
+                    </SelectTrigger>
+                    <SelectContent className="z-99 max-h-48" position="popper">
+                      {Array.from({ length: 60 }, (_, i) => {
+                        const val = String(i).padStart(2, "0");
+                        return (
+                          <SelectItem key={val} value={val}>
+                            {val}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            }}
           />
           {errors.endTime && <FieldError>{errors.endTime.message}</FieldError>}
         </Field>

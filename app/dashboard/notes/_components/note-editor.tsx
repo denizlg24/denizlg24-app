@@ -363,7 +363,7 @@ export const NoteEditor = ({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           id="content"
-          className="font-mono text-sm h-[calc(100vh-8rem)] overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none!"
+          className="font-mono text-sm h-[calc(100vh-8rem)] overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none!"
         />
       )}
       {togglePreview && (

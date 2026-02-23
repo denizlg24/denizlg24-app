@@ -1,8 +1,9 @@
+import { Calistoga, Inter } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
+import { ExternalLinkInterceptor } from "@/components/window/external-link-interceptor";
 import { TitleBar } from "@/components/window/title-bar";
 import { UpdateNotifier } from "@/components/window/update-notifier";
-import { Toaster } from "@/components/ui/sonner";
 import { UserSettingsProvider } from "@/context/user-context";
-import { Inter, Calistoga } from "next/font/google";
 import "./globals.css";
 import { DisableContextMenu } from "@/components/window/disable-context-menu";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
           <UserSettingsProvider>{children}</UserSettingsProvider>
           <Toaster />
           <UpdateNotifier />
+          <ExternalLinkInterceptor />
         </DisableContextMenu>
       </body>
     </html>

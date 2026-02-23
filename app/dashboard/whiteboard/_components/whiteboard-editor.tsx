@@ -87,13 +87,13 @@ function elementToSVGString(el: IWhiteboardElement): string {
 
 const CURSOR_MAP: Record<WhiteboardTool, string> = {
   pen: "cursor-[url(/assets/drawing-cursor.png)_1_16,_pointer]",
-  square: "cursor-[url(/assets/shape-cursor.png),_pointer]",
-  rectangle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
-  circle: "cursor-[url(/assets/shape-cursor.png),_pointer]",
-  arrow: "cursor-[url(/assets/shape-cursor.png),_pointer]",
+  square: "cursor-[url(/assets/shape-cursor.png)_7_7,_pointer]",
+  rectangle: "cursor-[url(/assets/shape-cursor.png)_7_7,_pointer]",
+  circle: "cursor-[url(/assets/shape-cursor.png)_7_7,_pointer]",
+  arrow: "cursor-[url(/assets/shape-cursor.png)_7_7,_pointer]",
   select: "cursor-auto",
-  text: "cursor-[url(/assets/text-cursor.png),_pointer]",
-  eraser: "cursor-[url(/assets/eraser-cursor.png),_pointer]",
+  text: "cursor-[url(/assets/text-cursor.png)_3_11,_pointer]",
+  eraser: "cursor-[url(/assets/eraser-cursor.png)_0_16,_pointer]",
   hand: "cursor-grab",
   pointer: "cursor-auto",
 };

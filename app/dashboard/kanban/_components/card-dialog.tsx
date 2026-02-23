@@ -1,18 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { format } from "date-fns";
+import {
+  CalendarDays,
+  ExternalLink,
+  FileText,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { IKanbanCard, IKanbanColumn, KanbanPriority } from "@/lib/data-types";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -21,8 +33,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ExternalLink, FileText, Save, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
+import type {
+  IKanbanCard,
+  IKanbanColumn,
+  KanbanPriority,
+} from "@/lib/data-types";
 
 type ColumnMeta = Pick<IKanbanColumn, "_id" | "title">;
 
@@ -58,9 +74,7 @@ export function CardDialog({
   const [dueDate, setDueDate] = useState(
     card.dueDate ? format(new Date(card.dueDate), "yyyy-MM-dd") : "",
   );
-  const [labelInput, setLabelInput] = useState(
-    (card.labels ?? []).join(", "),
-  );
+  const [labelInput, setLabelInput] = useState((card.labels ?? []).join(", "));
   const [isSaving, setIsSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -116,7 +130,9 @@ export function CardDialog({
               <FileText className="size-3.5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground">Linked note</p>
-                <p className="text-sm font-medium truncate">{linkedNote.name}</p>
+                <p className="text-sm font-medium truncate">
+                  {linkedNote.name}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -124,9 +140,7 @@ export function CardDialog({
                 className="shrink-0"
                 onClick={() => {
                   onClose();
-                  router.push(
-                    `/dashboard/notes?note=${linkedNote.id}`,
-                  );
+                  router.push(`/dashboard/notes?note=${linkedNote.id}`);
                 }}
               >
                 <ExternalLink className="size-3.5" />
@@ -185,13 +199,31 @@ export function CardDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="card-due">Due Date</Label>
-            <Input
-              id="card-due"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+            <Label>Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="justify-start font-normal w-full"
+                >
+                  <CalendarDays className="size-4 shrink-0" />
+                  {dueDate ? format(new Date(dueDate), "PPP") : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dueDate ? new Date(dueDate) : undefined}
+                  onSelect={(day) => {
+                    if (!day) {
+                      setDueDate("");
+                      return;
+                    }
+                    setDueDate(format(day, "yyyy-MM-dd"));
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -214,7 +246,9 @@ export function CardDialog({
           <div className="flex items-center justify-between">
             {confirmDelete ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-destructive">Delete this card?</span>
+                <span className="text-sm text-destructive">
+                  Delete this card?
+                </span>
                 <Button size="sm" variant="destructive" onClick={handleDelete}>
                   Confirm
                 </Button>

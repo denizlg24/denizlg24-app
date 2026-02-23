@@ -362,6 +362,8 @@ export function WhiteboardCanvas({
           const screenH =
             (el.height ?? templateDef.defaultSize.height) * viewState.zoom;
 
+          const isSelected = selectedElementIds.has(el.id);
+
           return (
             <div
               key={`component-${el.id}`}
@@ -371,7 +373,7 @@ export function WhiteboardCanvas({
                 top: screenY,
                 width: screenW,
                 height: screenH,
-                pointerEvents: isPointerTool ? "auto" : "none",
+                pointerEvents: isPointerTool && isSelected ? "auto" : "none",
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
