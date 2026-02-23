@@ -254,3 +254,16 @@ export interface IKanbanColumn {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface ILlmUsage {
+  _id: string;
+  llmModel: string;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  systemPrompt: string;
+  userPrompt: string;
+  source: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

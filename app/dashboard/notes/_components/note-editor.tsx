@@ -32,24 +32,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserSettings } from "@/context/user-context";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { INote } from "@/lib/data-types";
 import { extractDirectory } from "@/lib/user-settings";
-
-export const AnthropicModels = [
-  "claude-sonnet-4-5-20250929",
-  "claude-opus-4-6",
-  "claude-haiku-4-5-20251001",
-];
+import { ModelSelector } from "@/components/ui/model-selector";
 
 export const NoteEditor = ({
   note,
@@ -71,9 +60,8 @@ export const NoteEditor = ({
 
   const [enhancing, setEnhancing] = useState(false);
   const [additionalInfo, setAdditionalInfo] = useState("");
-  const [model, setModel] = useState<(typeof AnthropicModels)[number]>(
-    "claude-sonnet-4-5-20250929",
-  );
+  const [model, setModel] = useState("claude-haiku-4-5");
+
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
@@ -141,7 +129,10 @@ export const NoteEditor = ({
     if (!API) return;
     try {
       setEnhancing(true);
-      const result = await API.POST<{ enhancedContent: string }>({
+      closeEnhanceDialogRef.current?.click();
+      setTogglePreview(true);
+
+      const result = await API.POST_STREAM({
         endpoint: `notes/${note._id}/enhance`,
         body: {
           ...(additionalInfo ? { additionalInfo } : {}),
@@ -154,13 +145,48 @@ export const NoteEditor = ({
         setEnhancing(false);
         return;
       }
-      setContent(result.enhancedContent);
-      setTogglePreview(true);
+
+      const reader = result.body?.getReader();
+      if (!reader) {
+        setEnhancing(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6);
+          try {
+            const event = JSON.parse(json);
+            if (event.type === "delta") {
+              accumulated += event.text;
+              setContent(accumulated);
+            } else if (event.type === "done") {
+              const { inputTokens, outputTokens, costUsd } = event.usage;
+              toast.success(
+                `Enhanced — ${inputTokens + outputTokens} tokens ($${costUsd.toFixed(4)})`,
+              );
+            } else if (event.type === "error") {
+              toast.error(event.error ?? "Stream error");
+            }
+          } catch {}
+        }
+      }
     } catch (error) {
       console.error("Error enhancing note:", error);
     } finally {
       setEnhancing(false);
-      closeEnhanceDialogRef.current?.click();
     }
   };
 
@@ -195,21 +221,7 @@ export const NoteEditor = ({
                   <Label htmlFor="model" className="w-32">
                     Model
                   </Label>
-                  <Select
-                    value={model}
-                    onValueChange={(value) => setModel(value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent className="z-99" position="popper">
-                      {AnthropicModels.map((modelKey) => (
-                        <SelectItem key={modelKey} value={modelKey}>
-                          {modelKey}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ModelSelector model={model} onModelChange={setModel} />
                 </div>
                 <Separator />
                 <div className="flex flex-col items-start gap-1">
@@ -225,8 +237,12 @@ export const NoteEditor = ({
                 </div>
               </div>
               <DialogFooter>
-                <DialogClose ref={closeEnhanceDialogRef} asChild>
-                  <Button variant="outline" disabled={enhancing}>
+                <DialogClose asChild>
+                  <Button
+                    ref={closeEnhanceDialogRef}
+                    variant="outline"
+                    disabled={enhancing}
+                  >
                     Cancel
                   </Button>
                 </DialogClose>

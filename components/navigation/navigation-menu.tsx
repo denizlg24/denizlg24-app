@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
+  Brain,
   Briefcase,
   Calendar,
   CalendarDays,
@@ -183,6 +184,11 @@ export const GROUPS: NavGroup[] = [
   {
     groupLabel: "App",
     items: [
+      {
+        label: "Token Usage",
+        href: "/llm-usage",
+        icon: Brain,
+      },
       {
         label: "Settings",
         href: "/settings",
