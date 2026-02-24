@@ -8,7 +8,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Brain } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -414,7 +414,7 @@ function UsageLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-2 pb-8">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
-        <Zap className="size-4 text-muted-foreground" />
+        <Brain className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Token Usage</span>
       </div>
       <div className="px-4 flex flex-col gap-6 pt-3">
@@ -467,7 +467,7 @@ export default function LlmUsagePage() {
     return (
       <div className="flex flex-col gap-2 pb-8">
         <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
-          <Zap className="size-4 text-muted-foreground" />
+          <Brain className="size-4 text-muted-foreground" />
           <span className="text-sm font-semibold flex-1">Token Usage</span>
         </div>
         <div className="px-4 pt-12 text-center text-muted-foreground text-sm">
@@ -482,7 +482,7 @@ export default function LlmUsagePage() {
   return (
     <div className="flex flex-col gap-2 pb-8">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
-        <Zap className="size-4 text-muted-foreground" />
+        <Brain className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Token Usage</span>
       </div>
 

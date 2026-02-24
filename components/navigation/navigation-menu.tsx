@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
+  AlarmClock,
   Brain,
   Briefcase,
   Calendar,
@@ -179,6 +180,16 @@ export const GROUPS: NavGroup[] = [
         href: "/kanban",
         icon: Kanban,
       }
+    ],
+  },
+  {
+    groupLabel: "Utilities",
+    items: [
+      {
+        label: "Pomodoro Timer",
+        href: "/pomodoro",
+        icon: AlarmClock,
+      },
     ],
   },
   {
