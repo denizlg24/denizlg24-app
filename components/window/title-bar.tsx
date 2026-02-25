@@ -13,6 +13,7 @@ const PATHNAME_TITLE_MAP = {
   "/dashboard/whiteboard": "whiteboard",
   "/dashboard/whiteboard/today": "today's board",
   "/dashboard/llm-usage": "LLM Usage",
+  "/dashboard/pomodoro": "pomodoro timer",
 };
 
 type AppWindow = {

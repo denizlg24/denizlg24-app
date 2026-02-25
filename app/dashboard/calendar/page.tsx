@@ -25,6 +25,7 @@ import {
   Plus,
   CalendarDays,
   CalendarIcon,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,75 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
+function getFaviconUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=32`;
+  } catch {
+    return null;
+  }
+}
+
+interface EventLink {
+  label: string;
+  url: string;
+  icon?: string;
+}
+
+function getSmartNotificationOptions(dateStr: string) {
+  const date = new Date(dateStr);
+  const hours = date.getHours();
+  const eventMinutes = hours * 60 + date.getMinutes();
+
+  const options: { value: string; label: string }[] = [];
+  const added = new Set<string>();
+
+  const add = (value: string, label: string) => {
+    if (!added.has(value)) {
+      options.push({ value, label });
+      added.add(value);
+    }
+  };
+
+  add("0", "At time of event");
+
+  if (hours < 12) {
+    add("5", "5 minutes before");
+    add("15", "15 minutes before");
+    add("30", "30 minutes before");
+    add("60", "1 hour before");
+    if (hours >= 9) {
+      const toDayBefore9AM = eventMinutes + (24 * 60 - 9 * 60);
+      add(toDayBefore9AM.toString(), "Day before at 9 AM");
+    }
+  } else if (hours < 18) {
+    add("15", "15 minutes before");
+    add("30", "30 minutes before");
+    add("60", "1 hour before");
+    add("120", "2 hours before");
+    const toSameDay9AM = eventMinutes - 9 * 60;
+    if (toSameDay9AM > 0) {
+      add(toSameDay9AM.toString(), "Same day at 9 AM");
+    }
+  } else {
+    add("30", "30 minutes before");
+    add("60", "1 hour before");
+    add("120", "2 hours before");
+    const toSameDay9AM = eventMinutes - 9 * 60;
+    add(toSameDay9AM.toString(), "Same day at 9 AM");
+    const toSameDay5PM = eventMinutes - 17 * 60;
+    if (toSameDay5PM > 0) {
+      add(toSameDay5PM.toString(), "Same day at 5 PM");
+    }
+  }
+
+  add("1440", "1 day before");
+  add("2880", "2 days before");
+  add("10080", "1 week before");
+
+  return options;
+}
 
 export default function CalendarPage() {
   const { settings, loading: loadingSettings } = useUserSettings();
@@ -93,6 +163,7 @@ export default function CalendarPage() {
     status: ICalendarEvent["status"];
     notifyBySlack: boolean;
     notifyBeforeMinutes: number;
+    links: EventLink[];
   }>({
     title: "",
     place: "",
@@ -100,6 +171,11 @@ export default function CalendarPage() {
     status: "scheduled",
     notifyBySlack: false,
     notifyBeforeMinutes: 0,
+    links: [],
+  });
+  const [editNewLink, setEditNewLink] = useState<EventLink>({
+    label: "",
+    url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -117,7 +193,13 @@ export default function CalendarPage() {
       status: viewEvent.status,
       notifyBySlack: viewEvent.notifyBySlack,
       notifyBeforeMinutes: viewEvent.notifyBeforeMinutes,
+      links: viewEvent.links.map((l) => ({
+        label: l.label,
+        url: l.url,
+        icon: l.icon,
+      })),
     });
+    setEditNewLink({ label: "", url: "" });
     setEditing(true);
   }, [viewEvent]);
 
@@ -134,6 +216,7 @@ export default function CalendarPage() {
           status: editForm.status,
           notifyBySlack: editForm.notifyBySlack,
           notifyBeforeMinutes: editForm.notifyBeforeMinutes,
+          links: editForm.links,
         },
       });
       if (!("code" in result)) {
@@ -180,6 +263,11 @@ export default function CalendarPage() {
     date: "",
     notifyBySlack: false,
     notifyBeforeMinutes: 30,
+    links: [] as EventLink[],
+  });
+  const [addNewLink, setAddNewLink] = useState<EventLink>({
+    label: "",
+    url: "",
   });
   const [addSaving, setAddSaving] = useState(false);
 
@@ -192,7 +280,9 @@ export default function CalendarPage() {
         : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       notifyBySlack: false,
       notifyBeforeMinutes: 30,
+      links: [],
     });
+    setAddNewLink({ label: "", url: "" });
     setAddingEvent(true);
   }, []);
 
@@ -209,6 +299,7 @@ export default function CalendarPage() {
           status: "scheduled",
           notifyBySlack: addForm.notifyBySlack,
           notifyBeforeMinutes: addForm.notifyBeforeMinutes,
+          links: addForm.links,
         },
       });
       if (!("code" in result)) {
@@ -592,22 +683,133 @@ export default function CalendarPage() {
 
                 {editForm.notifyBySlack && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-minutes">Minutes before</Label>
-                    <Input
-                      id="edit-minutes"
-                      type="number"
-                      min={0}
-                      value={editForm.notifyBeforeMinutes}
-                      onChange={(e) =>
+                    <Label>Notify me</Label>
+                    <Select
+                      value={(() => {
+                        const opts = getSmartNotificationOptions(editForm.date);
+                        const cur = editForm.notifyBeforeMinutes.toString();
+                        return opts.some((o) => o.value === cur)
+                          ? cur
+                          : opts[0]?.value ?? "15";
+                      })()}
+                      onValueChange={(v) =>
                         setEditForm((f) => ({
                           ...f,
-                          notifyBeforeMinutes:
-                            Number.parseInt(e.target.value) || 0,
+                          notifyBeforeMinutes: Number.parseInt(v),
                         }))
                       }
-                    />
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {getSmartNotificationOptions(editForm.date).map(
+                          (opt, i) => (
+                            <SelectItem
+                              key={`${opt.value}-${i}`}
+                              value={opt.value}
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
+
+                <div className="space-y-1.5">
+                  <Label>Links</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Label"
+                      value={editNewLink.label}
+                      onChange={(e) =>
+                        setEditNewLink((l) => ({
+                          ...l,
+                          label: e.target.value,
+                        }))
+                      }
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder="https://..."
+                      type="url"
+                      value={editNewLink.url}
+                      onChange={(e) =>
+                        setEditNewLink((l) => ({ ...l, url: e.target.value }))
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={!editNewLink.label || !editNewLink.url}
+                      onClick={() => {
+                        const icon = getFaviconUrl(editNewLink.url) ?? undefined;
+                        setEditForm((f) => ({
+                          ...f,
+                          links: [
+                            ...f.links,
+                            { ...editNewLink, icon },
+                          ],
+                        }));
+                        setEditNewLink({ label: "", url: "" });
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {editForm.links.length > 0 && (
+                    <div className="space-y-1">
+                      {editForm.links.map((link, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm"
+                        >
+                          {link.icon ? (
+                            <img
+                              src={link.icon}
+                              alt=""
+                              className="w-4 h-4 shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display =
+                                  "none";
+                              }}
+                            />
+                          ) : (
+                            <LinkIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="flex-1 truncate">{link.label}</span>
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-foreground truncate max-w-32 text-xs"
+                          >
+                            {link.url}
+                          </a>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="shrink-0 h-6 w-6"
+                            onClick={() =>
+                              setEditForm((f) => ({
+                                ...f,
+                                links: f.links.filter((_, j) => j !== i),
+                              }))
+                            }
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <Separator />
@@ -773,21 +975,125 @@ export default function CalendarPage() {
 
             {addForm.notifyBySlack && (
               <div className="space-y-1.5">
-                <Label htmlFor="add-minutes">Minutes before</Label>
-                <Input
-                  id="add-minutes"
-                  type="number"
-                  min={0}
-                  value={addForm.notifyBeforeMinutes}
-                  onChange={(e) =>
+                <Label>Notify me</Label>
+                <Select
+                  value={(() => {
+                    const opts = getSmartNotificationOptions(addForm.date);
+                    const cur = addForm.notifyBeforeMinutes.toString();
+                    return opts.some((o) => o.value === cur)
+                      ? cur
+                      : opts[0]?.value ?? "15";
+                  })()}
+                  onValueChange={(v) =>
                     setAddForm((f) => ({
                       ...f,
-                      notifyBeforeMinutes: Number.parseInt(e.target.value) || 0,
+                      notifyBeforeMinutes: Number.parseInt(v),
                     }))
                   }
-                />
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {getSmartNotificationOptions(addForm.date).map((opt, i) => (
+                      <SelectItem
+                        key={`${opt.value}-${i}`}
+                        value={opt.value}
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
+
+            <div className="space-y-1.5">
+              <Label>Links</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Label"
+                  value={addNewLink.label}
+                  onChange={(e) =>
+                    setAddNewLink((l) => ({ ...l, label: e.target.value }))
+                  }
+                  className="flex-1"
+                />
+                <Input
+                  placeholder="https://..."
+                  type="url"
+                  value={addNewLink.url}
+                  onChange={(e) =>
+                    setAddNewLink((l) => ({ ...l, url: e.target.value }))
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={!addNewLink.label || !addNewLink.url}
+                  onClick={() => {
+                    const icon = getFaviconUrl(addNewLink.url) ?? undefined;
+                    setAddForm((f) => ({
+                      ...f,
+                      links: [...f.links, { ...addNewLink, icon }],
+                    }));
+                    setAddNewLink({ label: "", url: "" });
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {addForm.links.length > 0 && (
+                <div className="space-y-1">
+                  {addForm.links.map((link, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm"
+                    >
+                      {link.icon ? (
+                        <img
+                          src={link.icon}
+                          alt=""
+                          className="w-4 h-4 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                      ) : (
+                        <LinkIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="flex-1 truncate">{link.label}</span>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground truncate max-w-32 text-xs"
+                      >
+                        {link.url}
+                      </a>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="shrink-0 h-6 w-6"
+                        onClick={() =>
+                          setAddForm((f) => ({
+                            ...f,
+                            links: f.links.filter((_, j) => j !== i),
+                          }))
+                        }
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <Separator />
