@@ -267,3 +267,30 @@ export interface ILlmUsage {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface IChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  };
+  createdAt: string;
+}
+
+export interface IConversation {
+  _id: string;
+  title: string;
+  llmModel: string;
+  messages: IChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IConversationMeta {
+  _id: string;
+  title: string;
+  llmModel: string;
+  updatedAt: string;
+}

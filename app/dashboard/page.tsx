@@ -1,5 +1,7 @@
-export default async function Home() {
-  return (
-    <div className="flex items-center justify-center bg-zinc-50 font-sans dark:bg-black"></div>
-  );
+"use client";
+
+import { ChatView } from "./_components/chat-view";
+
+export default function Home() {
+  return <ChatView />;
 }

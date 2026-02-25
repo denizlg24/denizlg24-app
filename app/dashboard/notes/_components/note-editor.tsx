@@ -39,6 +39,7 @@ import type { denizApi } from "@/lib/api-wrapper";
 import type { INote } from "@/lib/data-types";
 import { extractDirectory } from "@/lib/user-settings";
 import { ModelSelector } from "@/components/ui/model-selector";
+import { useTextareaEditor } from "@/hooks/use-textarea-editor";
 
 export const NoteEditor = ({
   note,
@@ -65,6 +66,8 @@ export const NoteEditor = ({
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const { onKeyDown } = useTextareaEditor(contentTextareaRef, content, setContent);
 
   const handleSave = async () => {
     if (!API) return;
@@ -376,8 +379,10 @@ export const NoteEditor = ({
 
       {!togglePreview && (
         <Textarea
+          ref={contentTextareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          onKeyDown={onKeyDown}
           id="content"
           className="font-mono text-sm h-[calc(100vh-8rem)] overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none!"
         />

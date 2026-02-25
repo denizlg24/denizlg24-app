@@ -230,10 +230,6 @@ export default function SettingsPage() {
         ))}
 
         <Separator className="mt-2" />
-
-        <div className="py-4 flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">Token Usage</h3>
-        </div>
       </div>
     </div>
   );

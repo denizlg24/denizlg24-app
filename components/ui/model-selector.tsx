@@ -42,7 +42,7 @@ export const ModelSelector = ({
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
-        <SelectContent className="z-99">
+        <SelectContent className="z-99" position="popper">
           <SelectGroup>
             <SelectLabel>Latest Models</SelectLabel>
             {newGenModels.map((model) => (

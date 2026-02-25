@@ -491,7 +491,7 @@ export default function LlmUsagePage() {
           value={period}
           onValueChange={(v) => setPeriod(v as TimePeriod)}
         >
-          <TabsList>
+          <TabsList variant={"line"}>
             {(Object.keys(PERIOD_LABELS) as TimePeriod[]).map((key) => (
               <TabsTrigger key={key} value={key}>
                 {PERIOD_LABELS[key]}
