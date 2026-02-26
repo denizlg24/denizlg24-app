@@ -1,55 +1,350 @@
 "use client";
 
 import { useState } from "react";
-import { Code, Eye } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Code,
+  Eye,
+  Loader2,
+  X,
+} from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
-import type { IChatMessage } from "@/lib/data-types";
+import type {
+  IChatMessage,
+  IChatToolCall,
+  IChatContentSegment,
+} from "@/lib/data-types";
+
+const TOOL_LABELS: Record<string, string> = {
+  get_calendar_events: "Fetched calendar events",
+  create_calendar_event: "Creating calendar event",
+  update_calendar_event: "Updating calendar event",
+  delete_calendar_event: "Deleting calendar event",
+  list_kanban_boards: "Listed kanban boards",
+  get_kanban_board: "Fetched kanban board",
+  create_kanban_card: "Creating kanban card",
+  update_kanban_card: "Updating kanban card",
+  search_notes: "Searched notes",
+  get_note: "Read note",
+  list_folders: "Listed folders",
+  create_note: "Creating note",
+  update_note: "Updating note",
+  get_timetable: "Fetched timetable",
+  create_timetable_entry: "Creating timetable entry",
+  update_timetable_entry: "Updating timetable entry",
+  delete_timetable_entry: "Deleting timetable entry",
+  list_contacts: "Listed contacts",
+  get_contact: "Read contact",
+  update_contact_status: "Updating contact status",
+  list_blogs: "Listed blog posts",
+  get_blog: "Read blog post",
+  search_blogs: "Searched blogs",
+  list_projects: "Listed projects",
+  get_project: "Read project",
+  list_timeline_items: "Fetched timeline",
+  list_emails: "Listed emails",
+  get_email: "Read email",
+  web_search: "Searched the web",
+};
+
+function ToolCallStatusIcon({ status }: { status: IChatToolCall["status"] }) {
+  switch (status) {
+    case "calling":
+      return <Loader2 className="w-3 h-3 animate-spin" />;
+    case "error":
+      return <X className="w-3 h-3 text-destructive" />;
+    case "pending_approval":
+      return (
+        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/40" />
+      );
+    default:
+      return <Check className="w-3 h-3 text-foreground" />;
+  }
+}
+
+function SingleToolCall({
+  call,
+  onApproveAll,
+  onDenyAll,
+  hasPendingGroup,
+}: {
+  call: IChatToolCall;
+  onApproveAll?: () => void;
+  onDenyAll?: () => void;
+  hasPendingGroup?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const label = TOOL_LABELS[call.toolName] ?? call.toolName;
+  const isPending = call.status === "pending_approval";
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          <ToolCallStatusIcon status={call.status} />
+          <span>{label}</span>
+          {call.result &&
+            (expanded ? (
+              <ChevronDown className="w-3 h-3" />
+            ) : (
+              <ChevronRight className="w-3 h-3" />
+            ))}
+        </button>
+        {isPending && !hasPendingGroup && (
+          <span className="flex items-center gap-0.5 ml-1">
+            <button
+              onClick={onApproveAll}
+              className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/40 hover:text-foreground transition-colors"
+            >
+              <Check className="w-3 h-3" />
+            </button>
+            <button
+              onClick={onDenyAll}
+              className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/40 hover:text-foreground transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        )}
+      </div>
+      {expanded && call.result && (
+        <pre className="mt-1.5 text-[11px] bg-surface rounded p-2 overflow-x-auto max-h-40 text-muted-foreground/70">
+          {tryFormatJson(call.result)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function ToolGroupBlock({
+  calls,
+  onApproveAll,
+  onDenyAll,
+}: {
+  calls: IChatToolCall[];
+  onApproveAll?: () => void;
+  onDenyAll?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasPending = calls.some((c) => c.status === "pending_approval");
+
+  if (calls.length === 1) {
+    return (
+      <div className="my-2 rounded-lg border border-border px-3 py-2">
+        <SingleToolCall
+          call={calls[0]}
+          onApproveAll={onApproveAll}
+          onDenyAll={onDenyAll}
+        />
+      </div>
+    );
+  }
+
+  const anyError = calls.some((c) => c.status === "error");
+  const anyCalling = calls.some((c) => c.status === "calling");
+  const allDone = calls.every(
+    (c) => c.status === "done" || c.status === "pending_approval",
+  );
+
+  const uniqueNames = [...new Set(calls.map((c) => c.toolName))];
+  const summaryParts = uniqueNames.map((name) => {
+    const count = calls.filter((c) => c.toolName === name).length;
+    const label = TOOL_LABELS[name] ?? name;
+    return count > 1 ? `${label} (x${count})` : label;
+  });
+
+  return (
+    <div className="my-2 rounded-lg border border-border px-3 py-2">
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+        >
+          {anyCalling ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : anyError ? (
+            <X className="w-3 h-3 text-destructive" />
+          ) : allDone && !hasPending ? (
+            <Check className="w-3 h-3 text-foreground" />
+          ) : (
+            <Loader2 className="w-3 h-3 animate-spin text-muted-foreground/40" />
+          )}
+          <span>{summaryParts.join(", ")}</span>
+          {expanded ? (
+            <ChevronDown className="w-3 h-3" />
+          ) : (
+            <ChevronRight className="w-3 h-3" />
+          )}
+        </button>
+        {hasPending && (
+          <span className="flex items-center gap-0.5 ml-1">
+            <button
+              onClick={onApproveAll}
+              className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/40 hover:text-foreground transition-colors"
+            >
+              <Check className="w-3 h-3" />
+            </button>
+            <button
+              onClick={onDenyAll}
+              className="p-0.5 rounded hover:bg-foreground/10 text-muted-foreground/40 hover:text-foreground transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        )}
+      </div>
+      {expanded && (
+        <div className="mt-2 flex flex-col gap-1 border-t border-border pt-2">
+          {calls.map((call) => (
+            <SingleToolCall
+              key={call.toolId}
+              call={call}
+              onApproveAll={onApproveAll}
+              onDenyAll={onDenyAll}
+              hasPendingGroup
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function tryFormatJson(str: string): string {
+  try {
+    return JSON.stringify(JSON.parse(str), null, 2);
+  } catch {
+    return str;
+  }
+}
+
+function getTextContent(content: string | unknown[]): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((block: any) => block.type === "text")
+    .map((block: any) => block.text)
+    .join("");
+}
+
+function SegmentRenderer({
+  segments,
+  isStreaming,
+  onApproveAll,
+  onDenyAll,
+}: {
+  segments: IChatContentSegment[];
+  isStreaming?: boolean;
+  onApproveAll?: () => void;
+  onDenyAll?: () => void;
+}) {
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (seg.type === "tool_group") {
+          return (
+            <ToolGroupBlock
+              key={`tg-${i}`}
+              calls={seg.calls}
+              onApproveAll={onApproveAll}
+              onDenyAll={onDenyAll}
+            />
+          );
+        }
+        return (
+          <div key={`txt-${i}`} className="max-w-none">
+            <MarkdownRenderer content={seg.text} />
+            {isStreaming && i === segments.length - 1 && (
+              <span className="inline-block w-2 h-4 bg-foreground/70 animate-pulse ml-0.5 -mb-0.5" />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
 export function ChatMessage({
   message,
   isStreaming,
-  streamContent,
+  streamSegments,
+  onApproveAll,
+  onDenyAll,
 }: {
   message: IChatMessage;
   isStreaming?: boolean;
-  streamContent?: string;
+  streamSegments?: IChatContentSegment[];
+  onApproveAll?: () => void;
+  onDenyAll?: () => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
-  const content = isStreaming ? streamContent ?? "" : message.content;
 
   if (message.role === "user") {
+    const displayContent =
+      typeof message.content === "string"
+        ? message.content
+        : getTextContent(message.content);
     return (
       <div className="flex justify-end mb-4">
         <div className="bg-surface rounded-2xl px-4 py-2 max-w-[80%]">
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {message.content}
+            {displayContent}
           </p>
         </div>
       </div>
     );
   }
 
+  const segments: IChatContentSegment[] | null =
+    isStreaming && streamSegments ? streamSegments : (message.segments ?? null);
+
+  const textContent = segments
+    ? segments
+        .filter((s): s is { type: "text"; text: string } => s.type === "text")
+        .map((s) => s.text)
+        .join("")
+    : getTextContent(message.content);
+
+  const rawContent = textContent;
+
   return (
     <div className="mb-6 group">
-      <div className="max-w-none">
-        {showRaw ? (
-          <pre className="text-sm font-mono whitespace-pre-wrap text-foreground/80 bg-surface rounded-lg p-4 overflow-x-auto">
-            {content}
-          </pre>
-        ) : (
-          <MarkdownRenderer content={content} />
-        )}
-        {isStreaming && (
-          <span className="inline-block w-2 h-4 bg-foreground/70 animate-pulse ml-0.5 -mb-0.5" />
-        )}
-      </div>
-      {!isStreaming && content && (
+      {showRaw ? (
+        <pre className="text-sm font-mono whitespace-pre-wrap text-foreground/80 bg-surface rounded-lg p-4 overflow-x-auto">
+          {rawContent}
+        </pre>
+      ) : segments ? (
+        <SegmentRenderer
+          segments={segments}
+          isStreaming={isStreaming}
+          onApproveAll={onApproveAll}
+          onDenyAll={onDenyAll}
+        />
+      ) : (
+        <div className="max-w-none">
+          <MarkdownRenderer content={textContent} />
+          {isStreaming && (
+            <span className="inline-block w-2 h-4 bg-foreground/70 animate-pulse ml-0.5 -mb-0.5" />
+          )}
+        </div>
+      )}
+
+      {!isStreaming && textContent && (
         <div className="flex items-center gap-2 mt-1">
           <button
             onClick={() => setShowRaw((v) => !v)}
             className="text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
           >
-            {showRaw ? <Eye className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+            {showRaw ? (
+              <Eye className="w-3.5 h-3.5" />
+            ) : (
+              <Code className="w-3.5 h-3.5" />
+            )}
           </button>
           {message.tokenUsage && (
             <p className="text-[11px] text-muted-foreground/50">

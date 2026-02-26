@@ -7,6 +7,8 @@ import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type {
   IChatMessage,
+  IChatContentSegment,
+  IChatPendingAction,
   IConversation,
   IConversationMeta,
 } from "@/lib/data-types";
@@ -14,6 +16,7 @@ import { useChatStream } from "@/hooks/use-chat-stream";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MODEL_LABELS: Record<string, string> = {
   "claude-opus-4-6": "Opus 4.6",
@@ -24,14 +27,14 @@ const MODEL_LABELS: Record<string, string> = {
 };
 
 const SUGGESTIONS = [
+  "What events do I have this week?",
   "Summarize my recent notes",
-  "Help me plan my week",
-  "Draft an email response",
-  "Explain a concept to me",
-  "Debug a piece of code",
-  "Brainstorm project ideas",
-  "Write a quick checklist",
-  "Review and improve my writing",
+  "Show me my kanban boards",
+  "What's on my timetable today?",
+  "Search for recent blog posts",
+  "List my pending contacts",
+  "Show my project portfolio",
+  "Check my latest emails",
 ];
 
 function useClock() {
@@ -59,27 +62,6 @@ function useSuggestion() {
   return { text: SUGGESTIONS[index], visible };
 }
 
-function buildSystemPrompt(messages: IChatMessage[]) {
-  const base =
-    "You are a helpful, knowledgeable assistant. Respond clearly and concisely. Use markdown formatting when appropriate.";
-
-  if (messages.length === 0) return base;
-
-  let history = messages;
-  if (messages.length > 20) {
-    history = [...messages.slice(0, 4), ...messages.slice(-16)];
-  }
-
-  const formatted = history
-    .map(
-      (m) =>
-        `<message role="${m.role}">\n${m.content}\n</message>`,
-    )
-    .join("\n\n");
-
-  return `${base}\n\nHere is the conversation so far:\n<conversation>\n${formatted}\n</conversation>\n\nContinue the conversation naturally. Do not repeat yourself or reference the conversation tags.`;
-}
-
 export function ChatView() {
   const { settings, loading: loadingSettings } = useUserSettings();
 
@@ -88,13 +70,21 @@ export function ChatView() {
     return new denizApi(settings.apiKey);
   }, [settings, loadingSettings]);
 
-  const { streamContent, isStreaming, streamResponse, abort } =
-    useChatStream(API);
+  const {
+    streamSegments,
+    isStreaming,
+    streamChat,
+    abort,
+    pendingConfirmations,
+    setPendingConfirmations,
+  } = useChatStream(API);
   const now = useClock();
   const suggestion = useSuggestion();
 
   const [input, setInput] = useState("");
   const [model, setModel] = useState("claude-haiku-4-5");
+  const [toolsEnabled, setToolsEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [messages, setMessages] = useState<IChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<IConversationMeta[]>([]);
@@ -141,11 +131,12 @@ export function ChatView() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [isActive]);
 
+  // Auto-scroll on new segments
   useEffect(() => {
     if (!userScrolledUp.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [streamContent, messages]);
+  }, [streamSegments, messages]);
 
   const loadConversation = async (meta: IConversationMeta) => {
     if (!API) return;
@@ -185,12 +176,15 @@ export function ChatView() {
     userScrolledUp.current = false;
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || !API || isStreaming) return;
+  const sendMessage = async (
+    messageContent: string,
+    confirmedActions?: { toolId: string; toolName: string; input: unknown }[],
+  ) => {
+    if (!API || isStreaming) return;
 
     const userMessage: IChatMessage = {
       role: "user",
-      content: input.trim(),
+      content: messageContent,
       createdAt: new Date().toISOString(),
     };
 
@@ -204,9 +198,9 @@ export function ChatView() {
 
     if (!currentConversationId) {
       const msgTitle =
-        userMessage.content.length > 50
-          ? userMessage.content.slice(0, 50) + "..."
-          : userMessage.content;
+        messageContent.length > 50
+          ? messageContent.slice(0, 50) + "..."
+          : messageContent;
       setTitle(msgTitle);
 
       const createResult = await API.POST<{
@@ -224,13 +218,13 @@ export function ChatView() {
       setConversationId(currentConversationId);
     }
 
-    const systemPrompt = buildSystemPrompt(messages);
-
-    const streamResult = await streamResponse({
-      prompt: userMessage.content,
-      systemPrompt,
+    const streamResult = await streamChat({
+      conversationId: currentConversationId,
+      message: messageContent,
       model,
-      source: "dashboard-chat",
+      toolsEnabled,
+      webSearchEnabled,
+      confirmedActions,
     });
 
     if (streamResult) {
@@ -238,24 +232,133 @@ export function ChatView() {
         role: "assistant",
         content: streamResult.content,
         tokenUsage: streamResult.usage,
+        segments:
+          streamResult.segments.length > 0
+            ? streamResult.segments
+            : undefined,
+        pendingActions:
+          streamResult.pendingActions.length > 0
+            ? streamResult.pendingActions
+            : undefined,
         createdAt: new Date().toISOString(),
       };
 
       const updatedMessages = [...currentMessages, assistantMessage];
       setMessages(updatedMessages);
-
-      await API.PATCH({
-        endpoint: `conversations/${currentConversationId}`,
-        body: { messages: updatedMessages },
-      });
     } else {
       toast.error("Failed to get response");
     }
   };
 
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    await sendMessage(input.trim());
+  };
+
+  const getAllPendingActions = (): IChatPendingAction[] => {
+    if (pendingConfirmations.length > 0) {
+      return pendingConfirmations.filter((a) => a.status === "pending");
+    }
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.pendingActions) {
+      return lastMsg.pendingActions.filter((a) => a.status === "pending");
+    }
+    return [];
+  };
+
+  const markToolCallsInSegments = (
+    segments: IChatContentSegment[],
+    ids: Set<string>,
+    status: "done" | "error",
+  ): IChatContentSegment[] =>
+    segments.map((seg) => {
+      if (seg.type !== "tool_group") return seg;
+      return {
+        ...seg,
+        calls: seg.calls.map((c) =>
+          ids.has(c.toolId) ? { ...c, status: status } : c,
+        ),
+      };
+    });
+
+  const handleApproveAll = async () => {
+    const pending = getAllPendingActions();
+    if (pending.length === 0) return;
+
+    const ids = new Set(pending.map((a) => a.toolId));
+
+    setMessages((prev) =>
+      prev.map((msg) => {
+        let updated = msg;
+        if (msg.pendingActions) {
+          updated = {
+            ...updated,
+            pendingActions: msg.pendingActions.map((a) =>
+              a.status === "pending" ? { ...a, status: "approved" as const } : a,
+            ),
+          };
+        }
+        if (msg.segments) {
+          updated = {
+            ...updated,
+            segments: markToolCallsInSegments(msg.segments, ids, "done"),
+          };
+        }
+        return updated;
+      }),
+    );
+
+    setPendingConfirmations([]);
+
+    const confirmed = pending.map((a) => ({
+      toolId: a.toolId,
+      toolName: a.toolName,
+      input: a.input,
+    }));
+
+    await sendMessage(
+      `Approved ${confirmed.length === 1 ? "this action" : `all ${confirmed.length} actions`}. Please proceed.`,
+      confirmed,
+    );
+  };
+
+  const handleDenyAll = async () => {
+    const pending = getAllPendingActions();
+    if (pending.length === 0) return;
+
+    const ids = new Set(pending.map((a) => a.toolId));
+
+    setMessages((prev) =>
+      prev.map((msg) => {
+        let updated = msg;
+        if (msg.pendingActions) {
+          updated = {
+            ...updated,
+            pendingActions: msg.pendingActions.map((a) =>
+              a.status === "pending" ? { ...a, status: "denied" as const } : a,
+            ),
+          };
+        }
+        if (msg.segments) {
+          updated = {
+            ...updated,
+            segments: markToolCallsInSegments(msg.segments, ids, "error"),
+          };
+        }
+        return updated;
+      }),
+    );
+
+    setPendingConfirmations([]);
+
+    await sendMessage(
+      `Denied ${pending.length === 1 ? "this action" : `all ${pending.length} actions`}. Do not proceed with them.`,
+    );
+  };
+
   if (!isActive) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] px-4">
+      <div className="flex flex-col items-center h-[calc(100vh-4rem)] px-4 pt-[25vh]">
         <div className="flex flex-col items-center gap-6 w-full max-w-2xl">
           <div className="flex flex-col items-center gap-1">
             <p className="text-3xl font-light text-foreground/80 tabular-nums tracking-tight">
@@ -277,34 +380,52 @@ export function ChatView() {
             model={model}
             onModelChange={setModel}
             disabled={isStreaming}
+            toolsEnabled={toolsEnabled}
+            onToolsEnabledChange={setToolsEnabled}
+            webSearchEnabled={webSearchEnabled}
+            onWebSearchEnabledChange={setWebSearchEnabled}
           />
-          {conversations.length > 0 && (
+          {(loadingConversations || conversations.length > 0) && (
             <div className="w-full max-w-md mt-4">
               <p className="text-xs text-muted-foreground/50 mb-2 px-1">
                 Recent
               </p>
               <div className="flex flex-col gap-0.5">
-                {conversations.slice(0, 8).map((conv) => (
-                  <div
-                    key={conv._id}
-                    onClick={() => loadConversation(conv)}
-                    className="group flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors text-left cursor-pointer"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                    <span className="text-sm text-foreground/70 truncate flex-1">
-                      {conv.title}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground/30 shrink-0 group-hover:hidden">
-                      {MODEL_LABELS[conv.llmModel] ?? conv.llmModel}
-                    </span>
-                    <button
-                      onClick={(e) => deleteConversation(conv._id, e)}
-                      className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-destructive/10 transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-3 h-3 text-muted-foreground/50 hover:text-destructive" />
-                    </button>
-                  </div>
-                ))}
+                {loadingConversations
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 px-3 py-2"
+                      >
+                        <Skeleton className="w-3.5 h-3.5 rounded shrink-0 bg-surface" />
+                        <Skeleton
+                          className="h-4 flex-1 rounded bg-surface"
+                          style={{ maxWidth: `${55 + ((i * 23) % 35)}%` }}
+                        />
+                        <Skeleton className="h-3 w-14 rounded shrink-0 bg-surface" />
+                      </div>
+                    ))
+                  : conversations.slice(0, 8).map((conv) => (
+                      <div
+                        key={conv._id}
+                        onClick={() => loadConversation(conv)}
+                        className="animate-in group flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors text-left cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                        <span className="text-sm text-foreground/70 truncate flex-1">
+                          {conv.title}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground/30 shrink-0 group-hover:hidden">
+                          {MODEL_LABELS[conv.llmModel] ?? conv.llmModel}
+                        </span>
+                        <button
+                          onClick={(e) => deleteConversation(conv._id, e)}
+                          className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <Trash2 className="w-3 h-3 text-muted-foreground/50 hover:text-destructive" />
+                        </button>
+                      </div>
+                    ))}
               </div>
             </div>
           )}
@@ -335,7 +456,9 @@ export function ChatView() {
                 key={`${i}-${msg.createdAt}`}
                 message={msg}
                 isStreaming={isLastAssistant}
-                streamContent={isLastAssistant ? streamContent : undefined}
+                streamSegments={isLastAssistant ? streamSegments : undefined}
+                onApproveAll={handleApproveAll}
+                onDenyAll={handleDenyAll}
               />
             );
           })}
@@ -345,11 +468,17 @@ export function ChatView() {
               <ChatMessage
                 message={{
                   role: "assistant",
-                  content: streamContent,
+                  content: "",
+                  pendingActions:
+                    pendingConfirmations.length > 0
+                      ? pendingConfirmations
+                      : undefined,
                   createdAt: new Date().toISOString(),
                 }}
                 isStreaming
-                streamContent={streamContent}
+                streamSegments={streamSegments}
+                onApproveAll={handleApproveAll}
+                onDenyAll={handleDenyAll}
               />
             )}
         </div>
@@ -364,6 +493,10 @@ export function ChatView() {
         disabled={isStreaming}
         docked
         modelLabel={MODEL_LABELS[model] ?? model}
+        toolsEnabled={toolsEnabled}
+        onToolsEnabledChange={setToolsEnabled}
+        webSearchEnabled={webSearchEnabled}
+        onWebSearchEnabledChange={setWebSearchEnabled}
       />
     </div>
   );

@@ -268,15 +268,38 @@ export interface ILlmUsage {
   updatedAt: Date;
 }
 
+export type IChatContentSegment =
+  | { type: "text"; text: string }
+  | { type: "tool_group"; calls: IChatToolCall[] };
+
 export interface IChatMessage {
   role: "user" | "assistant";
-  content: string;
+  content: string | unknown[];
   tokenUsage?: {
     inputTokens: number;
     outputTokens: number;
     costUsd: number;
   };
+  toolCalls?: IChatToolCall[];
+  segments?: IChatContentSegment[];
+  pendingActions?: IChatPendingAction[];
   createdAt: string;
+}
+
+export interface IChatToolCall {
+  toolId: string;
+  toolName: string;
+  input: unknown;
+  result?: string;
+  isError?: boolean;
+  status: "calling" | "done" | "error" | "pending_approval";
+}
+
+export interface IChatPendingAction {
+  toolId: string;
+  toolName: string;
+  input: unknown;
+  status: "pending" | "approved" | "denied";
 }
 
 export interface IConversation {
