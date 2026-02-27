@@ -13,6 +13,7 @@ import { extractDirectory } from "@/lib/user-settings";
 import { cn } from "@/lib/utils";
 import type {
   DrawingData,
+  ImageData,
   ShapeData,
   TextData,
   WhiteboardTool,
@@ -82,7 +83,23 @@ function elementToSVGString(el: IWhiteboardElement): string {
     return `<foreignObject x="${el.x}" y="${el.y}" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;color:${d.color};font-size:${fontSize}px;line-height:1.3;font-family:sans-serif;word-wrap:break-word;overflow-wrap:break-word;overflow:hidden;white-space:pre-wrap;padding:2px">${escaped}</div></foreignObject>`;
   }
 
+  if (data.src) {
+    const d = data as unknown as ImageData;
+    const w = el.width ?? 200;
+    const h = el.height ?? 200;
+    return `<image href="${d.src}" x="${el.x}" y="${el.y}" width="${w}" height="${h}" preserveAspectRatio="none"/>`;
+  }
+
   return "";
+}
+
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 const CURSOR_MAP: Record<WhiteboardTool, string> = {
@@ -381,6 +398,21 @@ export function WhiteboardEditor({
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        canvas.copySelected();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        if (canvas.hasClipboard()) {
+          e.preventDefault();
+          canvas.pasteElements();
+          setSelectedTool("pointer");
+        }
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSave();
@@ -424,6 +456,36 @@ export function WhiteboardEditor({
     return () => window.removeEventListener("keydown", handler);
   }, [canvas, history, handleSave]);
 
+  useEffect(() => {
+    const handler = async (e: ClipboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        canvas.textBox !== null
+      ) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const src = await readFileAsDataURL(file);
+            canvas.pasteImage(src);
+          }
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handler);
+    return () => window.removeEventListener("paste", handler);
+  }, [canvas]);
+
   const wrappedPointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       canvas.onPointerDown(e, selectedTool, selectedColor, selectedThickness);
@@ -460,6 +522,33 @@ export function WhiteboardEditor({
     canvas.setTextBox(null);
   }, [canvas]);
 
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      const src = await readFileAsDataURL(file);
+      canvas.addImage(src);
+    },
+    [canvas],
+  );
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      for (const file of files) {
+        if (file.type.startsWith("image/")) {
+          const src = await readFileAsDataURL(file);
+          canvas.addImage(src);
+          return;
+        }
+      }
+    },
+    [canvas],
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
   if (loading || !whiteboard) {
     return (
       <div className="w-dvw h-[calc(100vh-2rem)] overflow-clip relative flex items-center justify-center">
@@ -476,6 +565,8 @@ export function WhiteboardEditor({
         "whiteboard-container w-dvw h-[calc(100vh-2rem)] overflow-clip relative",
         selectedCursor,
       )}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
     >
       <WhiteboardCanvas
         elements={history.elements}
@@ -535,6 +626,7 @@ export function WhiteboardEditor({
           canvas.addComponent(componentType, defaultSize, defaultData);
           setSelectedTool("pointer");
         }}
+        onImageUpload={handleImageUpload}
       />
     </div>
   );

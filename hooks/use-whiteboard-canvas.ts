@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { IWhiteboardElement } from "@/lib/data-types";
 import type {
   DrawingData,
+  ImageData,
   ResizeHandle,
   SelectionRect,
   ShapeData,
@@ -420,6 +421,9 @@ export function useWhiteboardCanvas(
   const isDrawingTextBox = useRef(false);
   const textBoxOrigin = useRef({ x: 0, y: 0 });
 
+  const clipboardRef = useRef<IWhiteboardElement[]>([]);
+  const lastWorldPos = useRef({ x: 0, y: 0 });
+
   const getNextZIndex = useCallback((): number => {
     let max = 0;
     for (const el of elements) {
@@ -579,6 +583,9 @@ export function useWhiteboardCanvas(
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>, tool: WhiteboardTool) => {
+      const wp = toWorld(e);
+      lastWorldPos.current = wp;
+
       if (isPanning.current) {
         const dx = e.clientX - panStart.current.x;
         const dy = e.clientY - panStart.current.y;
@@ -1124,6 +1131,96 @@ export function useWhiteboardCanvas(
     [history, pushAction],
   );
 
+  const addImage = useCallback(
+    (src: string) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        const maxW = 800;
+        const maxH = 600;
+        if (w > maxW || h > maxH) {
+          const scale = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+
+        const centerX =
+          (-viewState.x + window.innerWidth / 2) / viewState.zoom - w / 2;
+        const centerY =
+          (-viewState.y + window.innerHeight / 2) / viewState.zoom - h / 2;
+
+        const el: IWhiteboardElement = {
+          id: newId(),
+          type: "drawing",
+          x: centerX,
+          y: centerY,
+          width: w,
+          height: h,
+          zIndex: getNextZIndex(),
+          data: {
+            src,
+          } satisfies ImageData as unknown as Record<string, unknown>,
+        };
+        addElements([el]);
+        setSelectedElementIds(new Set([el.id]));
+      };
+      img.src = src;
+    },
+    [viewState, getNextZIndex, addElements],
+  );
+
+  const copySelected = useCallback(() => {
+    if (selectedElementIds.size === 0) return;
+    const selected = elements.filter((el) => selectedElementIds.has(el.id));
+    clipboardRef.current = structuredClone(selected);
+  }, [elements, selectedElementIds]);
+
+  const pasteElements = useCallback(() => {
+    if (clipboardRef.current.length === 0) return;
+    isDraggingSelection.current = false;
+    dragSelectionOriginals.current = [];
+    setSelectedElementIds(new Set());
+
+    const items = clipboardRef.current;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const el of items) {
+      const b = getElementBounds(el);
+      if (b.x < minX) minX = b.x;
+      if (b.y < minY) minY = b.y;
+      if (b.x + b.w > maxX) maxX = b.x + b.w;
+      if (b.y + b.h > maxY) maxY = b.y + b.h;
+    }
+    const groupCx = (minX + maxX) / 2;
+    const groupCy = (minY + maxY) / 2;
+    const dx = lastWorldPos.current.x - groupCx;
+    const dy = lastWorldPos.current.y - groupCy;
+
+    const pasted = items.map((el) => ({
+      ...structuredClone(el),
+      id: newId(),
+      x: el.x + dx,
+      y: el.y + dy,
+      zIndex: getNextZIndex(),
+    }));
+    addElements(pasted);
+    setSelectedElementIds(new Set(pasted.map((el) => el.id)));
+  }, [getNextZIndex, addElements]);
+
+  const pasteImage = useCallback(
+    (src: string) => {
+      addImage(src);
+    },
+    [addImage],
+  );
+
+  const hasClipboard = useCallback(() => {
+    return clipboardRef.current.length > 0;
+  }, []);
+
   const deleteSelected = useCallback(() => {
     if (selectedElementIds.size === 0) return;
     removeElements(selectedElementIds);
@@ -1153,5 +1250,10 @@ export function useWhiteboardCanvas(
     startResize,
     addComponent,
     updateComponentData,
+    addImage,
+    copySelected,
+    pasteElements,
+    pasteImage,
+    hasClipboard,
   };
 }

@@ -18,6 +18,30 @@ Font.registerEmojiSource({
   url: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/",
 });
 
+Font.register({
+  family: "Inter",
+  fonts: [
+    {
+      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjQ.woff2",
+      fontWeight: 400,
+    },
+    {
+      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjQ.woff2",
+      fontWeight: 400,
+      fontStyle: "italic",
+    },
+    {
+      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYAZ9hjQ.woff2",
+      fontWeight: 700,
+    },
+  ],
+});
+
+Font.register({
+  family: "FiraCode",
+  src: "https://fonts.gstatic.com/s/firacode/v22/uU9eCBsR6Z2vfE9aq3bL0fxyUs4tcw4W_D1sJVD7MOzloj0.woff2",
+});
+
 const colors = {
   text: "#303630",
   textLight: "#778873",
@@ -32,7 +56,7 @@ const colors = {
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontFamily: "Helvetica",
+    fontFamily: "Inter",
     fontSize: 11,
     lineHeight: 1.6,
     color: colors.text,
@@ -52,7 +76,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 9,
-    fontFamily: "Courier",
+    fontFamily: "FiraCode",
     color: colors.textLight,
   },
   paragraph: {
@@ -62,7 +86,8 @@ const styles = StyleSheet.create({
   },
   h1: {
     fontSize: 26,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 28,
     marginBottom: 8,
     lineHeight: 1.1,
@@ -70,7 +95,8 @@ const styles = StyleSheet.create({
   },
   h2: {
     fontSize: 22,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 24,
     marginBottom: 8,
     lineHeight: 1.15,
@@ -78,7 +104,8 @@ const styles = StyleSheet.create({
   },
   h3: {
     fontSize: 18,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 20,
     marginBottom: 8,
     lineHeight: 1.2,
@@ -86,7 +113,8 @@ const styles = StyleSheet.create({
   },
   h4: {
     fontSize: 15,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 16,
     marginBottom: 6,
     lineHeight: 1.25,
@@ -94,7 +122,8 @@ const styles = StyleSheet.create({
   },
   h5: {
     fontSize: 13,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 14,
     marginBottom: 6,
     lineHeight: 1.3,
@@ -102,14 +131,16 @@ const styles = StyleSheet.create({
   },
   h6: {
     fontSize: 11,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     marginTop: 12,
     marginBottom: 6,
     lineHeight: 1.3,
     color: colors.text,
   },
   bold: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
   },
   italic: {
     fontStyle: "italic",
@@ -118,7 +149,7 @@ const styles = StyleSheet.create({
     textDecoration: "line-through",
   },
   inlineCode: {
-    fontFamily: "Courier",
+    fontFamily: "FiraCode",
     fontSize: 10,
     backgroundColor: colors.surface,
     paddingHorizontal: 3,
@@ -132,7 +163,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   codeText: {
-    fontFamily: "Courier",
+    fontFamily: "FiraCode",
     fontSize: 9,
     lineHeight: 1.5,
     color: colors.codeText,
@@ -193,7 +224,8 @@ const styles = StyleSheet.create({
     borderRightColor: colors.muted,
   },
   tableHeaderText: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter",
+    fontWeight: 700,
     fontSize: 10,
   },
   tableCell: {
@@ -214,12 +246,12 @@ const styles = StyleSheet.create({
     borderColor: colors.muted,
   },
   mathText: {
-    fontFamily: "Courier",
+    fontFamily: "FiraCode",
     fontSize: 10,
     color: colors.textLight,
   },
   checkbox: {
-    fontFamily: "Courier",
+    fontFamily: "FiraCode",
     fontSize: 11,
     marginRight: 4,
   },

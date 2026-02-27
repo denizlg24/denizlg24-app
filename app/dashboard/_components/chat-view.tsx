@@ -9,6 +9,7 @@ import type {
   IChatMessage,
   IChatContentSegment,
   IChatPendingAction,
+  IChatToolCall,
   IConversation,
   IConversationMeta,
 } from "@/lib/data-types";
@@ -60,6 +61,160 @@ function useSuggestion() {
     return () => clearInterval(id);
   }, []);
   return { text: SUGGESTIONS[index], visible };
+}
+
+function convertApiMessagesToDisplay(
+  rawMessages: IConversation["messages"],
+): IChatMessage[] {
+  const display: IChatMessage[] = [];
+
+  for (let i = 0; i < rawMessages.length; i++) {
+    const msg = rawMessages[i];
+
+    if (msg.role === "user") {
+      if (typeof msg.content === "string") {
+        display.push(msg);
+        continue;
+      }
+
+      const contentArr = msg.content as any[];
+      const isToolResultMessage =
+        contentArr.length > 0 &&
+        contentArr.every((block: any) => block.type === "tool_result");
+
+      if (isToolResultMessage) {
+        const prevDisplay = display[display.length - 1];
+        if (prevDisplay?.role === "assistant" && prevDisplay.segments) {
+          for (const result of contentArr) {
+            for (const seg of prevDisplay.segments) {
+              if (seg.type !== "tool_group") continue;
+              const tc = seg.calls.find(
+                (c: IChatToolCall) => c.toolId === result.tool_use_id,
+              );
+              if (tc) {
+                tc.result =
+                  typeof result.content === "string"
+                    ? result.content
+                    : JSON.stringify(result.content);
+                tc.isError = result.is_error ?? false;
+                tc.status = result.is_error ? "error" : "done";
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      display.push(msg);
+      continue;
+    }
+
+    if (typeof msg.content === "string") {
+      display.push(msg);
+      continue;
+    }
+
+    const contentArr = msg.content as any[];
+    const segments: IChatContentSegment[] = [];
+
+    for (const block of contentArr) {
+      if (block.type === "text") {
+        const last = segments[segments.length - 1];
+        if (last?.type === "text") {
+          last.text += block.text;
+        } else {
+          segments.push({ type: "text", text: block.text });
+        }
+      } else if (block.type === "tool_use") {
+        const toolCall: IChatToolCall = {
+          toolId: block.id,
+          toolName: block.name,
+          input: block.input,
+          status: "calling",
+        };
+        const last = segments[segments.length - 1];
+        if (last?.type === "tool_group") {
+          last.calls.push(toolCall);
+        } else {
+          segments.push({ type: "tool_group", calls: [toolCall] });
+        }
+      }
+    }
+
+    const nextMsg = rawMessages[i + 1];
+    if (
+      nextMsg?.role === "user" &&
+      Array.isArray(nextMsg.content) &&
+      (nextMsg.content as any[]).every(
+        (block: any) => block.type === "tool_result",
+      )
+    ) {
+      for (const result of nextMsg.content as any[]) {
+        for (const seg of segments) {
+          if (seg.type !== "tool_group") continue;
+          const tc = seg.calls.find((c) => c.toolId === result.tool_use_id);
+          if (tc) {
+            tc.result =
+              typeof result.content === "string"
+                ? result.content
+                : JSON.stringify(result.content);
+            tc.isError = result.is_error ?? false;
+            tc.status = result.is_error ? "error" : "done";
+          }
+        }
+      }
+    } else {
+      for (const seg of segments) {
+        if (seg.type !== "tool_group") continue;
+        for (const tc of seg.calls) {
+          if (tc.status === "calling") {
+            tc.status = "pending_approval";
+          }
+        }
+      }
+    }
+
+    const displayMsg: IChatMessage = {
+      ...msg,
+      segments: segments.length > 0 ? segments : undefined,
+      content:
+        segments
+          .filter((s): s is { type: "text"; text: string } => s.type === "text")
+          .map((s) => s.text)
+          .join("") || "",
+    };
+
+    const prevDisplay = display[display.length - 1];
+    if (
+      prevDisplay?.role === "assistant" &&
+      prevDisplay.segments &&
+      i >= 2 &&
+      rawMessages[i - 1]?.role === "user" &&
+      Array.isArray(rawMessages[i - 1]?.content) &&
+      (rawMessages[i - 1]?.content as any[]).every(
+        (block: any) => block.type === "tool_result",
+      )
+    ) {
+      prevDisplay.segments = [
+        ...prevDisplay.segments,
+        ...(displayMsg.segments ?? []),
+      ];
+      const prevText =
+        typeof prevDisplay.content === "string" ? prevDisplay.content : "";
+      const newText =
+        typeof displayMsg.content === "string" ? displayMsg.content : "";
+      prevDisplay.content = prevText + newText;
+
+      if (displayMsg.tokenUsage) {
+        prevDisplay.tokenUsage = displayMsg.tokenUsage;
+      }
+      continue;
+    }
+
+    display.push(displayMsg);
+  }
+
+  return display;
 }
 
 export function ChatView() {
@@ -119,7 +274,10 @@ export function ChatView() {
     if (!el) return;
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollTop < lastScrollTop.current && scrollHeight - scrollTop - clientHeight > 100) {
+      if (
+        scrollTop < lastScrollTop.current &&
+        scrollHeight - scrollTop - clientHeight > 100
+      ) {
         userScrolledUp.current = true;
       }
       if (scrollHeight - scrollTop - clientHeight < 20) {
@@ -131,7 +289,6 @@ export function ChatView() {
     return () => el.removeEventListener("scroll", handleScroll);
   }, [isActive]);
 
-  // Auto-scroll on new segments
   useEffect(() => {
     if (!userScrolledUp.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -148,7 +305,7 @@ export function ChatView() {
       return;
     }
     setConversationId(meta._id);
-    setMessages(result.conversation.messages);
+    setMessages(convertApiMessagesToDisplay(result.conversation.messages));
     setModel(result.conversation.llmModel);
     setTitle(result.conversation.title);
     setActive(true);
@@ -176,10 +333,7 @@ export function ChatView() {
     userScrolledUp.current = false;
   };
 
-  const sendMessage = async (
-    messageContent: string,
-    confirmedActions?: { toolId: string; toolName: string; input: unknown }[],
-  ) => {
+  const sendMessage = async (messageContent: string) => {
     if (!API || isStreaming) return;
 
     const userMessage: IChatMessage = {
@@ -224,18 +378,15 @@ export function ChatView() {
       model,
       toolsEnabled,
       webSearchEnabled,
-      confirmedActions,
     });
 
     if (streamResult) {
       const assistantMessage: IChatMessage = {
         role: "assistant",
         content: streamResult.content,
-        tokenUsage: streamResult.usage,
+        tokenUsage: streamResult.paused ? undefined : streamResult.usage,
         segments:
-          streamResult.segments.length > 0
-            ? streamResult.segments
-            : undefined,
+          streamResult.segments.length > 0 ? streamResult.segments : undefined,
         pendingActions:
           streamResult.pendingActions.length > 0
             ? streamResult.pendingActions
@@ -243,10 +394,72 @@ export function ChatView() {
         createdAt: new Date().toISOString(),
       };
 
-      const updatedMessages = [...currentMessages, assistantMessage];
-      setMessages(updatedMessages);
+      setMessages([...currentMessages, assistantMessage]);
     } else {
       toast.error("Failed to get response");
+    }
+  };
+
+  const continueChat = async (toolApprovals: Record<string, boolean>) => {
+    if (!API || isStreaming || !conversationId) return;
+
+    userScrolledUp.current = false;
+
+    const streamResult = await streamChat({
+      conversationId,
+      toolApprovals,
+      model,
+      toolsEnabled,
+      webSearchEnabled,
+    });
+
+    if (streamResult) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        const lastMsg = updated[lastIdx];
+
+        if (lastMsg?.role === "assistant") {
+          const existingSegments = lastMsg.segments ?? [];
+          const newSegments = streamResult.segments;
+          const mergedSegments = [...existingSegments, ...newSegments];
+
+          const prevText =
+            typeof lastMsg.content === "string" ? lastMsg.content : "";
+
+          updated[lastIdx] = {
+            ...lastMsg,
+            content: prevText + streamResult.content,
+            segments: mergedSegments.length > 0 ? mergedSegments : undefined,
+            tokenUsage: streamResult.paused
+              ? lastMsg.tokenUsage
+              : streamResult.usage,
+            pendingActions:
+              streamResult.pendingActions.length > 0
+                ? streamResult.pendingActions
+                : undefined,
+          };
+        } else {
+          updated.push({
+            role: "assistant",
+            content: streamResult.content,
+            tokenUsage: streamResult.paused ? undefined : streamResult.usage,
+            segments:
+              streamResult.segments.length > 0
+                ? streamResult.segments
+                : undefined,
+            pendingActions:
+              streamResult.pendingActions.length > 0
+                ? streamResult.pendingActions
+                : undefined,
+            createdAt: new Date().toISOString(),
+          });
+        }
+
+        return updated;
+      });
+    } else {
+      toast.error("Failed to continue response");
     }
   };
 
@@ -294,7 +507,9 @@ export function ChatView() {
           updated = {
             ...updated,
             pendingActions: msg.pendingActions.map((a) =>
-              a.status === "pending" ? { ...a, status: "approved" as const } : a,
+              a.status === "pending"
+                ? { ...a, status: "approved" as const }
+                : a,
             ),
           };
         }
@@ -310,16 +525,12 @@ export function ChatView() {
 
     setPendingConfirmations([]);
 
-    const confirmed = pending.map((a) => ({
-      toolId: a.toolId,
-      toolName: a.toolName,
-      input: a.input,
-    }));
+    const approvals: Record<string, boolean> = {};
+    for (const a of pending) {
+      approvals[a.toolId] = true;
+    }
 
-    await sendMessage(
-      `Approved ${confirmed.length === 1 ? "this action" : `all ${confirmed.length} actions`}. Please proceed.`,
-      confirmed,
-    );
+    await continueChat(approvals);
   };
 
   const handleDenyAll = async () => {
@@ -351,9 +562,12 @@ export function ChatView() {
 
     setPendingConfirmations([]);
 
-    await sendMessage(
-      `Denied ${pending.length === 1 ? "this action" : `all ${pending.length} actions`}. Do not proceed with them.`,
-    );
+    const denials: Record<string, boolean> = {};
+    for (const a of pending) {
+      denials[a.toolId] = false;
+    }
+
+    await continueChat(denials);
   };
 
   if (!isActive) {
@@ -362,10 +576,17 @@ export function ChatView() {
         <div className="flex flex-col items-center gap-6 w-full max-w-2xl">
           <div className="flex flex-col items-center gap-1">
             <p className="text-3xl font-light text-foreground/80 tabular-nums tracking-tight">
-              {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {now.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
             <p className="text-xs text-muted-foreground/50">
-              {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+              {now.toLocaleDateString([], {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
             </p>
           </div>
           <p
@@ -437,7 +658,12 @@ export function ChatView() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="flex items-center gap-2 px-4 py-2 border-b">
-        <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          className="shrink-0"
+        >
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <span className="text-sm text-foreground/70 truncate">{title}</span>

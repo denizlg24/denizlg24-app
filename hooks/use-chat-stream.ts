@@ -16,12 +16,7 @@ export interface StreamResult {
   };
   segments: IChatContentSegment[];
   pendingActions: IChatPendingAction[];
-}
-
-interface ConfirmedAction {
-  toolId: string;
-  toolName: string;
-  input: unknown;
+  paused?: boolean;
 }
 
 export function useChatStream(API: denizApi | null) {
@@ -43,11 +38,11 @@ export function useChatStream(API: denizApi | null) {
   const streamChat = useCallback(
     (body: {
       conversationId?: string;
-      message: string | unknown[];
+      message?: string | unknown[];
       model: string;
       toolsEnabled?: boolean;
       webSearchEnabled?: boolean;
-      confirmedActions?: ConfirmedAction[];
+      toolApprovals?: Record<string, boolean>;
     }): Promise<StreamResult | null> => {
       if (!API) return Promise.resolve(null);
 
@@ -172,6 +167,16 @@ export function useChatStream(API: denizApi | null) {
                   };
                   pendingActions.push(pa);
                   setPendingConfirmations([...pendingActions]);
+                } else if (event.type === "paused") {
+                  setIsStreaming(false);
+                  resolve({
+                    content: accumulated,
+                    usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+                    segments: [...segments],
+                    pendingActions,
+                    paused: true,
+                  });
+                  return;
                 } else if (event.type === "done") {
                   setIsStreaming(false);
                   resolve({

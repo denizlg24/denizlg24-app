@@ -5,6 +5,7 @@ import {
   Circle,
   Eraser,
   Hand,
+  ImageIcon,
   LineSquiggle,
   MousePointer,
   Plus,
@@ -15,6 +16,7 @@ import {
   TextCursorIcon,
   Undo,
 } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -55,6 +57,7 @@ export interface WhiteboardBottomBarProps {
     defaultSize: { width: number; height: number },
     defaultData: Record<string, unknown>,
   ) => void;
+  onImageUpload: (file: File) => void;
 }
 
 export function WhiteboardBottomBar({
@@ -69,7 +72,9 @@ export function WhiteboardBottomBar({
   onUndo,
   onRedo,
   onAddComponent,
+  onImageUpload,
 }: WhiteboardBottomBarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="absolute cursor-auto z-50 border bg-surface shadow-xs bottom-2 left-1/2 -translate-x-1/2 w-fit rounded-full py-2 px-3 flex flex-row items-center gap-2">
       <Popover>
@@ -173,6 +178,26 @@ export function WhiteboardBottomBar({
       >
         <TextCursorIcon />
       </Button>
+
+      <Button
+        size="icon-sm"
+        variant="outline"
+        onClick={() => fileInputRef.current?.click()}
+        title="Upload image"
+      >
+        <ImageIcon />
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onImageUpload(file);
+          e.target.value = "";
+        }}
+      />
 
       <Button
         className={cn(selectedTool === "eraser" && "border-2 border-primary")}

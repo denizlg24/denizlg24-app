@@ -301,7 +301,11 @@ export function ChatMessage({
   }
 
   const segments: IChatContentSegment[] | null =
-    isStreaming && streamSegments ? streamSegments : (message.segments ?? null);
+    isStreaming && streamSegments
+      ? message.segments
+        ? [...message.segments, ...streamSegments]
+        : streamSegments
+      : (message.segments ?? null);
 
   const textContent = segments
     ? segments

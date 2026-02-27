@@ -1,7 +1,7 @@
 "use client";
 
 import type { IWhiteboardElement } from "@/lib/data-types";
-import type { DrawingData, ShapeData, TextData } from "@/lib/whiteboard-types";
+import type { DrawingData, ImageData, ShapeData, TextData } from "@/lib/whiteboard-types";
 
 function PenElement({ element }: { element: IWhiteboardElement }) {
   const d = element.data as unknown as DrawingData;
@@ -134,6 +134,23 @@ function TextElement({ element }: { element: IWhiteboardElement }) {
   );
 }
 
+function ImageElement({ element }: { element: IWhiteboardElement }) {
+  const d = element.data as unknown as ImageData;
+  const w = element.width ?? 200;
+  const h = element.height ?? 200;
+
+  return (
+    <image
+      href={d.src}
+      x={element.x}
+      y={element.y}
+      width={w}
+      height={h}
+      preserveAspectRatio="none"
+    />
+  );
+}
+
 function ComponentElement({ element }: { element: IWhiteboardElement }) {
   const w = element.width ?? 100;
   const h = element.height ?? 60;
@@ -168,6 +185,9 @@ export function WhiteboardElement({
   }
   if (data.text !== undefined) {
     return <TextElement element={element} />;
+  }
+  if (data.src) {
+    return <ImageElement element={element} />;
   }
 
   return null;

@@ -33,6 +33,10 @@ export interface TextData {
   fontSize: number;
 }
 
+export interface ImageData {
+  src: string;
+}
+
 export interface ViewState {
   x: number;
   y: number;
