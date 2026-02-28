@@ -6,6 +6,7 @@ import { UpdateNotifier } from "@/components/window/update-notifier";
 import { UserSettingsProvider } from "@/context/user-context";
 import "./globals.css";
 import { DisableContextMenu } from "@/components/window/disable-context-menu";
+import { BackgroundTasksInitializer } from "@/components/window/background-tasks-initializer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
           <Toaster />
           <UpdateNotifier />
           <ExternalLinkInterceptor />
+          <BackgroundTasksInitializer />
         </DisableContextMenu>
       </body>
     </html>

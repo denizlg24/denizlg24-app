@@ -22,16 +22,16 @@ Font.register({
   family: "Inter",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjQ.woff2",
+      src: "/assets/fonts/inter-regular.ttf",
       fontWeight: 400,
     },
     {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hjQ.woff2",
+      src: "/assets/fonts/inter-regular.ttf",
       fontWeight: 400,
       fontStyle: "italic",
     },
     {
-      src: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYAZ9hjQ.woff2",
+      src: "/assets/fonts/inter-bold.ttf",
       fontWeight: 700,
     },
   ],
@@ -39,7 +39,17 @@ Font.register({
 
 Font.register({
   family: "FiraCode",
-  src: "https://fonts.gstatic.com/s/firacode/v22/uU9eCBsR6Z2vfE9aq3bL0fxyUs4tcw4W_D1sJVD7MOzloj0.woff2",
+  fonts: [
+    {
+      src: "/assets/fonts/firacode-regular.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "/assets/fonts/firacode-regular.ttf",
+      fontWeight: 400,
+      fontStyle: "italic",
+    },
+  ],
 });
 
 const colors = {

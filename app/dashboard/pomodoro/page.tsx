@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { AlarmClock, History, Trash2 } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,88 +13,12 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { format, isToday, startOfDay } from "date-fns";
-
-type TimerMode = "focus" | "break";
-
-type Session = {
-  startedAt: string;
-  duration: number;
-  completedAt: string;
-};
-
-const DURATIONS: Record<TimerMode, number> = {
-  focus: 25 * 60,
-  break: 5 * 60,
-};
-
-const POMODORO_TARGET = 4;
-const STORE_FILENAME = "pomodoro.json";
-
-async function getPomodoroStore() {
-  const { load } = await import("@tauri-apps/plugin-store");
-  return load(STORE_FILENAME, { defaults: { sessions: [] }, autoSave: true });
-}
-
-async function loadSessions(): Promise<Session[]> {
-  if (typeof window === "undefined") return [];
-  try {
-    const store = await getPomodoroStore();
-    return (await store.get<Session[]>("sessions")) ?? [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveSession(session: Session): Promise<void> {
-  if (typeof window === "undefined") return;
-  try {
-    const store = await getPomodoroStore();
-    const existing = (await store.get<Session[]>("sessions")) ?? [];
-    await store.set("sessions", [...existing, session]);
-  } catch (e) {
-    console.error("Failed to save pomodoro session:", e);
-  }
-}
-
-async function clearAllSessions(): Promise<void> {
-  if (typeof window === "undefined") return;
-  try {
-    const store = await getPomodoroStore();
-    await store.set("sessions", []);
-  } catch (e) {
-    console.error("Failed to clear pomodoro sessions:", e);
-  }
-}
-
-const FOCUS_BG_GIF = "";
-const FOCUS_COMPLETE_SOUND = "/assets/Bling.m4a";
-const BREAK_COMPLETE_SOUND = "/assets/Bling.m4a";
-
-function playSound(src: string) {
-  try {
-    const audio = new Audio(src);
-    audio.volume = 0.5;
-    audio.play();
-  } catch {
-    
-  }
-}
-
-async function sendDesktopNotification(title: string, body: string) {
-  try {
-    const { sendNotification, isPermissionGranted, requestPermission } =
-      await import("@tauri-apps/plugin-notification");
-
-    let granted = await isPermissionGranted();
-    if (!granted) {
-      const result = await requestPermission();
-      granted = result === "granted";
-    }
-    if (granted) {
-      sendNotification({ title, body });
-    }
-  } catch {}
-}
+import {
+  usePomodoroStore,
+  DURATIONS,
+  POMODORO_TARGET,
+  type Session,
+} from "@/stores/pomodoro";
 
 function groupSessionsByDate(sessions: Session[]) {
   const groups = new Map<string, Session[]>();
@@ -117,14 +41,17 @@ function groupSessionsByDate(sessions: Session[]) {
 }
 
 export default function PomodoroPage() {
-  const [mode, setMode] = useState<TimerMode>("focus");
-  const [seconds, setSeconds] = useState(DURATIONS.focus);
-  const [running, setRunning] = useState(false);
-  const [sessionCount, setSessionCount] = useState(0);
-  const [allSessions, setAllSessions] = useState<Session[]>([]);
+  const mode = usePomodoroStore((s) => s.mode);
+  const seconds = usePomodoroStore((s) => s.seconds);
+  const running = usePomodoroStore((s) => s.running);
+  const sessionCount = usePomodoroStore((s) => s.sessionCount);
+  const allSessions = usePomodoroStore((s) => s.allSessions);
+  const toggleStartPause = usePomodoroStore((s) => s.toggleStartPause);
+  const reset = usePomodoroStore((s) => s.reset);
+  const switchMode = usePomodoroStore((s) => s.switchMode);
+  const clearAllSessions = usePomodoroStore((s) => s.clearAllSessions);
+
   const [historyOpen, setHistoryOpen] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sessionStartRef = useRef<string | null>(null);
 
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -142,100 +69,7 @@ export default function PomodoroPage() {
     isToday(new Date(s.completedAt)),
   );
 
-  useEffect(() => {
-    loadSessions().then((sessions) => {
-      setAllSessions(sessions);
-      const todayCount = sessions.filter((s) =>
-        isToday(new Date(s.completedAt)),
-      ).length;
-      setSessionCount(todayCount);
-    });
-  }, []);
-
-  const handleTimerComplete = useCallback(async () => {
-    if (mode === "focus") {
-      const now = new Date().toISOString();
-      const session: Session = {
-        startedAt: sessionStartRef.current ?? now,
-        duration: DURATIONS.focus,
-        completedAt: now,
-      };
-      await saveSession(session);
-      setAllSessions((prev) => [...prev, session]);
-      setSessionCount((c) => c + 1);
-      playSound(FOCUS_COMPLETE_SOUND);
-      sendDesktopNotification("Focus session complete!", "Time for a break.");
-      setMode("break");
-      setSeconds(DURATIONS.break);
-      setRunning(true);
-      sessionStartRef.current = new Date().toISOString();
-    } else {
-      playSound(BREAK_COMPLETE_SOUND);
-      sendDesktopNotification("Break's over!", "Ready to focus?");
-      setMode("focus");
-      setSeconds(DURATIONS.focus);
-      setRunning(false);
-      sessionStartRef.current = null;
-    }
-  }, [mode]);
-
-  useEffect(() => {
-    if (!running) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
-
-    intervalRef.current = setInterval(() => {
-      setSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!);
-          intervalRef.current = null;
-          handleTimerComplete();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    };
-  }, [running, handleTimerComplete]);
-
-  const handleStartPause = () => {
-    if (!running && !sessionStartRef.current) {
-      sessionStartRef.current = new Date().toISOString();
-    }
-    setRunning(!running);
-  };
-
-  const reset = () => {
-    setRunning(false);
-    setSeconds(DURATIONS[mode]);
-    sessionStartRef.current = null;
-  };
-
-  const switchMode = (newMode: TimerMode) => {
-    setRunning(false);
-    setMode(newMode);
-    setSeconds(DURATIONS[newMode]);
-    sessionStartRef.current = null;
-  };
-
-  const handleClearSessions = async () => {
-    await clearAllSessions();
-    setAllSessions([]);
-    setSessionCount(0);
-  };
-
   const groupedSessions = groupSessionsByDate(allSessions);
-  const showBg = running && mode === "focus" && FOCUS_BG_GIF;
 
   return (
     <div className="flex flex-col gap-2 pb-4 h-[calc(100vh-2rem)]! relative overflow-hidden">
@@ -327,20 +161,6 @@ export default function PomodoroPage() {
               {String(secs).padStart(2, "0")}
             </span>
           </div>
-          {FOCUS_BG_GIF && (
-            <div
-              className={cn(
-                "absolute inset-0 pointer-events-none transition-opacity duration-1000 z-0 left-1/2 -translate-x-1/2 translate-y-20",
-                showBg ? "opacity-100" : "opacity-0",
-              )}
-            >
-              <img
-                src={FOCUS_BG_GIF}
-                alt=""
-                className="w-full h-auto aspect-video max-w-36 object-cover mx-auto object-[50%_65%] rounded-lg shadow overflow-hidden"
-              />
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-8 mt-2">
@@ -365,7 +185,7 @@ export default function PomodoroPage() {
           </button>
 
           <button
-            onClick={handleStartPause}
+            onClick={toggleStartPause}
             className="flex items-center justify-center size-14 rounded-full border border-border text-card-foreground hover:bg-secondary transition-colors"
             aria-label={running ? "Pause timer" : "Start timer"}
           >
@@ -486,7 +306,7 @@ export default function PomodoroPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClearSessions}
+                onClick={clearAllSessions}
                 className="text-muted-foreground hover:text-destructive w-full"
               >
                 <Trash2 className="size-3" />

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Minus, Square, Copy, X, Maximize2, Minimize2 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { BackgroundTasksIndicator } from "./background-tasks-indicator";
 
 const PATHNAME_TITLE_MAP = {
   "/": "home",
@@ -119,6 +120,10 @@ export function TitleBar() {
           </button>
         </div>
 
+        <div className="ml-2">
+          <BackgroundTasksIndicator />
+        </div>
+
         <span
           data-tauri-drag-region
           className="absolute left-1/2 -translate-x-1/2 text-xs text-foreground font-semibold"
@@ -134,12 +139,15 @@ export function TitleBar() {
       data-tauri-drag-region
       className="fixed top-0 left-0 right-0 z-50 flex h-8 select-none items-center justify-between bg-background"
     >
-      <span
-        data-tauri-drag-region
-        className="pl-3 text-xs text-foreground font-semibold"
-      >
-        {title}
-      </span>
+      <div className="flex items-center gap-2 pl-3">
+        <span
+          data-tauri-drag-region
+          className="text-xs text-foreground font-semibold"
+        >
+          {title}
+        </span>
+        <BackgroundTasksIndicator />
+      </div>
 
       <div className="flex h-full flex-row items-center">
         <button
