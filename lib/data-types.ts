@@ -255,6 +255,88 @@ export interface IKanbanColumn {
   updatedAt: Date;
 }
 
+export interface IHealthCheck {
+  enabled: boolean;
+  intervalMinutes: number;
+  expectedStatus: number;
+  responseTimeThresholdMs: number;
+  lastCheckedAt: string | null;
+  lastStatus: number | null;
+  lastResponseTimeMs: number | null;
+  isHealthy: boolean | null;
+}
+
+export interface ICapability {
+  _id: string;
+  type: string;
+  label: string;
+  config: Record<string, unknown>;
+  isActive: boolean;
+}
+
+export interface IResource {
+  _id: string;
+  name: string;
+  description: string;
+  url: string;
+  type: "pi" | "vps" | "api" | "service";
+  isActive: boolean;
+  healthCheck: IHealthCheck;
+  capabilities: ICapability[];
+  uptime: ResourceUptimeData | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyUptimeEntry {
+  date: string;
+  totalChecks: number;
+  healthyChecks: number;
+  avgResponseTimeMs: number | null;
+  status: "up" | "degraded" | "down" | "unknown";
+}
+
+export interface ResourceUptimeData {
+  resourceId: string;
+  uptimePercentage: number;
+  dailyHistory: DailyUptimeEntry[];
+}
+
+export interface PiCronJob {
+  id: string;
+  name: string;
+  expression: string;
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+  enabled: boolean;
+  timeout: number;
+  created_at: string;
+  updated_at: string;
+  last_status: number | null;
+  last_run: string | null;
+  last_error: string | null;
+  next_run: string | null;
+}
+
+export interface PiCronStats {
+  total_jobs: number;
+  active_jobs: number;
+  total_executions: number;
+  failed_executions_24h: number;
+}
+
+export interface PiCronHistoryEntry {
+  id: string;
+  job_id: string;
+  status: number;
+  duration_ms: number;
+  response: string;
+  error: string;
+  started_at: string;
+}
+
 export interface ILlmUsage {
   _id: string;
   llmModel: string;

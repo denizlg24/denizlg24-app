@@ -19,6 +19,7 @@ import {
   NotebookPen,
   PenTool,
   Plus,
+  Radio,
   Settings,
   UserSquare,
 } from "lucide-react";
@@ -189,6 +190,11 @@ export const GROUPS: NavGroup[] = [
         label: "Pomodoro Timer",
         href: "/pomodoro",
         icon: AlarmClock,
+      },
+      {
+        label: "Resources",
+        href: "/resources",
+        icon: Radio,
       },
     ],
   },

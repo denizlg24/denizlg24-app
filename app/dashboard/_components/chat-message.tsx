@@ -47,6 +47,20 @@ const TOOL_LABELS: Record<string, string> = {
   list_emails: "Listed emails",
   get_email: "Read email",
   web_search: "Searched the web",
+  get_resources: "Fetched resources",
+  get_resource_by_id: "Fetched resource",
+  get_resource_health: "Checked resource health",
+  get_healthy_resources: "Fetched healthy resources",
+  create_resource: "Creating resource",
+  delete_resource: "Deleting resource",
+  update_resource: "Updating resource",
+  get_now_page: "Fetched now page",
+  update_now_page: "Updating now page",
+  mark_email_as_read: "Marking email as read",
+  delete_email: "Deleting email",
+  list_account_emails: "Listed account emails",
+  reply_to_contact: "Replying to contact",
+  list_kanban_columns: "Listed kanban columns",
 };
 
 function ToolCallStatusIcon({ status }: { status: IChatToolCall["status"] }) {

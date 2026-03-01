@@ -82,6 +82,7 @@ export const settingsFieldMeta: Record<keyof UserSettings, SettingsFieldMeta> =
         { label: "Whiteboards", value: "/dashboard/whiteboard" },
         { label: "Today's Board", value: "/dashboard/whiteboard/today" },
         { label: "Kanban Boards", value: "/dashboard/kanban" },
+        { label: "Resources", value: "/dashboard/resources" },
         { label: "Settings", value: "/dashboard/settings" },
       ],
     },
