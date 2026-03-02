@@ -25,6 +25,102 @@ type CommandEntry = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
+function fuzzyScore(value: string, search: string): number {
+  const v = value.toLowerCase();
+  const s = search.toLowerCase().trim();
+
+  if (!s) return 1;
+  if (v === s) return 1;
+  if (v.startsWith(s)) return 0.95;
+
+  const vWords = v.split(/[\s\-_]+/);
+
+  for (let i = 0; i < vWords.length; i++) {
+    if (vWords[i] === s) return 0.93;
+  }
+
+  for (let i = 0; i < vWords.length; i++) {
+    if (vWords[i].startsWith(s)) return 0.9 - i * 0.01;
+  }
+
+  const sWords = s.split(/\s+/);
+  if (sWords.length > 1) {
+    const used = new Set<number>();
+    let total = 0;
+
+    for (const sw of sWords) {
+      let best = 0;
+      let bestIdx = -1;
+      for (let i = 0; i < vWords.length; i++) {
+        if (used.has(i)) continue;
+        let sc = 0;
+        if (vWords[i] === sw) sc = 1;
+        else if (vWords[i].startsWith(sw)) sc = 0.9;
+        else if (vWords[i].includes(sw)) sc = 0.7;
+        if (sc > best) {
+          best = sc;
+          bestIdx = i;
+        }
+      }
+      if (best === 0) return 0;
+      used.add(bestIdx);
+      total += best;
+    }
+
+    return 0.5 + (total / sWords.length) * 0.15;
+  }
+
+  const initials = vWords.map((w) => w[0] ?? "").join("");
+  if (initials.startsWith(s)) return 0.55;
+  if (initials.includes(s)) return 0.5;
+
+  for (let i = 0; i < vWords.length; i++) {
+    const idx = vWords[i].indexOf(s);
+    if (idx !== -1) {
+      const positionPenalty = idx * 0.02;
+      const wordPenalty = i * 0.01;
+      return 0.45 - positionPenalty - wordPenalty;
+    }
+  }
+
+  if (v.includes(s)) {
+    const idx = v.indexOf(s);
+    return 0.3 - idx * 0.005;
+  }
+
+  for (const w of vWords) {
+    let wi = 0;
+    let matched = 0;
+    let firstIdx = -1;
+    let lastIdx = -1;
+
+    for (let si = 0; si < s.length; si++) {
+      let found = false;
+      while (wi < w.length) {
+        if (w[wi] === s[si]) {
+          if (firstIdx === -1) firstIdx = wi;
+          matched++;
+          lastIdx = wi;
+          wi++;
+          found = true;
+          break;
+        }
+        wi++;
+      }
+      if (!found) break;
+    }
+
+    if (matched === s.length) {
+      const span = lastIdx - firstIdx + 1;
+      if (span > s.length * 3) continue;
+      const density = matched / span;
+      return 0.05 + density * 0.15;
+    }
+  }
+
+  return 0;
+}
+
 function flattenGroup(group: NavGroup): CommandEntry[] {
   const entries: CommandEntry[] = [];
   for (const item of group.items) {
@@ -123,7 +219,7 @@ export function CommandPalette() {
           </DialogPrimitive.Title>
           <Command
             className="overflow-visible bg-transparent"
-            filter={showAll ? () => 1 : undefined}
+            filter={showAll ? () => 1 : fuzzyScore}
           >
             <div className="flex items-center gap-3 rounded-full border bg-popover px-5 shadow-lg">
               <SearchIcon className="size-5 shrink-0 text-muted-foreground" />

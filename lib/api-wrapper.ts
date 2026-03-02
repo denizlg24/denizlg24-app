@@ -199,6 +199,42 @@ export class denizApi {
     }
   }
 
+  public async UPLOAD<T>({
+    endpoint,
+    formData,
+  }: {
+    endpoint: string;
+    formData: FormData;
+  }): Promise<T | AuthError | ApiError> {
+    try {
+      const res = await fetch(`${BASE_URL}/${endpoint}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.apiKey}`,
+        },
+        body: formData,
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          return { message: "API key is invalid", code: 401 };
+        } else {
+          const errorData = await res.json();
+          return {
+            message: errorData.message ?? "An error occurred.",
+            code: res.status,
+          };
+        }
+      }
+      const data = await res.json();
+      return data as T;
+    } catch (error) {
+      return {
+        message: (error as Error).message ?? "An unexpected error occurred.",
+        code: 500,
+      };
+    }
+  }
+
   public async DELETE<T>({
     endpoint,
   }: {

@@ -354,6 +354,23 @@ export type IChatContentSegment =
   | { type: "text"; text: string }
   | { type: "tool_group"; calls: IChatToolCall[] };
 
+export interface IChatAttachment {
+  id: string;
+  file: File;
+  name: string;
+  type: "image" | "pdf";
+  previewUrl?: string;
+  uploadedUrl?: string;
+  status: "pending" | "uploading" | "done" | "error";
+  error?: string;
+}
+
+export interface IChatMessageAttachment {
+  type: "image" | "pdf";
+  url: string;
+  name: string;
+}
+
 export interface IChatMessage {
   role: "user" | "assistant";
   content: string | unknown[];
@@ -365,6 +382,8 @@ export interface IChatMessage {
   toolCalls?: IChatToolCall[];
   segments?: IChatContentSegment[];
   pendingActions?: IChatPendingAction[];
+  error?: string;
+  attachments?: IChatMessageAttachment[];
   createdAt: string;
 }
 

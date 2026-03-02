@@ -7,15 +7,63 @@ import {
   ChevronRight,
   Code,
   Eye,
+  FileText,
+  Image,
   Loader2,
+  RotateCcw,
   X,
 } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import type {
   IChatMessage,
+  IChatMessageAttachment,
   IChatToolCall,
   IChatContentSegment,
 } from "@/lib/data-types";
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1 py-2">
+      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+    </div>
+  );
+}
+
+function ErrorCard({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  return (
+    <div className="my-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <X className="w-3 h-3 text-destructive shrink-0" />
+          <span className="text-xs text-destructive/80">{error}</span>
+        </div>
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors shrink-0"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Retry</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function extractAttachmentsFromContent(content: unknown[]): IChatMessageAttachment[] {
+  const attachments: IChatMessageAttachment[] = [];
+  for (const block of content as any[]) {
+    if (block.type === "image" && block.source?.url) {
+      attachments.push({ type: "image", url: block.source.url, name: "Image" });
+    } else if (block.type === "document" && block.source?.url) {
+      attachments.push({ type: "pdf", url: block.source.url, name: block.source.url.split("/").pop() ?? "Document" });
+    }
+  }
+  return attachments;
+}
 
 const TOOL_LABELS: Record<string, string> = {
   get_calendar_events: "Fetched calendar events",
@@ -289,12 +337,14 @@ export function ChatMessage({
   streamSegments,
   onApproveAll,
   onDenyAll,
+  onRetry,
 }: {
   message: IChatMessage;
   isStreaming?: boolean;
   streamSegments?: IChatContentSegment[];
   onApproveAll?: () => void;
   onDenyAll?: () => void;
+  onRetry?: () => void;
 }) {
   const [showRaw, setShowRaw] = useState(false);
 
@@ -303,12 +353,39 @@ export function ChatMessage({
       typeof message.content === "string"
         ? message.content
         : getTextContent(message.content);
+
+    const displayAttachments: IChatMessageAttachment[] =
+      message.attachments ??
+      (Array.isArray(message.content) ? extractAttachmentsFromContent(message.content) : []);
+
     return (
       <div className="flex justify-end mb-4">
         <div className="bg-surface rounded-2xl px-4 py-2 max-w-[80%]">
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {displayContent}
-          </p>
+          {displayAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {displayAttachments.map((att, i) => (
+                <a
+                  key={i}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 max-w-36 hover:bg-background/50 transition-colors"
+                >
+                  {att.type === "image" ? (
+                    <Image className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+                  ) : (
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+                  )}
+                  <span className="text-xs text-muted-foreground truncate">{att.name}</span>
+                </a>
+              ))}
+            </div>
+          )}
+          {displayContent && (
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {displayContent}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -329,6 +406,14 @@ export function ChatMessage({
     : getTextContent(message.content);
 
   const rawContent = textContent;
+
+  const hasContent = segments
+    ? segments.some(
+        (s) => (s.type === "text" && s.text.length > 0) || s.type === "tool_group",
+      )
+    : textContent.length > 0;
+
+  if (isStreaming && !hasContent) return <div className="mb-6"><TypingIndicator /></div>;
 
   return (
     <div className="mb-6 group">
@@ -351,6 +436,8 @@ export function ChatMessage({
           )}
         </div>
       )}
+
+      {message.error && <ErrorCard error={message.error} onRetry={onRetry} />}
 
       {!isStreaming && textContent && (
         <div className="flex items-center gap-2 mt-1">

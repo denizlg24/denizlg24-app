@@ -6,14 +6,16 @@ import { ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type {
+  IChatAttachment,
   IChatMessage,
+  IChatMessageAttachment,
   IChatContentSegment,
   IChatPendingAction,
   IChatToolCall,
   IConversation,
   IConversationMeta,
 } from "@/lib/data-types";
-import { useChatStream } from "@/hooks/use-chat-stream";
+import { useChatStream, type StreamResult, type StreamError } from "@/hooks/use-chat-stream";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,10 @@ function useSuggestion() {
   return { text: SUGGESTIONS[index], visible };
 }
 
+function isStreamError(r: StreamResult | StreamError | null): r is StreamError {
+  return r !== null && "error" in r;
+}
+
 function convertApiMessagesToDisplay(
   rawMessages: IConversation["messages"],
 ): IChatMessage[] {
@@ -105,7 +111,19 @@ function convertApiMessagesToDisplay(
         continue;
       }
 
-      display.push(msg);
+      const attachments: IChatMessageAttachment[] = [];
+      for (const block of contentArr) {
+        if (block.type === "image" && block.source?.url) {
+          attachments.push({ type: "image", url: block.source.url, name: "Image" });
+        } else if (block.type === "document" && block.source?.url) {
+          attachments.push({ type: "pdf", url: block.source.url, name: block.source.url.split("/").pop() ?? "Document" });
+        }
+      }
+
+      display.push({
+        ...msg,
+        attachments: attachments.length > 0 ? attachments : undefined,
+      });
       continue;
     }
 
@@ -246,6 +264,8 @@ export function ChatView() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [active, setActive] = useState(false);
   const [title, setTitle] = useState("");
+  const [attachments, setAttachments] = useState<IChatAttachment[]>([]);
+  const attachmentsRef = useRef<IChatAttachment[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
@@ -264,6 +284,10 @@ export function ChatView() {
     }
     setLoadingConversations(false);
   }, [API]);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
 
   useEffect(() => {
     if (API && !isActive) fetchConversations();
@@ -330,21 +354,112 @@ export function ChatView() {
     setConversationId(null);
     setTitle("");
     setInput("");
+    setAttachments([]);
     userScrolledUp.current = false;
   };
+
+  const uploadSingleAttachment = useCallback(
+    async (att: IChatAttachment) => {
+      if (!API) return;
+      setAttachments((prev) =>
+        prev.map((a) => (a.id === att.id ? { ...a, status: "uploading" as const } : a)),
+      );
+      const fd = new FormData();
+      fd.append("file", att.file);
+      const res = await API.UPLOAD<{ url: string; hash: string }>({
+        endpoint: "upload",
+        formData: fd,
+      });
+      if ("code" in res) {
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === att.id ? { ...a, status: "error" as const, error: res.message } : a,
+          ),
+        );
+      } else {
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === att.id ? { ...a, status: "done" as const, uploadedUrl: res.url } : a,
+          ),
+        );
+      }
+    },
+    [API],
+  );
+
+  const handleAttachmentsChange = useCallback(
+    (newAttachments: IChatAttachment[]) => {
+      const prev = attachments;
+      setAttachments(newAttachments);
+      const added = newAttachments.filter(
+        (a) => a.status === "pending" && !prev.some((p) => p.id === a.id),
+      );
+      for (const att of added) {
+        uploadSingleAttachment(att);
+      }
+    },
+    [attachments, uploadSingleAttachment],
+  );
 
   const sendMessage = async (messageContent: string) => {
     if (!API || isStreaming) return;
 
+    let messageAttachments: IChatMessageAttachment[] | undefined;
+    let messagePayload: string | unknown[] = messageContent;
+
+    if (attachments.length > 0) {
+      const stillInFlight = () =>
+        attachmentsRef.current.some((a) => a.status === "uploading" || a.status === "pending");
+
+      if (stillInFlight()) {
+        await new Promise<void>((resolve) => {
+          const interval = setInterval(() => {
+            if (!stillInFlight()) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 100);
+        });
+      }
+
+      const currentAttachments = attachmentsRef.current;
+      const failed = currentAttachments.filter((a) => a.status === "error");
+      if (failed.length > 0) {
+        toast.error(`Failed to upload ${failed.length} file(s)`);
+        return;
+      }
+
+      const contentBlocks: unknown[] = [];
+      messageAttachments = [];
+
+      for (const att of currentAttachments) {
+        if (att.type === "image") {
+          contentBlocks.push({ type: "image", source: { type: "url", url: att.uploadedUrl } });
+          messageAttachments.push({ type: "image", url: att.uploadedUrl!, name: att.name });
+        } else {
+          contentBlocks.push({ type: "document", source: { type: "url", url: att.uploadedUrl } });
+          messageAttachments.push({ type: "pdf", url: att.uploadedUrl!, name: att.name });
+        }
+      }
+
+      if (messageContent) {
+        contentBlocks.push({ type: "text", text: messageContent });
+      }
+
+      messagePayload = contentBlocks;
+    }
+
     const userMessage: IChatMessage = {
       role: "user",
       content: messageContent,
+      attachments: messageAttachments,
       createdAt: new Date().toISOString(),
     };
 
     const currentMessages = [...messages, userMessage];
     setMessages(currentMessages);
     setInput("");
+    setAttachments([]);
     setActive(true);
     userScrolledUp.current = false;
 
@@ -354,7 +469,7 @@ export function ChatView() {
       const msgTitle =
         messageContent.length > 50
           ? messageContent.slice(0, 50) + "..."
-          : messageContent;
+          : messageContent || "Image conversation";
       setTitle(msgTitle);
 
       const createResult = await API.POST<{
@@ -374,13 +489,21 @@ export function ChatView() {
 
     const streamResult = await streamChat({
       conversationId: currentConversationId,
-      message: messageContent,
+      message: messagePayload,
       model,
       toolsEnabled,
       webSearchEnabled,
     });
 
-    if (streamResult) {
+    if (isStreamError(streamResult)) {
+      const errorMessage: IChatMessage = {
+        role: "assistant",
+        content: "",
+        error: streamResult.error,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages([...currentMessages, errorMessage]);
+    } else if (streamResult) {
       const assistantMessage: IChatMessage = {
         role: "assistant",
         content: streamResult.content,
@@ -395,8 +518,6 @@ export function ChatView() {
       };
 
       setMessages([...currentMessages, assistantMessage]);
-    } else {
-      toast.error("Failed to get response");
     }
   };
 
@@ -413,7 +534,24 @@ export function ChatView() {
       webSearchEnabled,
     });
 
-    if (streamResult) {
+    if (isStreamError(streamResult)) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        const lastMsg = updated[lastIdx];
+        if (lastMsg?.role === "assistant") {
+          updated[lastIdx] = { ...lastMsg, error: streamResult.error };
+        } else {
+          updated.push({
+            role: "assistant",
+            content: "",
+            error: streamResult.error,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        return updated;
+      });
+    } else if (streamResult) {
       setMessages((prev) => {
         const updated = [...prev];
         const lastIdx = updated.length - 1;
@@ -458,14 +596,65 @@ export function ChatView() {
 
         return updated;
       });
-    } else {
-      toast.error("Failed to continue response");
     }
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && attachments.length === 0) return;
     await sendMessage(input.trim());
+  };
+
+  const retryFromError = async () => {
+    setMessages((prev) => {
+      const updated = [...prev];
+      const lastIdx = updated.length - 1;
+      if (updated[lastIdx]?.role === "assistant" && updated[lastIdx]?.error) {
+        updated.splice(lastIdx, 1);
+      }
+      return updated;
+    });
+
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUserMsg || !conversationId) return;
+
+    const messageContent =
+      typeof lastUserMsg.content === "string"
+        ? lastUserMsg.content
+        : lastUserMsg.content;
+
+    userScrolledUp.current = false;
+
+    const streamResult = await streamChat({
+      conversationId,
+      message: messageContent as string | unknown[],
+      model,
+      toolsEnabled,
+      webSearchEnabled,
+    });
+
+    if (isStreamError(streamResult)) {
+      const errorMessage: IChatMessage = {
+        role: "assistant",
+        content: "",
+        error: streamResult.error,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } else if (streamResult) {
+      const assistantMessage: IChatMessage = {
+        role: "assistant",
+        content: streamResult.content,
+        tokenUsage: streamResult.paused ? undefined : streamResult.usage,
+        segments:
+          streamResult.segments.length > 0 ? streamResult.segments : undefined,
+        pendingActions:
+          streamResult.pendingActions.length > 0
+            ? streamResult.pendingActions
+            : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    }
   };
 
   const getAllPendingActions = (): IChatPendingAction[] => {
@@ -605,6 +794,8 @@ export function ChatView() {
             onToolsEnabledChange={setToolsEnabled}
             webSearchEnabled={webSearchEnabled}
             onWebSearchEnabledChange={setWebSearchEnabled}
+            attachments={attachments}
+            onAttachmentsChange={handleAttachmentsChange}
           />
           {(loadingConversations || conversations.length > 0) && (
             <div className="w-full max-w-md mt-4">
@@ -685,6 +876,7 @@ export function ChatView() {
                 streamSegments={isLastAssistant ? streamSegments : undefined}
                 onApproveAll={handleApproveAll}
                 onDenyAll={handleDenyAll}
+                onRetry={msg.error ? retryFromError : undefined}
               />
             );
           })}
@@ -723,6 +915,8 @@ export function ChatView() {
         onToolsEnabledChange={setToolsEnabled}
         webSearchEnabled={webSearchEnabled}
         onWebSearchEnabledChange={setWebSearchEnabled}
+        attachments={attachments}
+        onAttachmentsChange={handleAttachmentsChange}
       />
     </div>
   );

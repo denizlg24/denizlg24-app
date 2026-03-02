@@ -370,6 +370,7 @@ export default function ResourcesPage() {
         onOpenChange={(o) => !o && setEditingResource(null)}
         onSubmit={handleUpdate}
         editingResource={editingResource}
+        key={editingResource?._id ?? "edit-dialog"}
       />
 
       <Dialog

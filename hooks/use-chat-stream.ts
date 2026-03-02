@@ -19,6 +19,10 @@ export interface StreamResult {
   paused?: boolean;
 }
 
+export interface StreamError {
+  error: string;
+}
+
 export function useChatStream(API: denizApi | null) {
   const [streamSegments, setStreamSegments] = useState<IChatContentSegment[]>(
     [],
@@ -43,7 +47,7 @@ export function useChatStream(API: denizApi | null) {
       toolsEnabled?: boolean;
       webSearchEnabled?: boolean;
       toolApprovals?: Record<string, boolean>;
-    }): Promise<StreamResult | null> => {
+    }): Promise<StreamResult | StreamError | null> => {
       if (!API) return Promise.resolve(null);
 
       return new Promise(async (resolve) => {
@@ -106,14 +110,14 @@ export function useChatStream(API: denizApi | null) {
 
           if ("code" in result) {
             setIsStreaming(false);
-            resolve(null);
+            resolve({ error: result.message ?? "Request failed" });
             return;
           }
 
           const reader = result.body?.getReader();
           if (!reader) {
             setIsStreaming(false);
-            resolve(null);
+            resolve({ error: "No response body received" });
             return;
           }
 
@@ -188,7 +192,7 @@ export function useChatStream(API: denizApi | null) {
                   return;
                 } else if (event.type === "error") {
                   setIsStreaming(false);
-                  resolve(null);
+                  resolve({ error: event.error ?? "An unknown error occurred" });
                   return;
                 }
               } catch {}
@@ -206,9 +210,9 @@ export function useChatStream(API: denizApi | null) {
                   pendingActions,
                 },
           );
-        } catch {
+        } catch (e) {
           setIsStreaming(false);
-          resolve(null);
+          resolve({ error: e instanceof Error ? e.message : "An unexpected error occurred" });
         }
       });
     },
