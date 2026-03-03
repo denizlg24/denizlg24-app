@@ -1,12 +1,8 @@
 "use client";
 
+import { Activity, ArrowLeft, Loader2, Plus, Radio } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { denizApi } from "@/lib/api-wrapper";
-import { useUserSettings } from "@/context/user-context";
-import type { IResource } from "@/lib/data-types";
-import { ResourceRow } from "./_components/resource-row";
-import { ResourceDetail } from "./_components/resource-detail";
-import { CreateResourceDialog } from "./_components/create-resource-dialog";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,8 +12,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Activity, ArrowLeft, Loader2, Plus, Radio } from "lucide-react";
-import { toast } from "sonner";
+import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
+import type { IResource } from "@/lib/data-types";
+import { CreateResourceDialog } from "./_components/create-resource-dialog";
+import { ResourceDetail } from "./_components/resource-detail";
+import { ResourceRow } from "./_components/resource-row";
+
+function getResourceStatus(
+  resource: IResource,
+): "up" | "degraded" | "down" | "unknown" {
+  const agent = resource.agentService;
+  if (!agent.enabled || agent.lastStatus === null) return "unknown";
+  if (agent.lastStatus === "unreachable") return "down";
+  if (agent.lastStatus === "degraded") return "degraded";
+  return "up";
+}
 
 export default function ResourcesPage() {
   const { settings, loading: loadingSettings } = useUserSettings();
@@ -109,9 +119,12 @@ export default function ResourcesPage() {
     const result = await API.POST<{
       results: Array<{
         resourceId: string;
-        isHealthy: boolean;
-        status: number | null;
-        responseTimeMs: number | null;
+        status: "healthy" | "degraded" | "unreachable";
+        metrics: {
+          cpuUsagePercent: number | null;
+          memoryUsagePercent: number | null;
+          diskUsagePercent: number | null;
+        } | null;
       }>;
     }>({
       endpoint: "resources/health-check",
@@ -128,17 +141,16 @@ export default function ResourcesPage() {
         if (!check) return r;
         return {
           ...r,
-          healthCheck: {
-            ...r.healthCheck,
-            isHealthy: check.isHealthy,
+          agentService: {
+            ...r.agentService,
             lastStatus: check.status,
-            lastResponseTimeMs: check.responseTimeMs,
+            lastMetrics: check.metrics,
             lastCheckedAt: new Date().toISOString(),
           },
         };
       }),
     );
-    const healthy = result.results.filter((r) => r.isHealthy).length;
+    const healthy = result.results.filter((r) => r.status === "healthy").length;
     toast.success(
       `Health check complete: ${healthy}/${result.results.length} healthy`,
     );
@@ -150,9 +162,12 @@ export default function ResourcesPage() {
     const result = await API.POST<{
       results: Array<{
         resourceId: string;
-        isHealthy: boolean;
-        status: number | null;
-        responseTimeMs: number | null;
+        status: "healthy" | "degraded" | "unreachable";
+        metrics: {
+          cpuUsagePercent: number | null;
+          memoryUsagePercent: number | null;
+          diskUsagePercent: number | null;
+        } | null;
       }>;
     }>({
       endpoint: "resources/health-check",
@@ -170,20 +185,19 @@ export default function ResourcesPage() {
         if (r._id !== resource._id) return r;
         return {
           ...r,
-          healthCheck: {
-            ...r.healthCheck,
-            isHealthy: check.isHealthy,
+          agentService: {
+            ...r.agentService,
             lastStatus: check.status,
-            lastResponseTimeMs: check.responseTimeMs,
+            lastMetrics: check.metrics,
             lastCheckedAt: new Date().toISOString(),
           },
         };
       }),
     );
     toast.success(
-      check.isHealthy
+      check.status === "healthy"
         ? `${resource.name} is healthy`
-        : `${resource.name} is unhealthy`,
+        : `${resource.name} is ${check.status}`,
     );
   };
 
@@ -227,10 +241,10 @@ export default function ResourcesPage() {
 
   const totalResources = resources.length;
   const healthyCount = resources.filter(
-    (r) => r.healthCheck.isHealthy === true,
+    (r) => getResourceStatus(r) === "up",
   ).length;
   const unhealthyCount = resources.filter(
-    (r) => r.healthCheck.isHealthy === false,
+    (r) => getResourceStatus(r) === "down",
   ).length;
 
   return (
@@ -246,28 +260,26 @@ export default function ResourcesPage() {
             >
               <ArrowLeft className="size-4" />
             </Button>
-            <span
-              className={`relative flex size-2 ${
-                selectedResource.healthCheck.isHealthy === true
-                  ? ""
-                  : selectedResource.healthCheck.isHealthy === false
-                    ? ""
-                    : ""
-              }`}
-            >
-              {selectedResource.healthCheck.isHealthy === true && (
+            <span className="relative flex size-2">
+              {getResourceStatus(selectedResource) === "up" && (
                 <>
                   <span className="absolute inline-flex size-full rounded-full bg-accent opacity-40 animate-ping" />
                   <span className="relative inline-flex size-2 rounded-full bg-accent" />
                 </>
               )}
-              {selectedResource.healthCheck.isHealthy === false && (
+              {getResourceStatus(selectedResource) === "degraded" && (
+                <>
+                  <span className="absolute inline-flex size-full rounded-full bg-amber-400 opacity-40 animate-ping" />
+                  <span className="relative inline-flex size-2 rounded-full bg-amber-400" />
+                </>
+              )}
+              {getResourceStatus(selectedResource) === "down" && (
                 <>
                   <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-40 animate-ping" />
                   <span className="relative inline-flex size-2 rounded-full bg-red-500" />
                 </>
               )}
-              {selectedResource.healthCheck.isHealthy === null && (
+              {getResourceStatus(selectedResource) === "unknown" && (
                 <span className="size-2 rounded-full bg-muted-foreground/30" />
               )}
             </span>
@@ -398,7 +410,7 @@ export default function ResourcesPage() {
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? "Deleting…" : "Delete Resource"}
+              {deleting ? "Deleting..." : "Delete Resource"}
             </Button>
           </DialogFooter>
         </DialogContent>

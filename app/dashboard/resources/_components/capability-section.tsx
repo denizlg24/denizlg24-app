@@ -1,9 +1,9 @@
 "use client";
 
-import type { ICapability } from "@/lib/data-types";
+import type { LucideIcon } from "lucide-react";
 import { Clock, Plus, Power, PowerOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { LucideIcon } from "lucide-react";
+import type { ICapability } from "@/lib/data-types";
 
 const CAPABILITY_ICONS: Record<string, LucideIcon> = {
   picron: Clock,
@@ -28,7 +28,12 @@ export function CapabilitySection({
         <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
           Capabilities
         </h3>
-        <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-muted-foreground" onClick={onAdd}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-xs gap-1 text-muted-foreground"
+          onClick={onAdd}
+        >
           <Plus className="size-3" /> Add
         </Button>
       </div>
@@ -48,18 +53,43 @@ export function CapabilitySection({
               onClick={() => onSelect(cap)}
               onKeyDown={(e) => e.key === "Enter" && onSelect(cap)}
             >
-              {(() => { const Icon = CAPABILITY_ICONS[cap.type]; return Icon ? <Icon className="size-3.5 text-muted-foreground" /> : <Clock className="size-3.5 text-muted-foreground" />; })()}
+              {(() => {
+                const Icon = CAPABILITY_ICONS[cap.type];
+                return Icon ? (
+                  <Icon className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <Clock className="size-3.5 text-muted-foreground" />
+                );
+              })()}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{cap.label}</p>
-                <p className="text-[10px] font-mono text-muted-foreground/70 uppercase">{cap.type}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium truncate">{cap.label}</p>
+                  {cap.baseUrl && (
+                    <span className="text-[10px] font-mono text-muted-foreground/70 truncate max-w-50">
+                      {cap.baseUrl}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-mono text-muted-foreground/70 uppercase">
+                  {cap.type}
+                </p>
               </div>
-              <span className={`size-1.5 rounded-full shrink-0 ${cap.isActive ? "bg-accent" : "bg-muted-foreground/30"}`} />
-              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+              <span
+                className={`size-1.5 rounded-full shrink-0 ${cap.isActive ? "bg-accent" : "bg-muted-foreground/30"}`}
+              />
+              <div
+                className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   onClick={() => onToggle(cap._id, !cap.isActive)}
                   className="p-1 rounded hover:bg-muted/50 text-muted-foreground/70 hover:text-muted-foreground transition-colors"
                 >
-                  {cap.isActive ? <PowerOff className="size-3" /> : <Power className="size-3" />}
+                  {cap.isActive ? (
+                    <PowerOff className="size-3" />
+                  ) : (
+                    <Power className="size-3" />
+                  )}
                 </button>
                 <button
                   onClick={() => onDelete(cap._id)}

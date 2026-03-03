@@ -255,21 +255,25 @@ export interface IKanbanColumn {
   updatedAt: Date;
 }
 
-export interface IHealthCheck {
+export interface IAgentServiceMetrics {
+  cpuUsagePercent: number | null;
+  memoryUsagePercent: number | null;
+  diskUsagePercent: number | null;
+}
+
+export interface IAgentService {
   enabled: boolean;
-  intervalMinutes: number;
-  expectedStatus: number;
-  responseTimeThresholdMs: number;
+  nodeId: string;
   lastCheckedAt: string | null;
-  lastStatus: number | null;
-  lastResponseTimeMs: number | null;
-  isHealthy: boolean | null;
+  lastStatus: "healthy" | "degraded" | "unreachable" | null;
+  lastMetrics: IAgentServiceMetrics | null;
 }
 
 export interface ICapability {
   _id: string;
   type: string;
   label: string;
+  baseUrl: string;
   config: Record<string, unknown>;
   isActive: boolean;
 }
@@ -281,7 +285,7 @@ export interface IResource {
   url: string;
   type: "pi" | "vps" | "api" | "service";
   isActive: boolean;
-  healthCheck: IHealthCheck;
+  agentService: IAgentService;
   capabilities: ICapability[];
   uptime: ResourceUptimeData | null;
   createdAt: string;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -13,12 +12,13 @@ import {
   RotateCcw,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import type {
+  IChatContentSegment,
   IChatMessage,
   IChatMessageAttachment,
   IChatToolCall,
-  IChatContentSegment,
 } from "@/lib/data-types";
 
 function TypingIndicator() {
@@ -31,7 +31,13 @@ function TypingIndicator() {
   );
 }
 
-function ErrorCard({ error, onRetry }: { error: string; onRetry?: () => void }) {
+function ErrorCard({
+  error,
+  onRetry,
+}: {
+  error: string;
+  onRetry?: () => void;
+}) {
   return (
     <div className="my-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
       <div className="flex items-center justify-between gap-2">
@@ -53,13 +59,19 @@ function ErrorCard({ error, onRetry }: { error: string; onRetry?: () => void }) 
   );
 }
 
-function extractAttachmentsFromContent(content: unknown[]): IChatMessageAttachment[] {
+function extractAttachmentsFromContent(
+  content: unknown[],
+): IChatMessageAttachment[] {
   const attachments: IChatMessageAttachment[] = [];
   for (const block of content as any[]) {
     if (block.type === "image" && block.source?.url) {
       attachments.push({ type: "image", url: block.source.url, name: "Image" });
     } else if (block.type === "document" && block.source?.url) {
-      attachments.push({ type: "pdf", url: block.source.url, name: block.source.url.split("/").pop() ?? "Document" });
+      attachments.push({
+        type: "pdf",
+        url: block.source.url,
+        name: block.source.url.split("/").pop() ?? "Document",
+      });
     }
   }
   return attachments;
@@ -102,6 +114,8 @@ const TOOL_LABELS: Record<string, string> = {
   create_resource: "Creating resource",
   delete_resource: "Deleting resource",
   update_resource: "Updating resource",
+  reboot_resource: "Rebooting resource",
+  restart_resource_service: "Restarting service",
   get_now_page: "Fetched now page",
   update_now_page: "Updating now page",
   mark_email_as_read: "Marking email as read",
@@ -356,7 +370,9 @@ export function ChatMessage({
 
     const displayAttachments: IChatMessageAttachment[] =
       message.attachments ??
-      (Array.isArray(message.content) ? extractAttachmentsFromContent(message.content) : []);
+      (Array.isArray(message.content)
+        ? extractAttachmentsFromContent(message.content)
+        : []);
 
     return (
       <div className="flex justify-end mb-4">
@@ -376,7 +392,9 @@ export function ChatMessage({
                   ) : (
                     <FileText className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                   )}
-                  <span className="text-xs text-muted-foreground truncate">{att.name}</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {att.name}
+                  </span>
                 </a>
               ))}
             </div>
@@ -409,11 +427,17 @@ export function ChatMessage({
 
   const hasContent = segments
     ? segments.some(
-        (s) => (s.type === "text" && s.text.length > 0) || s.type === "tool_group",
+        (s) =>
+          (s.type === "text" && s.text.length > 0) || s.type === "tool_group",
       )
     : textContent.length > 0;
 
-  if (isStreaming && !hasContent) return <div className="mb-6"><TypingIndicator /></div>;
+  if (isStreaming && !hasContent)
+    return (
+      <div className="mb-6">
+        <TypingIndicator />
+      </div>
+    );
 
   return (
     <div className="mb-6 group">
