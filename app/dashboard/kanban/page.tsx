@@ -1,14 +1,23 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Bug,
+  CheckSquare,
+  Code2,
+  LayoutGrid,
+  Megaphone,
+  MoreHorizontal,
+  Pencil,
+  PenLine,
+  Plus,
+  Square,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { denizApi } from "@/lib/api-wrapper";
-import { useUserSettings } from "@/context/user-context";
-import { IKanbanBoard } from "@/lib/data-types";
-import { KanbanBoard } from "./_components/kanban-board";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -23,22 +32,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ArrowLeft,
-  Bug,
-  CheckSquare,
-  Code2,
-  LayoutGrid,
-  Megaphone,
-  MoreHorizontal,
-  PenLine,
-  Pencil,
-  Plus,
-  Square,
-  Trash2,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
+import type { IKanbanBoard } from "@/lib/data-types";
+import { KanbanBoard } from "./_components/kanban-board";
 
 const BOARD_COLORS = [
   "#6366f1",
@@ -341,7 +341,7 @@ export default function KanbanPage() {
 
   if (loadingSettings || !API || initialLoading) {
     return (
-      <div className="flex flex-col h-[calc(100dvh-2rem)]">
+      <div className="flex flex-col h-full">
         <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
           <div className="h-4 w-32 bg-muted rounded animate-pulse flex-1" />
           <div className="h-7 w-24 bg-muted rounded animate-pulse" />
@@ -368,7 +368,7 @@ export default function KanbanPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-2rem)] w-full max-w-screen">
+    <div className="flex flex-col h-full w-full max-w-screen">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         {selectedBoard ? (
           <>
@@ -492,7 +492,7 @@ export default function KanbanPage() {
 
             <button
               onClick={() => setCreateOpen(true)}
-              className="rounded-2xl border-2 border-dashed bg-transparent hover:bg-muted/50 transition-colors h-full min-h-[116px] flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+              className="rounded-2xl border-2 border-dashed bg-transparent hover:bg-muted/50 transition-colors h-full min-h-29 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
             >
               <div className="size-8 rounded-full border-2 border-dashed flex items-center justify-center">
                 <Plus className="size-4" />

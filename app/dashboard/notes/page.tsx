@@ -1,30 +1,35 @@
 "use client";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useUserSettings } from "@/context/user-context";
-import { denizApi } from "@/lib/api-wrapper";
-import { cn } from "@/lib/utils";
-import { IFolder, IKanbanBoard, INote } from "@/lib/data-types";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileItem } from "./_components/file-item";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { FilePlus2, FileText, Folder, FolderPlus, Loader2, MoveLeft } from "lucide-react";
+import {
+  FilePlus2,
+  FileText,
+  Folder,
+  FolderPlus,
+  Loader2,
+  MoveLeft,
+} from "lucide-react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import {
   Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
   BreadcrumbItem as BreadcrumbItemUI,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import React from "react";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Dialog,
   DialogContent,
@@ -34,15 +39,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { NoteEditor } from "./_components/note-editor";
+import { Input } from "@/components/ui/input";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
+import { IFolder, type IKanbanBoard, type INote } from "@/lib/data-types";
+import { cn } from "@/lib/utils";
+import { FileItem } from "./_components/file-item";
+import { NoteEditor } from "./_components/note-editor";
 
 interface FileItem {
   type: "folder" | "note";
@@ -273,7 +285,7 @@ export default function NotesPage() {
 
   if (loading) {
     return (
-      <div className="w-full flex flex-col gap-4 px-4 py-2">
+      <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
         <div className="flex flex-row items-center gap-1">
           <Button
             variant="outline"
@@ -356,7 +368,7 @@ export default function NotesPage() {
 
   if (noteLoading) {
     return (
-      <div className="w-full flex flex-col gap-4 px-4 py-2">
+      <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
         <div className="flex flex-row items-center gap-1">
           <Button
             variant="outline"
@@ -419,13 +431,13 @@ export default function NotesPage() {
           </Button>
         </div>
 
-        <Skeleton className="h-[calc(100vh-16rem)] w-full rounded" />
+        <Skeleton className="flex-1 min-h-0 w-full rounded" />
       </div>
     );
   }
 
   return (
-    <div className="w-full flex flex-col gap-4 px-4 py-2">
+    <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
       <div className="flex flex-row items-center gap-1">
         <Button
           onClick={() => {
@@ -705,7 +717,7 @@ export default function NotesPage() {
       </div>
       {!note ? (
         <ContextMenu>
-          <ContextMenuTrigger className="w-full flex flex-col gap-0 h-[calc(100vh-8rem)]">
+          <ContextMenuTrigger className="w-full flex flex-col gap-0 flex-1 min-h-0 overflow-y-auto">
             {files.map((file) => (
               <FileItem
                 API={API}
@@ -750,8 +762,7 @@ export default function NotesPage() {
                 updatedAt={file.updatedAt}
                 onAddToBoard={
                   file.type === "note"
-                    ? () =>
-                        setAddToBoardItem({ id: file._id, name: file.name })
+                    ? () => setAddToBoardItem({ id: file._id, name: file.name })
                     : undefined
                 }
               />

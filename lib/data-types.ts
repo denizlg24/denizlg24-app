@@ -249,6 +249,7 @@ export interface IKanbanColumn {
   boardId: string;
   title: string;
   color?: string;
+  icon?: string;
   order: number;
   wipLimit?: number;
   createdAt: Date;

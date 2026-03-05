@@ -32,14 +32,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ModelSelector } from "@/components/ui/model-selector";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserSettings } from "@/context/user-context";
+import { useTextareaEditor } from "@/hooks/use-textarea-editor";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { INote } from "@/lib/data-types";
 import { extractDirectory } from "@/lib/user-settings";
-import { ModelSelector } from "@/components/ui/model-selector";
-import { useTextareaEditor } from "@/hooks/use-textarea-editor";
 
 export const NoteEditor = ({
   note,
@@ -67,7 +67,11 @@ export const NoteEditor = ({
 
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const { onKeyDown } = useTextareaEditor(contentTextareaRef, content, setContent);
+  const { onKeyDown } = useTextareaEditor(
+    contentTextareaRef,
+    content,
+    setContent,
+  );
 
   const handleSave = async () => {
     if (!API) return;
@@ -194,7 +198,7 @@ export const NoteEditor = ({
   };
 
   return (
-    <div className="w-full relative">
+    <div className="w-full relative flex-1 min-h-0 flex flex-col">
       {toolbarOpen ? (
         <div className="flex flex-col gap-1 items-center absolute sm:right-2 right-0 sm:top-4 z-10 px-1 py-2 border shadow rounded-full bg-surface">
           <Button
@@ -384,11 +388,11 @@ export const NoteEditor = ({
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={onKeyDown}
           id="content"
-          className="font-mono text-sm h-[calc(100vh-8rem)] overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none!"
+          className="font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none!"
         />
       )}
       {togglePreview && (
-        <div className="h-[calc(100vh-8rem)] overflow-y-auto w-full max-w-full! mx-auto bg-background px-3 py-2">
+        <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-full! mx-auto bg-background px-3 py-2">
           <MarkdownRenderer content={content} />
         </div>
       )}

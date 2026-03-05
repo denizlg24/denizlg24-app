@@ -1,19 +1,29 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { denizApi } from "@/lib/api-wrapper";
-import { IKanbanBoard, IKanbanCard, IKanbanColumn } from "@/lib/data-types";
-import {
-  KanbanColumn,
-  type ColumnWithCards,
-  type DraggingState,
-} from "./kanban-column";
-import { CardDialog } from "./card-dialog";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import type { denizApi } from "@/lib/api-wrapper";
+import type {
+  IKanbanBoard,
+  IKanbanCard,
+  IKanbanColumn,
+} from "@/lib/data-types";
+import { CardDialog } from "./card-dialog";
+import {
+  COLUMN_COLORS,
+  ColumnColorPicker,
+  ColumnIconPicker,
+} from "./column-customization";
+import {
+  type ColumnWithCards,
+  type DraggingState,
+  KanbanColumn,
+} from "./kanban-column";
 
 type FullBoard = IKanbanBoard & { columns: ColumnWithCards[] };
 
@@ -29,6 +39,9 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [newColumnColor, setNewColumnColor] = useState(COLUMN_COLORS[0]);
+  const [newColumnIcon, setNewColumnIcon] = useState("circle");
+  const [newColumnWipLimit, setNewColumnWipLimit] = useState("");
 
   const [dragging, setDragging] = useState<DraggingState | null>(null);
   const [trashHover, setTrashHover] = useState(false);
@@ -109,9 +122,15 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
   const handleAddColumn = async () => {
     if (!newColumnTitle.trim()) return;
+    const parsedWip = Number.parseInt(newColumnWipLimit, 10);
     const result = await API.POST<{ column: IKanbanColumn }>({
       endpoint: `kanban/boards/${boardId}/columns`,
-      body: { title: newColumnTitle.trim() },
+      body: {
+        title: newColumnTitle.trim(),
+        color: newColumnColor,
+        icon: newColumnIcon,
+        ...(parsedWip > 0 ? { wipLimit: parsedWip } : {}),
+      },
     });
     if ("code" in result) {
       toast.error("Failed to create column");
@@ -119,24 +138,54 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
     }
     setColumns((prev) => [...prev, { ...result.column, cards: [] }]);
     setNewColumnTitle("");
+    setNewColumnColor(COLUMN_COLORS[0]);
+    setNewColumnIcon("circle");
+    setNewColumnWipLimit("");
     setAddingColumn(false);
   };
 
-  const handleUpdateColumn = async (columnId: string, title: string) => {
+  const handleUpdateColumn = async (
+    columnId: string,
+    updates: {
+      title?: string;
+      color?: string;
+      icon?: string;
+      wipLimit?: number | null;
+    },
+  ) => {
     const snapshot = columns.find((c) => c._id === columnId);
     setColumns((cols) =>
-      cols.map((c) => (c._id === columnId ? { ...c, title } : c)),
+      cols.map((c) =>
+        c._id === columnId
+          ? {
+              ...c,
+              ...updates,
+              wipLimit:
+                updates.wipLimit === null
+                  ? undefined
+                  : (updates.wipLimit ?? c.wipLimit),
+            }
+          : c,
+      ),
     );
     const result = await API.PATCH<{}>({
       endpoint: `kanban/boards/${boardId}/columns/${columnId}`,
-      body: { title },
+      body: updates,
     });
     if ("code" in result) {
-      toast.error("Failed to rename column");
+      toast.error("Failed to update column");
       if (snapshot) {
         setColumns((cols) =>
           cols.map((c) =>
-            c._id === columnId ? { ...c, title: snapshot.title } : c,
+            c._id === columnId
+              ? {
+                  ...c,
+                  title: snapshot.title,
+                  color: snapshot.color,
+                  icon: snapshot.icon,
+                  wipLimit: snapshot.wipLimit,
+                }
+              : c,
           ),
         );
       }
@@ -391,7 +440,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
         <div className="shrink-0 min-w-64">
           {addingColumn ? (
-            <div className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg border border-dashed">
+            <div className="flex flex-col gap-3 p-3 bg-muted/50 rounded-lg border border-dashed">
               <Input
                 autoFocus
                 value={newColumnTitle}
@@ -402,9 +451,40 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
                   if (e.key === "Escape") {
                     setAddingColumn(false);
                     setNewColumnTitle("");
+                    setNewColumnColor(COLUMN_COLORS[0]);
+                    setNewColumnIcon("circle");
+                    setNewColumnWipLimit("");
                   }
                 }}
               />
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  WIP Limit <span className="font-normal">(optional)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={newColumnWipLimit}
+                  onChange={(e) => setNewColumnWipLimit(e.target.value)}
+                  placeholder="No limit"
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Color</Label>
+                <ColumnColorPicker
+                  value={newColumnColor}
+                  onChange={setNewColumnColor}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs text-muted-foreground">Icon</Label>
+                <ColumnIconPicker
+                  value={newColumnIcon}
+                  onChange={setNewColumnIcon}
+                  color={newColumnColor}
+                />
+              </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -419,6 +499,9 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
                   onClick={() => {
                     setAddingColumn(false);
                     setNewColumnTitle("");
+                    setNewColumnColor(COLUMN_COLORS[0]);
+                    setNewColumnIcon("circle");
+                    setNewColumnWipLimit("");
                   }}
                 >
                   Cancel
@@ -450,7 +533,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
       {createPortal(
         <div
-          className={`fixed bottom-6 right-6 z-[9999] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 ${
+          className={`fixed bottom-6 right-6 z-9999 flex items-center justify-center rounded-2xl border-2 border-dashed transition-all duration-200 ${
             dragging
               ? "opacity-100 scale-100"
               : "opacity-0 scale-75 pointer-events-none"
@@ -468,7 +551,9 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
             setTrashHover(false);
           }}
         >
-          <Trash2 className={`transition-all duration-200 ${trashHover ? "size-6" : "size-5"}`} />
+          <Trash2
+            className={`transition-all duration-200 ${trashHover ? "size-6" : "size-5"}`}
+          />
         </div>,
         document.body,
       )}

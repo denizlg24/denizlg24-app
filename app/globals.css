@@ -202,9 +202,8 @@
     scrollbar-color: theme("colors.muted") theme("colors.background");
   }
 
-  html{
-    scrollbar-gutter: stable;
-    
+  html {
+    overflow: hidden;
   }
 }
 
@@ -300,4 +299,3 @@
   color: #d4a373;
   background-color: rgba(212, 163, 115, 0.15);
 }
-

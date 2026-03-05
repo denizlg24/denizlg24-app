@@ -5,8 +5,8 @@ import { TitleBar } from "@/components/window/title-bar";
 import { UpdateNotifier } from "@/components/window/update-notifier";
 import { UserSettingsProvider } from "@/context/user-context";
 import "./globals.css";
-import { DisableContextMenu } from "@/components/window/disable-context-menu";
 import { BackgroundTasksInitializer } from "@/components/window/background-tasks-initializer";
+import { DisableContextMenu } from "@/components/window/disable-context-menu";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,9 +27,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-screen overflow-hidden">
       <body
-        className={`${inter.variable} ${calistoga.variable} antialiased font-inter bg-background text-foreground`}
+        className={`${inter.variable} ${calistoga.variable} antialiased font-inter bg-background text-foreground h-screen overflow-hidden`}
       >
         <DisableContextMenu>
           <TitleBar />

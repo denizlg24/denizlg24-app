@@ -551,7 +551,7 @@ export function WhiteboardEditor({
 
   if (loading || !whiteboard) {
     return (
-      <div className="w-dvw h-[calc(100vh-2rem)] overflow-clip relative flex items-center justify-center">
+      <div className="w-dvw h-full overflow-clip relative flex items-center justify-center">
         <Spinner />
       </div>
     );
@@ -562,7 +562,7 @@ export function WhiteboardEditor({
   return (
     <div
       className={cn(
-        "whiteboard-container w-dvw h-[calc(100vh-2rem)] overflow-clip relative",
+        "whiteboard-container w-dvw h-full overflow-clip relative",
         selectedCursor,
       )}
       onDrop={handleDrop}

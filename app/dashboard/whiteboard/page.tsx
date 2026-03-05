@@ -150,7 +150,7 @@ export default function Page() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-2rem)]">
+    <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <PenTool className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Whiteboards</span>

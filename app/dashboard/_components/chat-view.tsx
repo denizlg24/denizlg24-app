@@ -1,25 +1,29 @@
 "use client";
 
+import { ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSettings } from "@/context/user-context";
+import {
+  type StreamError,
+  type StreamResult,
+  useChatStream,
+} from "@/hooks/use-chat-stream";
 import { denizApi } from "@/lib/api-wrapper";
 import type {
   IChatAttachment,
+  IChatContentSegment,
   IChatMessage,
   IChatMessageAttachment,
-  IChatContentSegment,
   IChatPendingAction,
   IChatToolCall,
   IConversation,
   IConversationMeta,
 } from "@/lib/data-types";
-import { useChatStream, type StreamResult, type StreamError } from "@/hooks/use-chat-stream";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const MODEL_LABELS: Record<string, string> = {
   "claude-opus-4-6": "Opus 4.6",
@@ -114,9 +118,17 @@ function convertApiMessagesToDisplay(
       const attachments: IChatMessageAttachment[] = [];
       for (const block of contentArr) {
         if (block.type === "image" && block.source?.url) {
-          attachments.push({ type: "image", url: block.source.url, name: "Image" });
+          attachments.push({
+            type: "image",
+            url: block.source.url,
+            name: "Image",
+          });
         } else if (block.type === "document" && block.source?.url) {
-          attachments.push({ type: "pdf", url: block.source.url, name: block.source.url.split("/").pop() ?? "Document" });
+          attachments.push({
+            type: "pdf",
+            url: block.source.url,
+            name: block.source.url.split("/").pop() ?? "Document",
+          });
         }
       }
 
@@ -362,7 +374,9 @@ export function ChatView() {
     async (att: IChatAttachment) => {
       if (!API) return;
       setAttachments((prev) =>
-        prev.map((a) => (a.id === att.id ? { ...a, status: "uploading" as const } : a)),
+        prev.map((a) =>
+          a.id === att.id ? { ...a, status: "uploading" as const } : a,
+        ),
       );
       const fd = new FormData();
       fd.append("file", att.file);
@@ -373,13 +387,17 @@ export function ChatView() {
       if ("code" in res) {
         setAttachments((prev) =>
           prev.map((a) =>
-            a.id === att.id ? { ...a, status: "error" as const, error: res.message } : a,
+            a.id === att.id
+              ? { ...a, status: "error" as const, error: res.message }
+              : a,
           ),
         );
       } else {
         setAttachments((prev) =>
           prev.map((a) =>
-            a.id === att.id ? { ...a, status: "done" as const, uploadedUrl: res.url } : a,
+            a.id === att.id
+              ? { ...a, status: "done" as const, uploadedUrl: res.url }
+              : a,
           ),
         );
       }
@@ -409,7 +427,9 @@ export function ChatView() {
 
     if (attachments.length > 0) {
       const stillInFlight = () =>
-        attachmentsRef.current.some((a) => a.status === "uploading" || a.status === "pending");
+        attachmentsRef.current.some(
+          (a) => a.status === "uploading" || a.status === "pending",
+        );
 
       if (stillInFlight()) {
         await new Promise<void>((resolve) => {
@@ -434,11 +454,25 @@ export function ChatView() {
 
       for (const att of currentAttachments) {
         if (att.type === "image") {
-          contentBlocks.push({ type: "image", source: { type: "url", url: att.uploadedUrl } });
-          messageAttachments.push({ type: "image", url: att.uploadedUrl!, name: att.name });
+          contentBlocks.push({
+            type: "image",
+            source: { type: "url", url: att.uploadedUrl },
+          });
+          messageAttachments.push({
+            type: "image",
+            url: att.uploadedUrl!,
+            name: att.name,
+          });
         } else {
-          contentBlocks.push({ type: "document", source: { type: "url", url: att.uploadedUrl } });
-          messageAttachments.push({ type: "pdf", url: att.uploadedUrl!, name: att.name });
+          contentBlocks.push({
+            type: "document",
+            source: { type: "url", url: att.uploadedUrl },
+          });
+          messageAttachments.push({
+            type: "pdf",
+            url: att.uploadedUrl!,
+            name: att.name,
+          });
         }
       }
 
@@ -761,7 +795,7 @@ export function ChatView() {
 
   if (!isActive) {
     return (
-      <div className="flex flex-col items-center h-[calc(100vh-4rem)] px-4 pt-[25vh]">
+      <div className="flex flex-col items-center h-full px-4 pt-[25vh]">
         <div className="flex flex-col items-center gap-6 w-full max-w-2xl">
           <div className="flex flex-col items-center gap-1">
             <p className="text-3xl font-light text-foreground/80 tabular-nums tracking-tight">
@@ -847,7 +881,7 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b">
         <Button
           variant="ghost"

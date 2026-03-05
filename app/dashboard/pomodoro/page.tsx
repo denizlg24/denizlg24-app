@@ -1,23 +1,23 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { format, isToday, startOfDay } from "date-fns";
 import { AlarmClock, History, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
   SheetDescription,
   SheetFooter,
+  SheetHeader,
+  SheetTitle,
 } from "@/components/ui/sheet";
-import { format, isToday, startOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
-  usePomodoroStore,
   DURATIONS,
   POMODORO_TARGET,
   type Session,
+  usePomodoroStore,
 } from "@/stores/pomodoro";
 
 function groupSessionsByDate(sessions: Session[]) {
@@ -72,7 +72,7 @@ export default function PomodoroPage() {
   const groupedSessions = groupSessionsByDate(allSessions);
 
   return (
-    <div className="flex flex-col gap-2 pb-4 h-[calc(100vh-2rem)]! relative overflow-hidden">
+    <div className="flex flex-col gap-2 pb-4 h-full relative overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0 z-10">
         <AlarmClock className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Pomodoro</span>

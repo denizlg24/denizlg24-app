@@ -477,8 +477,8 @@ export function ChatMessage({
           </button>
           {message.tokenUsage && (
             <p className="text-[11px] text-muted-foreground/50">
-              {message.tokenUsage.inputTokens + message.tokenUsage.outputTokens}{" "}
-              tokens &middot; ${message.tokenUsage.costUsd.toFixed(4)}
+              {(message.tokenUsage.inputTokens??0) + (message.tokenUsage.outputTokens??0)}{" "}
+              tokens &middot; ${(message.tokenUsage.costUsd??0).toFixed(4)}
             </p>
           )}
         </div>

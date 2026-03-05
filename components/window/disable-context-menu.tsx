@@ -22,7 +22,10 @@ export const DisableContextMenu = ({
   }, []);
 
   return (
-    <main className="w-full" onContextMenu={(e) => e.preventDefault()}>
+    <main
+      className="w-full h-screen overflow-hidden"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {children}
     </main>
   );

@@ -211,7 +211,7 @@ export default function ResourcesPage() {
 
   if (loadingSettings || !API || initialLoading) {
     return (
-      <div className="flex flex-col h-[calc(100dvh-2rem)]">
+      <div className="flex flex-col h-full">
         <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
           <div className="h-4 w-32 bg-muted rounded animate-pulse flex-1" />
           <div className="h-7 w-24 bg-muted rounded animate-pulse" />
@@ -248,7 +248,7 @@ export default function ResourcesPage() {
   ).length;
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-2rem)]">
+    <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         {selectedResource ? (
           <>
