@@ -155,6 +155,11 @@ export const GROUPS: NavGroup[] = [
     groupLabel: "Personal",
     items: [
       {
+        label: "Journal",
+        href: "/journal",
+        icon: NotebookPen,
+      },
+      {
         label: "Notes",
         href: "/notes",
         icon: Folder,

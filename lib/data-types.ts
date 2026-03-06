@@ -423,3 +423,11 @@ export interface IConversationMeta {
   llmModel: string;
   updatedAt: string;
 }
+export interface IJournalLog {
+  _id: string;
+  date: Date;
+  content: string;
+  whiteboard?: IWhiteboard;
+  events: ICalendarEvent[];
+  notes: string[];
+}

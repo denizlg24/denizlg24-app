@@ -16,6 +16,8 @@ const PATHNAME_TITLE_MAP = {
   "/dashboard/llm-usage": "LLM Usage",
   "/dashboard/pomodoro": "pomodoro timer",
   "/dashboard/resources": "resources",
+  "/dashboard/settings": "settings",
+  "/dashboard/journal": "journal",
 };
 
 type AppWindow = {
