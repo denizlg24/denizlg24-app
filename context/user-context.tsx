@@ -46,6 +46,7 @@ const KNOWN_ROUTES = new Set([
   "/dashboard/llm-usage",
   "/dashboard/settings",
   "/dashboard/journal",
+  "/dashboard/authenticator"
 ]);
 
 function isKnownRoute(pathname: string): boolean {

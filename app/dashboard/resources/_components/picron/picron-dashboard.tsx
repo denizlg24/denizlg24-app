@@ -156,6 +156,7 @@ export function PiCronDashboard({
 
       <JobFormDialog
         open={!!editingJob}
+        key={editingJob?.id??"editDialog"}
         onOpenChange={(o) => !o && setEditingJob(null)}
         onSubmit={handleUpdateJob}
         editingJob={editingJob}
@@ -164,6 +165,7 @@ export function PiCronDashboard({
       {historyJob && (
         <JobHistoryDialog
           open={!!historyJob}
+          key={historyJob?.id ?? "historyDialog"}
           onOpenChange={(o) => !o && setHistoryJob(null)}
           jobId={historyJob.id}
           jobName={historyJob.name}
@@ -173,7 +175,7 @@ export function PiCronDashboard({
         />
       )}
 
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} key={deleteTarget?.id ?? "deleteDialog"} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Job</DialogTitle>

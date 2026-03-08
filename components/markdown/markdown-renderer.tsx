@@ -1,14 +1,17 @@
+"use client";
+
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import 'katex/dist/katex.min.css';
+import "katex/dist/katex.min.css";
 import { cn } from "@/lib/utils";
 import { StyledLink } from "@/components/ui/styled-link";
+import { Checkbox } from "../ui/checkbox";
 
-const MediumStyleComponents = {
+const staticComponents = {
   p: ({ node, ...props }: any) => (
     <p
       className=" text-[15px] sm:text-[16px] md:text-[17px] leading-[24px] sm:leading-[26px] md:leading-[28px] text-foreground/90 mb-[24px] tracking-[-0.003em] break-words"
@@ -83,24 +86,14 @@ const MediumStyleComponents = {
     />
   ),
 
-  ul: ({ node, ...props }: any) => (
-    <ul
-      className="list-disc list-outside ml-[30px] mb-[24px]  text-[15px] sm:text-[16px] md:text-[17px] leading-[24px] sm:leading-[26px] md:leading-[28px] text-foreground/90"
-      {...props}
-    />
-  ),
   ol: ({ node, ...props }: any) => (
     <ol
       className="list-decimal list-outside ml-[30px] mb-[24px]  text-[15px] sm:text-[16px] md:text-[17px] leading-[24px] sm:leading-[26px] md:leading-[28px] text-foreground/90"
       {...props}
     />
   ),
-  li: ({ node, ...props }: any) => (
-    <li className="mb-[10px] pl-[5px]" {...props} />
-  ),
 
   code: ({ node, className, children, ...props }: any) => {
-    // Check if this is inside a pre tag (code block) - rehype-pretty-code handles these
     const isCodeBlock = className?.includes("language-");
 
     if (isCodeBlock) {
@@ -111,7 +104,6 @@ const MediumStyleComponents = {
       );
     }
 
-    // Inline code styling
     return (
       <code
         className="bg-muted/50 text-foreground px-[6px] py-[3px] rounded-[3px] text-[14px] sm:text-[15px] md:text-[15px] font-mono border border-border/40"
@@ -173,7 +165,6 @@ const MediumStyleComponents = {
   ),
 
   em: ({ node, ...props }: any) => <em className="italic" {...props} />,
-
 };
 
 interface MarkdownRendererProps {
@@ -185,6 +176,51 @@ export function MarkdownRenderer({
   content,
   className = "",
 }: MarkdownRendererProps) {
+  const components = {
+    ...staticComponents,
+
+    ul: ({ node, ...props }: any) => {
+      const isTaskList =
+        node?.properties?.className?.includes("contains-task-list");
+      return (
+        <ul
+          className={cn(
+            "list-disc list-outside ml-[30px] mb-[24px] text-[15px] sm:text-[16px] md:text-[17px] leading-[24px] sm:leading-[26px] md:leading-[28px] text-foreground/90",
+            isTaskList && "list-none ml-0",
+          )}
+          {...props}
+        />
+      );
+    },
+
+    li: ({ node, children, ...props }: any) => {
+      const isTaskItem =
+        node?.properties?.className?.includes("task-list-item");
+      return (
+        <li
+          className={cn(
+            "mb-[10px] pl-[5px]",
+            isTaskItem && "list-none flex items-start gap-2 pl-0",
+          )}
+          {...props}
+        >
+          {children}
+        </li>
+      );
+    },
+
+    input: ({ node, type, checked, ...props }: any) => {
+      if (type !== "checkbox") return <input type={type} {...props} />;
+
+      return (
+        <Checkbox
+          checked={!!checked}
+          className="mt-0.5 shrink-0"
+        />
+      );
+    },
+  };
+
   return (
     <article
       className={cn(
@@ -199,7 +235,7 @@ export function MarkdownRenderer({
           rehypeKatex,
           rehypeHighlight,
         ]}
-        components={MediumStyleComponents}
+        components={components}
       >
         {content}
       </ReactMarkdown>

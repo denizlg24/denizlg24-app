@@ -23,6 +23,13 @@ export interface StreamError {
   error: string;
 }
 
+export interface BackoffState {
+  active: boolean;
+  retryAfterMs: number;
+  attempt: number;
+  maxAttempts: number;
+}
+
 export function useChatStream(API: denizApi | null) {
   const [streamSegments, setStreamSegments] = useState<IChatContentSegment[]>(
     [],
@@ -31,6 +38,12 @@ export function useChatStream(API: denizApi | null) {
   const [pendingConfirmations, setPendingConfirmations] = useState<
     IChatPendingAction[]
   >([]);
+  const [backoff, setBackoff] = useState<BackoffState>({
+    active: false,
+    retryAfterMs: 0,
+    attempt: 0,
+    maxAttempts: 0,
+  });
   const abortRef = useRef<(() => void) | null>(null);
 
   const abort = useCallback(() => {
@@ -171,6 +184,16 @@ export function useChatStream(API: denizApi | null) {
                   };
                   pendingActions.push(pa);
                   setPendingConfirmations([...pendingActions]);
+                } else if (event.type === "rate_limit_backoff") {
+                  setBackoff({
+                    active: true,
+                    retryAfterMs: event.retryAfterMs,
+                    attempt: event.attempt,
+                    maxAttempts: event.maxAttempts,
+                  });
+                  setTimeout(() => {
+                    setBackoff((prev) => ({ ...prev, active: false }));
+                  }, event.retryAfterMs);
                 } else if (event.type === "paused") {
                   setIsStreaming(false);
                   resolve({
@@ -226,5 +249,6 @@ export function useChatStream(API: denizApi | null) {
     abort,
     pendingConfirmations,
     setPendingConfirmations,
+    backoff,
   };
 }

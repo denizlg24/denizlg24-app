@@ -262,6 +262,7 @@ export function ChatView() {
     abort,
     pendingConfirmations,
     setPendingConfirmations,
+    backoff,
   } = useChatStream(API);
   const now = useClock();
   const suggestion = useSuggestion();
@@ -935,6 +936,21 @@ export function ChatView() {
             )}
         </div>
       </div>
+
+      {backoff.active && (
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+          <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span>
+            Rate limited — retrying in{" "}
+            <span className="font-mono font-medium tabular-nums">
+              {Math.ceil(backoff.retryAfterMs / 1000)}s
+            </span>
+            <span className="text-amber-600/60 ml-1">
+              (attempt {backoff.attempt}/{backoff.maxAttempts})
+            </span>
+          </span>
+        </div>
+      )}
 
       <ChatInput
         value={input}
