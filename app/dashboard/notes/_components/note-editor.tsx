@@ -5,8 +5,10 @@ import { pdf } from "@react-pdf/renderer";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import {
+  ChevronDown,
   ChevronLeftCircle,
   ChevronRightCircle,
+  ChevronUp,
   ClipboardX,
   Download,
   Edit2,
@@ -15,8 +17,9 @@ import {
   Loader2,
   Save,
   Sparkles,
+  X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
@@ -31,6 +34,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/ui/model-selector";
 import { Separator } from "@/components/ui/separator";
@@ -65,12 +69,90 @@ export const NoteEditor = ({
 
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [replaceTerm, setReplaceTerm] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
+
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const matches = useMemo(() => {
+    if (!searchTerm || !searchOpen) return [];
+    const results: number[] = [];
+    let idx = 0;
+    while (idx <= content.length - searchTerm.length) {
+      const found = content.indexOf(searchTerm, idx);
+      if (found === -1) break;
+      results.push(found);
+      idx = found + 1;
+    }
+    return results;
+  }, [content, searchTerm, searchOpen]);
+
+  const goToMatch = useCallback(
+    (rawIndex: number) => {
+      if (!matches.length || !contentTextareaRef.current) return;
+      const idx =
+        ((rawIndex % matches.length) + matches.length) % matches.length;
+      setMatchIndex(idx);
+      const pos = matches[idx];
+      const ta = contentTextareaRef.current;
+      ta.focus();
+      ta.setSelectionRange(pos, pos + searchTerm.length);
+    },
+    [matches, searchTerm],
+  );
+
+  const openSearch = useCallback(() => {
+    setTogglePreview(false);
+    const ta = contentTextareaRef.current;
+    if (ta) {
+      const selected = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+      if (selected) setSearchTerm(selected);
+    }
+    setSearchOpen(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    contentTextareaRef.current?.focus();
+  }, []);
+
+  const handleFindNext = useCallback(
+    () => goToMatch(matchIndex + 1),
+    [goToMatch, matchIndex],
+  );
+
+  const handleFindPrev = useCallback(
+    () => goToMatch(matchIndex - 1),
+    [goToMatch, matchIndex],
+  );
+
+  const handleReplace = useCallback(() => {
+    if (!matches.length) return;
+    const pos = matches[matchIndex];
+    const newContent =
+      content.slice(0, pos) +
+      replaceTerm +
+      content.slice(pos + searchTerm.length);
+    setContent(newContent);
+  }, [content, matches, matchIndex, replaceTerm, searchTerm]);
+
+  const handleReplaceAll = useCallback(() => {
+    if (!searchTerm) return;
+    setContent(content.split(searchTerm).join(replaceTerm));
+    setMatchIndex(0);
+  }, [content, replaceTerm, searchTerm]);
+
   const { onKeyDown } = useTextareaEditor(
     contentTextareaRef,
     content,
     setContent,
+    openSearch,
+    closeSearch,
   );
 
   const handleSave = async () => {
@@ -379,6 +461,89 @@ export const NoteEditor = ({
         >
           <ChevronLeftCircle />
         </Button>
+      )}
+
+      {!togglePreview && searchOpen && (
+        <div className="shrink-0 border-b bg-surface px-2 py-1.5 flex flex-col gap-1">
+          <div className="flex items-center gap-1">
+            <Input
+              ref={searchInputRef}
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setMatchIndex(0);
+              }}
+              placeholder="Find..."
+              className="h-7 text-sm font-mono"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeSearch();
+                else if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.shiftKey ? handleFindPrev() : handleFindNext();
+                }
+              }}
+            />
+            <span className="text-xs text-muted-foreground whitespace-nowrap min-w-[4rem] text-right">
+              {matches.length
+                ? `${matchIndex + 1} / ${matches.length}`
+                : searchTerm
+                  ? "no results"
+                  : ""}
+            </span>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={handleFindPrev}
+              disabled={!matches.length}
+            >
+              <ChevronUp />
+            </Button>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={handleFindNext}
+              disabled={!matches.length}
+            >
+              <ChevronDown />
+            </Button>
+            <Button size="icon-sm" variant="ghost" onClick={closeSearch}>
+              <X />
+            </Button>
+          </div>
+          <div className="flex items-center gap-1">
+            <Input
+              value={replaceTerm}
+              onChange={(e) => setReplaceTerm(e.target.value)}
+              placeholder="Replace..."
+              className="h-7 text-sm font-mono"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeSearch();
+                else if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleReplace();
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReplace}
+              disabled={!matches.length}
+              className="shrink-0"
+            >
+              Replace
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReplaceAll}
+              disabled={!searchTerm}
+              className="shrink-0"
+            >
+              All
+            </Button>
+          </div>
+        </div>
       )}
 
       {!togglePreview && (

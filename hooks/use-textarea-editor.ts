@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 const INDENT = "  ";
 
@@ -11,6 +11,8 @@ const CLOSING_PAIRS: Record<string, string> = {
   '"': '"',
   "'": "'",
 };
+
+const ASYMMETRIC_CLOSINGS = new Set([")", "]", "}"]);
 
 const LIST_MARKER_RE = /^(\s*)([-*+])\s/;
 const ORDERED_LIST_RE = /^(\s*)(\d+)\.\s/;
@@ -46,7 +48,14 @@ export function useTextareaEditor(
   textareaRef: React.RefObject<HTMLTextAreaElement | null>,
   content: string,
   setContent: (value: string) => void,
+  onOpenSearch?: () => void,
+  onEscape?: () => void,
 ): { onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> } {
+  const onOpenSearchRef = useRef(onOpenSearch);
+  onOpenSearchRef.current = onOpenSearch;
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const textarea = textareaRef.current;
@@ -55,6 +64,44 @@ export function useTextareaEditor(
       const { selectionStart: selStart, selectionEnd: selEnd } = textarea;
       const text = textarea.value;
       const hasSelection = selStart !== selEnd;
+
+      if (e.key === "Escape") {
+        onEscapeRef.current?.();
+        return;
+      }
+
+      if (e.key === "f" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        onOpenSearchRef.current?.();
+        return;
+      }
+
+      if (e.key === "d" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (!hasSelection) {
+          let wordStart = selStart;
+          let wordEnd = selStart;
+          while (wordStart > 0 && /\w/.test(text[wordStart - 1])) wordStart--;
+          while (wordEnd < text.length && /\w/.test(text[wordEnd])) wordEnd++;
+          if (wordStart !== wordEnd) {
+            requestAnimationFrame(() =>
+              textarea.setSelectionRange(wordStart, wordEnd),
+            );
+          }
+        } else {
+          const selected = text.slice(selStart, selEnd);
+          if (selected) {
+            let nextIdx = text.indexOf(selected, selEnd);
+            if (nextIdx === -1) nextIdx = text.indexOf(selected, 0);
+            if (nextIdx !== -1 && nextIdx !== selStart) {
+              requestAnimationFrame(() =>
+                textarea.setSelectionRange(nextIdx, nextIdx + selected.length),
+              );
+            }
+          }
+        }
+        return;
+      }
 
       if (e.key === "b" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
@@ -288,8 +335,42 @@ export function useTextareaEditor(
         }
       }
 
+      if (
+        ASYMMETRIC_CLOSINGS.has(e.key) &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !hasSelection
+      ) {
+        if (text[selStart] === e.key) {
+          e.preventDefault();
+          requestAnimationFrame(() =>
+            textarea.setSelectionRange(selStart + 1, selStart + 1),
+          );
+          return;
+        }
+      }
+
       if (e.key in CLOSING_PAIRS && !e.ctrlKey && !e.metaKey) {
         const closing = CLOSING_PAIRS[e.key];
+        const isSymmetric = e.key === closing;
+
+        if (!hasSelection && isSymmetric) {
+          const charBefore = selStart > 0 ? text[selStart - 1] : "";
+          const charAfter = text[selStart];
+
+          if (e.key !== "`" && /\w/.test(charBefore)) {
+            return;
+          }
+
+          if (charAfter === closing) {
+            e.preventDefault();
+            requestAnimationFrame(() =>
+              textarea.setSelectionRange(selStart + 1, selStart + 1),
+            );
+            return;
+          }
+        }
+
         e.preventDefault();
 
         if (hasSelection) {

@@ -75,7 +75,7 @@ export const templateRegistry: Record<string, TemplateDefinition> = {
     icon: FileType,
     defaultSize: { width: 500, height: 650 },
     defaultData: {
-      pdfBase64: undefined,
+      pdfUrl: undefined,
       fileName: "",
       currentPage: 1,
       pdfScale: 1,
