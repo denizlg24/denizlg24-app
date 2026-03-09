@@ -1,6 +1,5 @@
 "use client";
 import { DialogClose } from "@radix-ui/react-dialog";
-import { SelectValue } from "@radix-ui/react-select";
 import { pdf } from "@react-pdf/renderer";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -15,6 +14,7 @@ import {
   Loader2,
   Save,
   Sparkles,
+  X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -435,14 +435,13 @@ export const NoteEditor = ({
           <ChevronLeftCircle />
         </Button>
       )}
-
       {!togglePreview && (
         <div className="relative flex-1 min-h-0 flex flex-col">
           {multiSelections.length > 0 && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
               <div
                 ref={overlayInnerRef}
-                className="font-mono text-sm px-3 py-2 whitespace-pre-wrap break-words text-transparent"
+                className="font-mono text-sm px-3 py-2 whitespace-pre-wrap wrap-break-word text-transparent"
                 aria-hidden="true"
               >
                 {(() => {
@@ -492,7 +491,7 @@ export const NoteEditor = ({
               }
             }}
             id="content"
-            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-[1] ${multiSelections.length > 0 ? "bg-transparent!" : ""}`}
+            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-1 ${multiSelections.length > 0 ? "bg-transparent!" : ""}`}
           />
         </div>
       )}

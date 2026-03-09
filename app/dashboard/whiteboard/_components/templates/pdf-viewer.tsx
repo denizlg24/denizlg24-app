@@ -12,20 +12,14 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
+import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
 import type { TemplateProps } from ".";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
 ).toString();
-
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 function base64ToUint8(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -42,6 +36,8 @@ export const PdfViewerTemplate = ({
   data,
   onDataChange,
 }: TemplateProps) => {
+  const { settings } = useUserSettings();
+  const pdfUrl = data.pdfUrl as string | undefined;
   const pdfBase64 = data.pdfBase64 as string | undefined;
   const fileName = (data.fileName as string) || "Untitled.pdf";
   const [currentPage, setCurrentPage] = useState(
@@ -102,9 +98,10 @@ export const PdfViewerTemplate = ({
   }, []);
 
   const pdfData = useMemo(() => {
-    if (!pdfBase64) return null;
-    return { data: base64ToUint8(pdfBase64) };
-  }, [pdfBase64]);
+    if (pdfUrl) return pdfUrl;
+    if (pdfBase64) return { data: base64ToUint8(pdfBase64) };
+    return null;
+  }, [pdfUrl, pdfBase64]);
 
   const handleImportPdf = useCallback(async () => {
     try {
@@ -124,12 +121,27 @@ export const PdfViewerTemplate = ({
 
       const filePath = typeof selected === "string" ? selected : selected;
       const bytes = await readFile(filePath as string);
-      const base64 = uint8ToBase64(new Uint8Array(bytes));
+      const name = (filePath as string).split(/[/\\]/).pop() || "Untitled.pdf";
 
+      const file = new File([bytes], name, { type: "application/pdf" });
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const api = new denizApi(settings.apiKey);
+      const result = await api.UPLOAD<{ url: string; hash: string }>({
+        endpoint: "upload",
+        formData,
+      });
+
+      if ("code" in result) {
+        return;
+      }
+
+      const { pdfBase64: _removed, ...rest } = data;
       onDataChange({
-        ...data,
-        pdfBase64: base64,
-        fileName: (filePath as string).split(/[/\\]/).pop() || "Untitled.pdf",
+        ...rest,
+        pdfUrl: result.url,
+        fileName: name,
         currentPage: 1,
         pdfScale: 1,
       });
@@ -140,7 +152,7 @@ export const PdfViewerTemplate = ({
     } finally {
       setLoading(false);
     }
-  }, [data, onDataChange]);
+  }, [data, onDataChange, settings.apiKey]);
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages: total }: { numPages: number }) => {
@@ -178,7 +190,7 @@ export const PdfViewerTemplate = ({
         <FileUp className="size-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">No PDF loaded</p>
         <Button size="sm" onClick={handleImportPdf} disabled={loading}>
-          {loading ? "Importing..." : "Import PDF"}
+          {loading ? "Uploading..." : "Import PDF"}
         </Button>
       </div>
     );
@@ -198,6 +210,7 @@ export const PdfViewerTemplate = ({
           size="icon-xs"
           onClick={handleImportPdf}
           title="Replace PDF"
+          disabled={loading}
         >
           <FileUp className="size-3.5" />
         </Button>

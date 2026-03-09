@@ -12,6 +12,8 @@ const CLOSING_PAIRS: Record<string, string> = {
   "'": "'",
 };
 
+const ASYMMETRIC_CLOSINGS = new Set([")", "]", "}"]);
+
 const LIST_MARKER_RE = /^(\s*)([-*+])\s/;
 const ORDERED_LIST_RE = /^(\s*)(\d+)\.\s/;
 
@@ -514,6 +516,25 @@ export function useTextareaEditor(
 
       if (e.key in CLOSING_PAIRS && !e.ctrlKey && !e.metaKey) {
         const closing = CLOSING_PAIRS[e.key];
+        const isSymmetric = e.key === closing;
+
+        if (!hasSelection && isSymmetric) {
+          const charBefore = selStart > 0 ? text[selStart - 1] : "";
+          const charAfter = text[selStart];
+
+          if (e.key !== "`" && /\w/.test(charBefore)) {
+            return;
+          }
+
+          if (charAfter === closing) {
+            e.preventDefault();
+            requestAnimationFrame(() =>
+              textarea.setSelectionRange(selStart + 1, selStart + 1),
+            );
+            return;
+          }
+        }
+
         e.preventDefault();
 
         if (hasSelection) {
