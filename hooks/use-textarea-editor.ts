@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 const INDENT = "  ";
 
@@ -14,6 +14,11 @@ const CLOSING_PAIRS: Record<string, string> = {
 
 const LIST_MARKER_RE = /^(\s*)([-*+])\s/;
 const ORDERED_LIST_RE = /^(\s*)(\d+)\.\s/;
+
+export interface MultiSelection {
+  start: number;
+  end: number;
+}
 
 function getLineInfo(text: string, cursorPos: number) {
   const lineStart = text.lastIndexOf("\n", cursorPos - 1) + 1;
@@ -42,11 +47,56 @@ function applyEdit(
   textarea.setSelectionRange(cursorStart, cursorEnd ?? cursorStart);
 }
 
+function findAllOccurrences(text: string, word: string): MultiSelection[] {
+  const results: MultiSelection[] = [];
+  let pos = 0;
+  while (pos <= text.length - word.length) {
+    const idx = text.indexOf(word, pos);
+    if (idx === -1) break;
+    results.push({ start: idx, end: idx + word.length });
+    pos = idx + 1;
+  }
+  return results;
+}
+
+function applyMultiEdit(
+  text: string,
+  selections: MultiSelection[],
+  insertText: string,
+): { newText: string; newSelections: MultiSelection[] } {
+  const sorted = [...selections].sort((a, b) => a.start - b.start);
+  let result = text;
+  let offset = 0;
+  const newSelections: MultiSelection[] = [];
+
+  for (const sel of sorted) {
+    const adjStart = sel.start + offset;
+    const adjEnd = sel.end + offset;
+    const oldLen = adjEnd - adjStart;
+    result = result.slice(0, adjStart) + insertText + result.slice(adjEnd);
+    const newPos = adjStart + insertText.length;
+    newSelections.push({ start: newPos, end: newPos });
+    offset += insertText.length - oldLen;
+  }
+
+  return { newText: result, newSelections };
+}
+
 export function useTextareaEditor(
   textareaRef: React.RefObject<HTMLTextAreaElement | null>,
   content: string,
   setContent: (value: string) => void,
-): { onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> } {
+): {
+  onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement>;
+  multiSelections: MultiSelection[];
+  clearMultiSelections: () => void;
+} {
+  const [multiSelections, setMultiSelections] = useState<MultiSelection[]>([]);
+
+  const clearMultiSelections = useCallback(() => {
+    setMultiSelections([]);
+  }, []);
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const textarea = textareaRef.current;
@@ -55,6 +105,156 @@ export function useTextareaEditor(
       const { selectionStart: selStart, selectionEnd: selEnd } = textarea;
       const text = textarea.value;
       const hasSelection = selStart !== selEnd;
+
+      // --- Multi-selection edit mode ---
+      if (multiSelections.length > 0) {
+        if (
+          e.key === "Escape" ||
+          e.key.startsWith("Arrow") ||
+          ((e.ctrlKey || e.metaKey) && e.key !== "d") ||
+          e.key === "Home" ||
+          e.key === "End"
+        ) {
+          if (e.key === "Escape") e.preventDefault();
+          setMultiSelections([]);
+          return;
+        }
+
+        if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          return;
+        }
+
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          const { newText, newSelections } = applyMultiEdit(
+            text,
+            multiSelections,
+            e.key,
+          );
+          setContent(newText);
+          setMultiSelections(newSelections);
+          requestAnimationFrame(() => {
+            const last = newSelections[newSelections.length - 1];
+            applyEdit(textarea, newText, last.start, last.end);
+          });
+          return;
+        }
+
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          const sorted = [...multiSelections].sort(
+            (a, b) => a.start - b.start,
+          );
+          const allCursors = sorted.every((s) => s.start === s.end);
+
+          if (allCursors) {
+            const expanded = sorted
+              .filter((s) => s.start > 0)
+              .map((s) => ({ start: s.start - 1, end: s.end }));
+            if (expanded.length === 0) return;
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              expanded,
+              "",
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+          } else {
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              sorted,
+              "",
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+          }
+          return;
+        }
+
+        if (e.key === "Delete") {
+          e.preventDefault();
+          const sorted = [...multiSelections].sort(
+            (a, b) => a.start - b.start,
+          );
+          const allCursors = sorted.every((s) => s.start === s.end);
+
+          if (allCursors) {
+            const expanded = sorted
+              .filter((s) => s.end < text.length)
+              .map((s) => ({ start: s.start, end: s.end + 1 }));
+            if (expanded.length === 0) return;
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              expanded,
+              "",
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+          } else {
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              sorted,
+              "",
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+          }
+          return;
+        }
+
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const { newText, newSelections } = applyMultiEdit(
+            text,
+            multiSelections,
+            "\n",
+          );
+          setContent(newText);
+          setMultiSelections(newSelections);
+          requestAnimationFrame(() => {
+            const last = newSelections[newSelections.length - 1];
+            applyEdit(textarea, newText, last.start, last.end);
+          });
+          return;
+        }
+
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const { newText, newSelections } = applyMultiEdit(
+            text,
+            multiSelections,
+            INDENT,
+          );
+          setContent(newText);
+          setMultiSelections(newSelections);
+          requestAnimationFrame(() => {
+            const last = newSelections[newSelections.length - 1];
+            applyEdit(textarea, newText, last.start, last.end);
+          });
+          return;
+        }
+
+        return;
+      }
+
+      // --- Normal mode shortcuts ---
 
       if (e.key === "b" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
@@ -288,6 +488,30 @@ export function useTextareaEditor(
         }
       }
 
+      if (e.key === "d" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        let word: string;
+
+        if (hasSelection) {
+          word = text.slice(selStart, selEnd);
+        } else {
+          const wordBoundary = /[a-zA-Z0-9_]/;
+          let start = selStart;
+          let end = selStart;
+          while (start > 0 && wordBoundary.test(text[start - 1])) start--;
+          while (end < text.length && wordBoundary.test(text[end])) end++;
+          if (start >= end) return;
+          word = text.slice(start, end);
+          applyEdit(textarea, text, start, end);
+        }
+
+        const allOccurrences = findAllOccurrences(text, word);
+        if (allOccurrences.length > 1) {
+          setMultiSelections(allOccurrences);
+        }
+        return;
+      }
+
       if (e.key in CLOSING_PAIRS && !e.ctrlKey && !e.metaKey) {
         const closing = CLOSING_PAIRS[e.key];
         e.preventDefault();
@@ -315,8 +539,8 @@ export function useTextareaEditor(
         return;
       }
     },
-    [content, setContent, textareaRef],
+    [content, setContent, textareaRef, multiSelections],
   );
 
-  return { onKeyDown };
+  return { onKeyDown, multiSelections, clearMultiSelections };
 }

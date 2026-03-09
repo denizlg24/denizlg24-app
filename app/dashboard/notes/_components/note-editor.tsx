@@ -16,7 +16,7 @@ import {
   Save,
   Sparkles,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
@@ -40,6 +40,7 @@ import { useTextareaEditor } from "@/hooks/use-textarea-editor";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { INote } from "@/lib/data-types";
 import { extractDirectory } from "@/lib/user-settings";
+import { FindReplaceBar } from "./find-replace-bar";
 
 export const NoteEditor = ({
   note,
@@ -65,12 +66,66 @@ export const NoteEditor = ({
 
   const [toolbarOpen, setToolbarOpen] = useState(true);
 
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false);
+  const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
+  const [findInitialQuery, setFindInitialQuery] = useState("");
+
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const { onKeyDown } = useTextareaEditor(
-    contentTextareaRef,
-    content,
-    setContent,
+  const overlayInnerRef = useRef<HTMLDivElement>(null);
+  const {
+    onKeyDown: editorOnKeyDown,
+    multiSelections,
+    clearMultiSelections,
+  } = useTextareaEditor(contentTextareaRef, content, setContent);
+
+  const openFind = useCallback(
+    (withReplace: boolean) => {
+      const textarea = contentTextareaRef.current;
+      let initial = "";
+      if (textarea) {
+        const sel = textarea.value.slice(
+          textarea.selectionStart,
+          textarea.selectionEnd,
+        );
+        if (sel && !sel.includes("\n")) initial = sel;
+      }
+      setFindInitialQuery(initial);
+      setFindReplaceShowReplace(withReplace);
+      setFindReplaceOpen(true);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === "f" || e.key === "h") &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey
+      ) {
+        e.preventDefault();
+        openFind(e.key === "h");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [openFind]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (
+        (e.key === "f" || e.key === "h") &&
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey
+      ) {
+        e.preventDefault();
+        openFind(e.key === "h");
+        return;
+      }
+      editorOnKeyDown(e);
+    },
+    [editorOnKeyDown, openFind],
   );
 
   const handleSave = async () => {
@@ -382,19 +437,80 @@ export const NoteEditor = ({
       )}
 
       {!togglePreview && (
-        <Textarea
-          ref={contentTextareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={onKeyDown}
-          id="content"
-          className="font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none!"
-        />
+        <div className="relative flex-1 min-h-0 flex flex-col">
+          {multiSelections.length > 0 && (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+              <div
+                ref={overlayInnerRef}
+                className="font-mono text-sm px-3 py-2 whitespace-pre-wrap break-words text-transparent"
+                aria-hidden="true"
+              >
+                {(() => {
+                  const sorted = [...multiSelections].sort(
+                    (a, b) => a.start - b.start,
+                  );
+                  const parts: React.ReactNode[] = [];
+                  let lastEnd = 0;
+                  sorted.forEach((sel, i) => {
+                    if (sel.start > lastEnd) {
+                      parts.push(
+                        <span key={`t-${i}`}>
+                          {content.slice(lastEnd, sel.start)}
+                        </span>,
+                      );
+                    }
+                    parts.push(
+                      <mark
+                        key={`m-${i}`}
+                        className="bg-primary/25 text-transparent rounded-sm"
+                      >
+                        {content.slice(sel.start, sel.end) || "\u200B"}
+                      </mark>,
+                    );
+                    lastEnd = sel.end;
+                  });
+                  if (lastEnd < content.length) {
+                    parts.push(
+                      <span key="t-last">{content.slice(lastEnd)}</span>,
+                    );
+                  }
+                  parts.push("\n");
+                  return parts;
+                })()}
+              </div>
+            </div>
+          )}
+          <Textarea
+            ref={contentTextareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={onKeyDown}
+            onMouseDown={clearMultiSelections}
+            onScroll={(e) => {
+              if (overlayInnerRef.current) {
+                overlayInnerRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
+              }
+            }}
+            id="content"
+            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-[1] ${multiSelections.length > 0 ? "bg-transparent!" : ""}`}
+          />
+        </div>
       )}
       {togglePreview && (
         <div className="flex-1 min-h-0 overflow-y-auto w-full max-w-full! mx-auto bg-background px-3 py-2">
           <MarkdownRenderer content={content} />
         </div>
+      )}
+
+      {findReplaceOpen && (
+        <FindReplaceBar
+          textareaRef={contentTextareaRef}
+          content={content}
+          setContent={setContent}
+          showReplace={findReplaceShowReplace}
+          onClose={() => setFindReplaceOpen(false)}
+          initialQuery={findInitialQuery}
+        />
       )}
     </div>
   );
