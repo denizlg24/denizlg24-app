@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 const INDENT = "  ";
 
@@ -84,6 +84,49 @@ function applyMultiEdit(
   return { newText: result, newSelections };
 }
 
+function moveVertical(text: string, pos: number, direction: -1 | 1): number {
+  const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
+  const col = pos - lineStart;
+  if (direction === -1) {
+    if (lineStart === 0) return pos;
+    const prevLineStart = text.lastIndexOf("\n", lineStart - 2) + 1;
+    const prevLineLen = lineStart - 1 - prevLineStart;
+    return prevLineStart + Math.min(col, prevLineLen);
+  }
+  const lineEnd = text.indexOf("\n", pos);
+  if (lineEnd === -1) return pos;
+  const nextLineStart = lineEnd + 1;
+  let nextLineEnd = text.indexOf("\n", nextLineStart);
+  if (nextLineEnd === -1) nextLineEnd = text.length;
+  return nextLineStart + Math.min(col, nextLineEnd - nextLineStart);
+}
+
+function moveWordLeft(text: string, pos: number): number {
+  if (pos <= 0) return 0;
+  let p = pos - 1;
+  while (p > 0 && !/[a-zA-Z0-9_]/.test(text[p])) p--;
+  while (p > 0 && /[a-zA-Z0-9_]/.test(text[p - 1])) p--;
+  return p;
+}
+
+function moveWordRight(text: string, pos: number): number {
+  if (pos >= text.length) return text.length;
+  let p = pos;
+  while (p < text.length && /[a-zA-Z0-9_]/.test(text[p])) p++;
+  while (p < text.length && !/[a-zA-Z0-9_]/.test(text[p])) p++;
+  return p;
+}
+
+function deduplicateSelections(selections: MultiSelection[]): MultiSelection[] {
+  const seen = new Set<string>();
+  return selections.filter((s) => {
+    const key = `${s.start}:${s.end}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function useTextareaEditor(
   textareaRef: React.RefObject<HTMLTextAreaElement | null>,
   content: string,
@@ -94,9 +137,11 @@ export function useTextareaEditor(
   clearMultiSelections: () => void;
 } {
   const [multiSelections, setMultiSelections] = useState<MultiSelection[]>([]);
+  const multiSelectWordRef = useRef("");
 
   const clearMultiSelections = useCallback(() => {
     setMultiSelections([]);
+    multiSelectWordRef.current = "";
   }, []);
 
   const onKeyDown = useCallback(
@@ -108,155 +153,287 @@ export function useTextareaEditor(
       const text = textarea.value;
       const hasSelection = selStart !== selEnd;
 
-      // --- Multi-selection edit mode ---
       if (multiSelections.length > 0) {
-        if (
-          e.key === "Escape" ||
-          e.key.startsWith("Arrow") ||
-          ((e.ctrlKey || e.metaKey) && e.key !== "d") ||
-          e.key === "Home" ||
-          e.key === "End"
-        ) {
-          if (e.key === "Escape") e.preventDefault();
-          setMultiSelections([]);
-          return;
-        }
-
         if (e.key === "d" && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
-          return;
-        }
-
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          e.preventDefault();
-          const { newText, newSelections } = applyMultiEdit(
-            text,
-            multiSelections,
-            e.key,
+          const word = multiSelectWordRef.current;
+          if (!word) return;
+          const allOccurrences = findAllOccurrences(text, word);
+          const selectedStarts = new Set(multiSelections.map((s) => s.start));
+          if (allOccurrences.every((occ) => selectedStarts.has(occ.start)))
+            return;
+          const lastAdded = multiSelections[multiSelections.length - 1];
+          let nextOcc = allOccurrences.find(
+            (occ) =>
+              occ.start > lastAdded.start && !selectedStarts.has(occ.start),
           );
-          setContent(newText);
-          setMultiSelections(newSelections);
-          requestAnimationFrame(() => {
-            const last = newSelections[newSelections.length - 1];
-            applyEdit(textarea, newText, last.start, last.end);
-          });
-          return;
-        }
-
-        if (e.key === "Backspace") {
-          e.preventDefault();
-          const sorted = [...multiSelections].sort(
-            (a, b) => a.start - b.start,
-          );
-          const allCursors = sorted.every((s) => s.start === s.end);
-
-          if (allCursors) {
-            const expanded = sorted
-              .filter((s) => s.start > 0)
-              .map((s) => ({ start: s.start - 1, end: s.end }));
-            if (expanded.length === 0) return;
-            const { newText, newSelections } = applyMultiEdit(
-              text,
-              expanded,
-              "",
+          if (!nextOcc) {
+            nextOcc = allOccurrences.find(
+              (occ) => !selectedStarts.has(occ.start),
             );
-            setContent(newText);
-            setMultiSelections(newSelections);
+          }
+          if (nextOcc) {
+            const added = nextOcc;
+            setMultiSelections((prev) => [...prev, added]);
             requestAnimationFrame(() => {
-              const last = newSelections[newSelections.length - 1];
-              applyEdit(textarea, newText, last.start, last.end);
-            });
-          } else {
-            const { newText, newSelections } = applyMultiEdit(
-              text,
-              sorted,
-              "",
-            );
-            setContent(newText);
-            setMultiSelections(newSelections);
-            requestAnimationFrame(() => {
-              const last = newSelections[newSelections.length - 1];
-              applyEdit(textarea, newText, last.start, last.end);
+              const lineHeight =
+                parseInt(getComputedStyle(textarea).lineHeight) || 20;
+              const textBefore = text.slice(0, added.start);
+              const lineNumber = textBefore.split("\n").length;
+              textarea.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
             });
           }
           return;
         }
 
-        if (e.key === "Delete") {
+        if (e.key === "Escape") {
           e.preventDefault();
-          const sorted = [...multiSelections].sort(
-            (a, b) => a.start - b.start,
-          );
-          const allCursors = sorted.every((s) => s.start === s.end);
+          setMultiSelections([]);
+          multiSelectWordRef.current = "";
+          return;
+        }
 
-          if (allCursors) {
-            const expanded = sorted
-              .filter((s) => s.end < text.length)
-              .map((s) => ({ start: s.start, end: s.end + 1 }));
-            if (expanded.length === 0) return;
-            const { newText, newSelections } = applyMultiEdit(
-              text,
-              expanded,
-              "",
-            );
-            setContent(newText);
-            setMultiSelections(newSelections);
-            requestAnimationFrame(() => {
-              const last = newSelections[newSelections.length - 1];
-              applyEdit(textarea, newText, last.start, last.end);
-            });
-          } else {
-            const { newText, newSelections } = applyMultiEdit(
-              text,
-              sorted,
-              "",
-            );
-            setContent(newText);
-            setMultiSelections(newSelections);
-            requestAnimationFrame(() => {
-              const last = newSelections[newSelections.length - 1];
-              applyEdit(textarea, newText, last.start, last.end);
-            });
+        if (multiSelections.length >= 2) {
+          if (
+            e.key === "ArrowLeft" ||
+            e.key === "ArrowRight" ||
+            e.key === "ArrowUp" ||
+            e.key === "ArrowDown"
+          ) {
+            e.preventDefault();
+            const isCtrl = e.ctrlKey || e.metaKey;
+            let moved: MultiSelection[];
+
+            if (e.key === "ArrowLeft") {
+              moved = multiSelections.map((sel) => {
+                if (sel.start !== sel.end)
+                  return { start: sel.start, end: sel.start };
+                const np = isCtrl
+                  ? moveWordLeft(text, sel.start)
+                  : Math.max(0, sel.start - 1);
+                return { start: np, end: np };
+              });
+            } else if (e.key === "ArrowRight") {
+              moved = multiSelections.map((sel) => {
+                if (sel.start !== sel.end)
+                  return { start: sel.end, end: sel.end };
+                const np = isCtrl
+                  ? moveWordRight(text, sel.start)
+                  : Math.min(text.length, sel.start + 1);
+                return { start: np, end: np };
+              });
+            } else if (e.key === "ArrowUp") {
+              moved = multiSelections.map((sel) => {
+                const p = sel.start === sel.end ? sel.start : sel.start;
+                const np = moveVertical(text, p, -1);
+                return { start: np, end: np };
+              });
+            } else {
+              moved = multiSelections.map((sel) => {
+                const p = sel.start === sel.end ? sel.start : sel.end;
+                const np = moveVertical(text, p, 1);
+                return { start: np, end: np };
+              });
+            }
+
+            multiSelectWordRef.current = "";
+            const deduped = deduplicateSelections(moved);
+            if (deduped.length < 2) {
+              setMultiSelections([]);
+              if (deduped.length === 1) {
+                requestAnimationFrame(() =>
+                  textarea.setSelectionRange(deduped[0].start, deduped[0].end),
+                );
+              }
+            } else {
+              setMultiSelections(deduped);
+              requestAnimationFrame(() => {
+                const last = deduped[deduped.length - 1];
+                textarea.setSelectionRange(last.start, last.end);
+              });
+            }
+            return;
           }
+
+          if (
+            (e.key === "Home" || e.key === "End") &&
+            !e.ctrlKey &&
+            !e.metaKey
+          ) {
+            e.preventDefault();
+            const moved = multiSelections.map((sel) => {
+              const p =
+                sel.start === sel.end
+                  ? sel.start
+                  : e.key === "Home"
+                    ? sel.start
+                    : sel.end;
+              const lineStart = text.lastIndexOf("\n", p - 1) + 1;
+              if (e.key === "Home") {
+                return { start: lineStart, end: lineStart };
+              }
+              let lineEnd = text.indexOf("\n", p);
+              if (lineEnd === -1) lineEnd = text.length;
+              return { start: lineEnd, end: lineEnd };
+            });
+
+            multiSelectWordRef.current = "";
+            const deduped = deduplicateSelections(moved);
+            if (deduped.length < 2) {
+              setMultiSelections([]);
+              if (deduped.length === 1) {
+                requestAnimationFrame(() =>
+                  textarea.setSelectionRange(deduped[0].start, deduped[0].end),
+                );
+              }
+            } else {
+              setMultiSelections(deduped);
+              requestAnimationFrame(() => {
+                const last = deduped[deduped.length - 1];
+                textarea.setSelectionRange(last.start, last.end);
+              });
+            }
+            return;
+          }
+
+          if ((e.ctrlKey || e.metaKey) && e.key !== "d") {
+            setMultiSelections([]);
+            multiSelectWordRef.current = "";
+            return;
+          }
+
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              multiSelections,
+              e.key,
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+            return;
+          }
+
+          if (e.key === "Backspace") {
+            e.preventDefault();
+            const sorted = [...multiSelections].sort(
+              (a, b) => a.start - b.start,
+            );
+            const allCursors = sorted.every((s) => s.start === s.end);
+
+            if (allCursors) {
+              const expanded = sorted
+                .filter((s) => s.start > 0)
+                .map((s) => ({ start: s.start - 1, end: s.end }));
+              if (expanded.length === 0) return;
+              const { newText, newSelections } = applyMultiEdit(
+                text,
+                expanded,
+                "",
+              );
+              setContent(newText);
+              setMultiSelections(newSelections);
+              requestAnimationFrame(() => {
+                const last = newSelections[newSelections.length - 1];
+                applyEdit(textarea, newText, last.start, last.end);
+              });
+            } else {
+              const { newText, newSelections } = applyMultiEdit(
+                text,
+                sorted,
+                "",
+              );
+              setContent(newText);
+              setMultiSelections(newSelections);
+              requestAnimationFrame(() => {
+                const last = newSelections[newSelections.length - 1];
+                applyEdit(textarea, newText, last.start, last.end);
+              });
+            }
+            return;
+          }
+
+          if (e.key === "Delete") {
+            e.preventDefault();
+            const sorted = [...multiSelections].sort(
+              (a, b) => a.start - b.start,
+            );
+            const allCursors = sorted.every((s) => s.start === s.end);
+
+            if (allCursors) {
+              const expanded = sorted
+                .filter((s) => s.end < text.length)
+                .map((s) => ({ start: s.start, end: s.end + 1 }));
+              if (expanded.length === 0) return;
+              const { newText, newSelections } = applyMultiEdit(
+                text,
+                expanded,
+                "",
+              );
+              setContent(newText);
+              setMultiSelections(newSelections);
+              requestAnimationFrame(() => {
+                const last = newSelections[newSelections.length - 1];
+                applyEdit(textarea, newText, last.start, last.end);
+              });
+            } else {
+              const { newText, newSelections } = applyMultiEdit(
+                text,
+                sorted,
+                "",
+              );
+              setContent(newText);
+              setMultiSelections(newSelections);
+              requestAnimationFrame(() => {
+                const last = newSelections[newSelections.length - 1];
+                applyEdit(textarea, newText, last.start, last.end);
+              });
+            }
+            return;
+          }
+
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              multiSelections,
+              "\n",
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+            return;
+          }
+
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const { newText, newSelections } = applyMultiEdit(
+              text,
+              multiSelections,
+              INDENT,
+            );
+            setContent(newText);
+            setMultiSelections(newSelections);
+            requestAnimationFrame(() => {
+              const last = newSelections[newSelections.length - 1];
+              applyEdit(textarea, newText, last.start, last.end);
+            });
+            return;
+          }
+
           return;
         }
 
-        if (e.key === "Enter") {
-          e.preventDefault();
-          const { newText, newSelections } = applyMultiEdit(
-            text,
-            multiSelections,
-            "\n",
-          );
-          setContent(newText);
-          setMultiSelections(newSelections);
-          requestAnimationFrame(() => {
-            const last = newSelections[newSelections.length - 1];
-            applyEdit(textarea, newText, last.start, last.end);
-          });
-          return;
-        }
-
-        if (e.key === "Tab") {
-          e.preventDefault();
-          const { newText, newSelections } = applyMultiEdit(
-            text,
-            multiSelections,
-            INDENT,
-          );
-          setContent(newText);
-          setMultiSelections(newSelections);
-          requestAnimationFrame(() => {
-            const last = newSelections[newSelections.length - 1];
-            applyEdit(textarea, newText, last.start, last.end);
-          });
-          return;
-        }
-
-        return;
+        setMultiSelections([]);
+        multiSelectWordRef.current = "";
       }
-
-      // --- Normal mode shortcuts ---
 
       if (e.key === "b" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
@@ -492,10 +669,12 @@ export function useTextareaEditor(
 
       if (e.key === "d" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
-        let word: string;
+        let wordStart: number;
+        let wordEnd: number;
 
         if (hasSelection) {
-          word = text.slice(selStart, selEnd);
+          wordStart = selStart;
+          wordEnd = selEnd;
         } else {
           const wordBoundary = /[a-zA-Z0-9_]/;
           let start = selStart;
@@ -503,14 +682,13 @@ export function useTextareaEditor(
           while (start > 0 && wordBoundary.test(text[start - 1])) start--;
           while (end < text.length && wordBoundary.test(text[end])) end++;
           if (start >= end) return;
-          word = text.slice(start, end);
-          applyEdit(textarea, text, start, end);
+          wordStart = start;
+          wordEnd = end;
         }
 
-        const allOccurrences = findAllOccurrences(text, word);
-        if (allOccurrences.length > 1) {
-          setMultiSelections(allOccurrences);
-        }
+        multiSelectWordRef.current = text.slice(wordStart, wordEnd);
+        setMultiSelections([{ start: wordStart, end: wordEnd }]);
+        applyEdit(textarea, text, wordStart, wordEnd);
         return;
       }
 

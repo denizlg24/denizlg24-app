@@ -16,7 +16,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
@@ -40,7 +40,7 @@ import { useTextareaEditor } from "@/hooks/use-textarea-editor";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { INote } from "@/lib/data-types";
 import { extractDirectory } from "@/lib/user-settings";
-import { FindReplaceBar } from "./find-replace-bar";
+import { FindReplaceBar, type MatchResult } from "./find-replace-bar";
 
 export const NoteEditor = ({
   note,
@@ -69,10 +69,12 @@ export const NoteEditor = ({
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
   const [findReplaceShowReplace, setFindReplaceShowReplace] = useState(false);
   const [findInitialQuery, setFindInitialQuery] = useState("");
+  const [findMatches, setFindMatches] = useState<MatchResult[]>([]);
+  const [findCurrentIndex, setFindCurrentIndex] = useState(0);
 
   const closeEnhanceDialogRef = useRef<HTMLButtonElement | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const overlayInnerRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const {
     onKeyDown: editorOnKeyDown,
     multiSelections,
@@ -96,6 +98,38 @@ export const NoteEditor = ({
     },
     [],
   );
+
+  const handleMatchesChange = useCallback(
+    (matches: MatchResult[], currentIndex: number) => {
+      setFindMatches(matches);
+      setFindCurrentIndex(currentIndex);
+    },
+    [],
+  );
+
+  const showOverlay =
+    (findReplaceOpen && findMatches.length > 0) ||
+    multiSelections.length > 0;
+
+  useLayoutEffect(() => {
+    if (showOverlay && overlayRef.current && contentTextareaRef.current) {
+      overlayRef.current.scrollTop = contentTextareaRef.current.scrollTop;
+    }
+  }, [showOverlay, findMatches, findCurrentIndex, multiSelections]);
+
+  useEffect(() => {
+    if (!showOverlay || multiSelections.length === 0) return;
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    overlay.classList.remove("cursors-hidden");
+    const interval = setInterval(() => {
+      overlay.classList.toggle("cursors-hidden");
+    }, 530);
+    return () => {
+      clearInterval(interval);
+      overlay.classList.remove("cursors-hidden");
+    };
+  }, [showOverlay, multiSelections]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -437,40 +471,95 @@ export const NoteEditor = ({
       )}
       {!togglePreview && (
         <div className="relative flex-1 min-h-0 flex flex-col">
-          {multiSelections.length > 0 && (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-              <div
-                ref={overlayInnerRef}
-                className="font-mono text-sm px-3 py-2 whitespace-pre-wrap wrap-break-word text-transparent"
-                aria-hidden="true"
-              >
+          {showOverlay && (
+            <div
+              ref={overlayRef}
+              className="absolute inset-0 overflow-y-auto pointer-events-none z-0 editor-overlay"
+              aria-hidden="true"
+            >
+              <div className="font-mono text-sm px-3 py-2 whitespace-pre-wrap wrap-break-word text-transparent">
                 {(() => {
-                  const sorted = [...multiSelections].sort(
+                  const regions: Array<{
+                    start: number;
+                    end: number;
+                    type: "find" | "findCurrent" | "multiSelect";
+                  }> = [];
+
+                  if (findReplaceOpen && findMatches.length > 0) {
+                    findMatches.forEach((m, i) => {
+                      regions.push({
+                        start: m.start,
+                        end: m.end,
+                        type:
+                          i === findCurrentIndex ? "findCurrent" : "find",
+                      });
+                    });
+                  } else {
+                    multiSelections.forEach((s) => {
+                      regions.push({
+                        start: s.start,
+                        end: s.end,
+                        type: "multiSelect",
+                      });
+                    });
+                  }
+
+                  const sorted = [...regions].sort(
                     (a, b) => a.start - b.start,
                   );
                   const parts: React.ReactNode[] = [];
                   let lastEnd = 0;
-                  sorted.forEach((sel, i) => {
-                    if (sel.start > lastEnd) {
+
+                  sorted.forEach((region, i) => {
+                    if (region.start > lastEnd) {
                       parts.push(
                         <span key={`t-${i}`}>
-                          {content.slice(lastEnd, sel.start)}
+                          {content.slice(lastEnd, region.start)}
                         </span>,
                       );
                     }
-                    parts.push(
-                      <mark
-                        key={`m-${i}`}
-                        className="bg-primary/25 text-transparent rounded-sm"
-                      >
-                        {content.slice(sel.start, sel.end) || "\u200B"}
-                      </mark>,
-                    );
-                    lastEnd = sel.end;
+
+                    if (region.type === "multiSelect") {
+                      if (region.start === region.end) {
+                        parts.push(
+                          <span key={`c-${i}`} className="editor-cursor" />,
+                        );
+                      } else {
+                        parts.push(
+                          <mark
+                            key={`m-${i}`}
+                            className="bg-blue-400/30 text-transparent rounded-sm"
+                          >
+                            {content.slice(region.start, region.end)}
+                          </mark>,
+                        );
+                        parts.push(
+                          <span key={`c-${i}`} className="editor-cursor" />,
+                        );
+                      }
+                    } else {
+                      const bgClass =
+                        region.type === "findCurrent"
+                          ? "bg-[#e85d00]/40"
+                          : "bg-[#ffeb3b]/25";
+
+                      parts.push(
+                        <mark
+                          key={`m-${i}`}
+                          className={`${bgClass} text-transparent rounded-sm`}
+                        >
+                          {content.slice(region.start, region.end) ||
+                            "\u200B"}
+                        </mark>,
+                      );
+                    }
+
+                    lastEnd = Math.max(lastEnd, region.end);
                   });
+
                   if (lastEnd < content.length) {
                     parts.push(
-                      <span key="t-last">{content.slice(lastEnd)}</span>,
+                      <span key={`t-last`}>{content.slice(lastEnd)}</span>,
                     );
                   }
                   parts.push("\n");
@@ -486,12 +575,12 @@ export const NoteEditor = ({
             onKeyDown={onKeyDown}
             onMouseDown={clearMultiSelections}
             onScroll={(e) => {
-              if (overlayInnerRef.current) {
-                overlayInnerRef.current.style.transform = `translateY(-${e.currentTarget.scrollTop}px)`;
+              if (overlayRef.current) {
+                overlayRef.current.scrollTop = e.currentTarget.scrollTop;
               }
             }}
             id="content"
-            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-1 ${multiSelections.length > 0 ? "bg-transparent!" : ""}`}
+            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-1 selection:bg-blue-400/30 selection:text-foreground ${showOverlay ? "bg-transparent! selection:bg-transparent!" : ""}`}
           />
         </div>
       )}
@@ -507,8 +596,13 @@ export const NoteEditor = ({
           content={content}
           setContent={setContent}
           showReplace={findReplaceShowReplace}
-          onClose={() => setFindReplaceOpen(false)}
+          onClose={() => {
+            setFindReplaceOpen(false);
+            setFindMatches([]);
+            setFindCurrentIndex(0);
+          }}
           initialQuery={findInitialQuery}
+          onMatchesChange={handleMatchesChange}
         />
       )}
     </div>

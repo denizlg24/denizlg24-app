@@ -33,9 +33,10 @@ interface FindReplaceBarProps {
   showReplace: boolean;
   onClose: () => void;
   initialQuery?: string;
+  onMatchesChange?: (matches: MatchResult[], currentIndex: number) => void;
 }
 
-interface MatchResult {
+export interface MatchResult {
   start: number;
   end: number;
 }
@@ -98,6 +99,7 @@ export function FindReplaceBar({
   showReplace,
   onClose,
   initialQuery,
+  onMatchesChange,
 }: FindReplaceBarProps) {
   const [query, setQuery] = useState(initialQuery ?? "");
   const [replacement, setReplacement] = useState("");
@@ -126,6 +128,14 @@ export function FindReplaceBar({
       setCurrentIndex(0);
     }
   }, [matches.length, currentIndex]);
+
+  useEffect(() => {
+    const clampedIndex =
+      matches.length > 0
+        ? Math.min(currentIndex, matches.length - 1)
+        : 0;
+    onMatchesChange?.(matches, clampedIndex);
+  }, [matches, currentIndex, onMatchesChange]);
 
   const selectMatch = useCallback(
     (index: number) => {
@@ -177,7 +187,6 @@ export function FindReplaceBar({
         const matched = content.slice(match.start, match.end);
         replaceWith = matched.replace(re, replacement);
       } catch {
-        // fall through with literal replacement
       }
     }
 

@@ -166,6 +166,39 @@
   --sidebar-ring: #a1bc98;
 }
 
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.editor-overlay {
+  scrollbar-color: transparent transparent;
+}
+
+.editor-overlay::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.editor-overlay::-webkit-scrollbar-track,
+.editor-overlay::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.editor-cursor {
+  display: inline-block;
+  width: 1.5px;
+  margin-left: -0.75px;
+  margin-right: -0.75px;
+  height: 1.2em;
+  background-color: var(--foreground);
+  vertical-align: text-bottom;
+}
+
+.cursors-hidden .editor-cursor {
+  opacity: 0;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
