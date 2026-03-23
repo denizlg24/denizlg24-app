@@ -1,9 +1,25 @@
 "use client";
 
-import { ArrowLeft, MessageSquare, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Menu,
+  MessageSquare,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserSettings } from "@/context/user-context";
 import {
@@ -24,6 +40,7 @@ import type {
 } from "@/lib/data-types";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
+import { DashboardSummary } from "./dashboard-summary";
 
 const MODEL_LABELS: Record<string, string> = {
   "claude-opus-4-6": "Opus 4.6",
@@ -71,6 +88,56 @@ function useSuggestion() {
 
 function isStreamError(r: StreamResult | StreamError | null): r is StreamError {
   return r !== null && "error" in r;
+}
+
+type ConversationGroup = {
+  label: string;
+  conversations: IConversationMeta[];
+};
+
+function groupConversationsByDate(
+  conversations: IConversationMeta[],
+): ConversationGroup[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const groups = {
+    Today: [] as IConversationMeta[],
+    Yesterday: [] as IConversationMeta[],
+    "Previous 7 days": [] as IConversationMeta[],
+    "Previous 30 days": [] as IConversationMeta[],
+    Older: [] as IConversationMeta[],
+  };
+
+  for (const conv of conversations) {
+    const date = new Date(conv.updatedAt);
+    if (date >= today) {
+      groups.Today.push(conv);
+    } else if (date >= yesterday) {
+      groups.Yesterday.push(conv);
+    } else if (date >= sevenDaysAgo) {
+      groups["Previous 7 days"].push(conv);
+    } else if (date >= thirtyDaysAgo) {
+      groups["Previous 30 days"].push(conv);
+    } else {
+      groups.Older.push(conv);
+    }
+  }
+
+  const orderedLabels = [
+    "Today",
+    "Yesterday",
+    "Previous 7 days",
+    "Previous 30 days",
+    "Older",
+  ] as const;
+
+  return orderedLabels
+    .filter((label) => groups[label].length > 0)
+    .map((label) => ({ label, conversations: groups[label] }));
 }
 
 function convertApiMessagesToDisplay(
@@ -248,7 +315,7 @@ function convertApiMessagesToDisplay(
 }
 
 export function ChatView() {
-  const { settings, loading: loadingSettings } = useUserSettings();
+  const { settings, loading: loadingSettings, setSettings } = useUserSettings();
 
   const API = useMemo(() => {
     if (loadingSettings) return null;
@@ -278,6 +345,8 @@ export function ChatView() {
   const [active, setActive] = useState(false);
   const [title, setTitle] = useState("");
   const [attachments, setAttachments] = useState<IChatAttachment[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(settings.chatSidebarOpen);
   const attachmentsRef = useRef<IChatAttachment[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -285,6 +354,38 @@ export function ChatView() {
   const lastScrollTop = useRef(0);
 
   const isActive = active || messages.length > 0;
+
+  const toggleSidebar = useCallback(
+    (open: boolean) => {
+      setSidebarOpen(open);
+      setSettings({ chatSidebarOpen: open });
+    },
+    [setSettings],
+  );
+
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) return conversations;
+    const query = searchQuery.toLowerCase();
+    return conversations.filter((c) => c.title.toLowerCase().includes(query));
+  }, [conversations, searchQuery]);
+
+  const groupedConversations = useMemo(
+    () => groupConversationsByDate(filteredConversations),
+    [filteredConversations],
+  );
+
+  const handleNewChat = useCallback(() => {
+    if (isStreaming) abort();
+    setActive(false);
+    setMessages([]);
+    setConversationId(null);
+    setTitle("");
+    setInput("");
+    setAttachments([]);
+    setSearchQuery("");
+    userScrolledUp.current = false;
+    toggleSidebar(false);
+  }, [isStreaming, abort, toggleSidebar]);
 
   const fetchConversations = useCallback(async () => {
     if (!API) return;
@@ -303,8 +404,8 @@ export function ChatView() {
   }, [attachments]);
 
   useEffect(() => {
-    if (API && !isActive) fetchConversations();
-  }, [API, isActive, fetchConversations]);
+    if (API && (!isActive || sidebarOpen)) fetchConversations();
+  }, [API, isActive, sidebarOpen, fetchConversations]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -347,6 +448,7 @@ export function ChatView() {
     setTitle(result.conversation.title);
     setActive(true);
     userScrolledUp.current = false;
+    toggleSidebar(false);
   };
 
   const deleteConversation = async (id: string, e: React.MouseEvent) => {
@@ -796,50 +898,43 @@ export function ChatView() {
 
   if (!isActive) {
     return (
-      <div className="flex flex-col items-center h-full px-4 pt-[25vh]">
-        <div className="flex flex-col items-center gap-6 w-full max-w-2xl">
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-3xl font-light text-foreground/80 tabular-nums tracking-tight">
-              {now.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
-            <p className="text-xs text-muted-foreground/50">
-              {now.toLocaleDateString([], {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-          </div>
-          <p
-            className={`text-sm text-muted-foreground/40 italic h-5 transition-opacity duration-300 ${suggestion.visible ? "opacity-100" : "opacity-0"}`}
-          >
-            {suggestion.text}
-          </p>
-          <ChatInput
-            value={input}
-            onChange={setInput}
-            onSend={handleSend}
-            model={model}
-            onModelChange={setModel}
-            disabled={isStreaming}
-            toolsEnabled={toolsEnabled}
-            onToolsEnabledChange={setToolsEnabled}
-            webSearchEnabled={webSearchEnabled}
-            onWebSearchEnabledChange={setWebSearchEnabled}
-            attachments={attachments}
-            onAttachmentsChange={handleAttachmentsChange}
-          />
-          {(loadingConversations || conversations.length > 0) && (
-            <div className="w-full max-w-md mt-4">
-              <p className="text-xs text-muted-foreground/50 mb-2 px-1">
-                Recent
-              </p>
-              <div className="flex flex-col gap-0.5">
-                {loadingConversations
-                  ? Array.from({ length: 4 }).map((_, i) => (
+      <>
+        <Sheet open={sidebarOpen} onOpenChange={toggleSidebar}>
+          <SheetContent side="left" className="w-80 p-0 flex flex-col">
+            <SheetHeader className="px-4 py-3 border-b">
+              <SheetTitle className="text-sm font-medium">
+                Conversations
+              </SheetTitle>
+              <div className="relative mt-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+                <Input
+                  placeholder="Search conversations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 pl-8 text-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-foreground" />
+                  </button>
+                )}
+              </div>
+            </SheetHeader>
+            <ScrollArea className="flex-1 overflow-hidden">
+              <div className="p-2 pt-0! overflow-hidden">
+                <div
+                  onClick={handleNewChat}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors cursor-pointer mb-2"
+                >
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                  <span className="text-sm text-foreground/70">New chat</span>
+                </div>
+                {loadingConversations ? (
+                  <div className="flex flex-col gap-0.5">
+                    {Array.from({ length: 6 }).map((_, i) => (
                       <div
                         key={i}
                         className="flex items-center gap-3 px-3 py-2"
@@ -849,125 +944,294 @@ export function ChatView() {
                           className="h-4 flex-1 rounded bg-surface"
                           style={{ maxWidth: `${55 + ((i * 23) % 35)}%` }}
                         />
-                        <Skeleton className="h-3 w-14 rounded shrink-0 bg-surface" />
-                      </div>
-                    ))
-                  : conversations.slice(0, 8).map((conv) => (
-                      <div
-                        key={conv._id}
-                        onClick={() => loadConversation(conv)}
-                        className="animate-in group flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors text-left cursor-pointer"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                        <span className="text-sm text-foreground/70 truncate flex-1">
-                          {conv.title}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground/30 shrink-0 group-hover:hidden">
-                          {MODEL_LABELS[conv.llmModel] ?? conv.llmModel}
-                        </span>
-                        <button
-                          onClick={(e) => deleteConversation(conv._id, e)}
-                          className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded hover:bg-destructive/10 transition-colors shrink-0"
-                        >
-                          <Trash2 className="w-3 h-3 text-muted-foreground/50 hover:text-destructive" />
-                        </button>
                       </div>
                     ))}
+                  </div>
+                ) : groupedConversations.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/50 px-3 py-4 text-center">
+                    {searchQuery
+                      ? "No conversations found"
+                      : "No conversations yet"}
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {groupedConversations.map((group) => (
+                      <div key={group.label}>
+                        <p className="text-[11px] text-muted-foreground/50 px-3 py-1 uppercase tracking-wider">
+                          {group.label}
+                        </p>
+                        <div className="flex flex-col gap-0.5">
+                          {group.conversations.map((conv) => (
+                            <div
+                              key={conv._id}
+                              onClick={() => loadConversation(conv)}
+                              className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-muted-foreground/40" />
+                              <span className="text-sm text-foreground/70 truncate">
+                                {conv.title}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground/30 group-hover:hidden">
+                                {MODEL_LABELS[conv.llmModel] ?? conv.llmModel}
+                              </span>
+                              <button
+                                onClick={(e) => deleteConversation(conv._id, e)}
+                                className="hidden group-hover:flex col-start-3 items-center justify-center w-5 h-5 rounded hover:bg-destructive/10 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3 text-muted-foreground/50 hover:text-destructive" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex flex-col items-center justify-center h-full px-4 py-8 overflow-y-auto relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleSidebar(true)}
+            className="absolute top-4 left-4"
+          >
+            <Menu className="w-4 h-4" />
+          </Button>
+          <div className="flex flex-col items-center gap-6 w-full max-w-2xl">
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-3xl font-light text-foreground/80 tabular-nums tracking-tight">
+                {now.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              <p className="text-xs text-muted-foreground/50">
+                {now.toLocaleDateString([], {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
             </div>
-          )}
+            <p
+              className={`text-sm text-muted-foreground/40 italic h-5 transition-opacity duration-300 ${suggestion.visible ? "opacity-100" : "opacity-0"}`}
+            >
+              {suggestion.text}
+            </p>
+            <ChatInput
+              value={input}
+              onChange={setInput}
+              onSend={handleSend}
+              model={model}
+              onModelChange={setModel}
+              disabled={isStreaming}
+              toolsEnabled={toolsEnabled}
+              onToolsEnabledChange={setToolsEnabled}
+              webSearchEnabled={webSearchEnabled}
+              onWebSearchEnabledChange={setWebSearchEnabled}
+              attachments={attachments}
+              onAttachmentsChange={handleAttachmentsChange}
+            />
+            <div className="w-full max-w-3xl mt-4">
+              <DashboardSummary />
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 border-b">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleBack}
-          className="shrink-0"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <span className="text-sm text-foreground/70 truncate">{title}</span>
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="max-w-3xl mx-auto">
-          {messages.map((msg, i) => {
-            const isLastAssistant =
-              isStreaming &&
-              i === messages.length - 1 &&
-              msg.role === "assistant";
-
-            return (
-              <ChatMessage
-                key={`${i}-${msg.createdAt}`}
-                message={msg}
-                isStreaming={isLastAssistant}
-                streamSegments={isLastAssistant ? streamSegments : undefined}
-                onApproveAll={handleApproveAll}
-                onDenyAll={handleDenyAll}
-                onRetry={msg.error ? retryFromError : undefined}
+    <>
+      <Sheet open={sidebarOpen} onOpenChange={toggleSidebar}>
+        <SheetContent side="left" className="w-80 p-0 flex flex-col">
+          <SheetHeader className="px-4 py-3 border-b">
+            <SheetTitle className="text-sm font-medium">
+              Conversations
+            </SheetTitle>
+            <div className="relative mt-2">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+              <Input
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8 pl-8 text-sm"
               />
-            );
-          })}
-          {isStreaming &&
-            (messages.length === 0 ||
-              messages[messages.length - 1].role === "user") && (
-              <ChatMessage
-                message={{
-                  role: "assistant",
-                  content: "",
-                  pendingActions:
-                    pendingConfirmations.length > 0
-                      ? pendingConfirmations
-                      : undefined,
-                  createdAt: new Date().toISOString(),
-                }}
-                isStreaming
-                streamSegments={streamSegments}
-                onApproveAll={handleApproveAll}
-                onDenyAll={handleDenyAll}
-              />
-            )}
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                >
+                  <X className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-foreground" />
+                </button>
+              )}
+            </div>
+          </SheetHeader>
+          <ScrollArea className="flex-1 overflow-hidden">
+            <div className="p-2 overflow-hidden">
+              <div
+                onClick={handleNewChat}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors cursor-pointer mb-2"
+              >
+                <Plus className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                <span className="text-sm text-foreground/70">New chat</span>
+              </div>
+              {loadingConversations ? (
+                <div className="flex flex-col gap-0.5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2">
+                      <Skeleton className="w-3.5 h-3.5 rounded shrink-0 bg-surface" />
+                      <Skeleton
+                        className="h-4 flex-1 rounded bg-surface"
+                        style={{ maxWidth: `${55 + ((i * 23) % 35)}%` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : groupedConversations.length === 0 ? (
+                <p className="text-xs text-muted-foreground/50 px-3 py-4 text-center">
+                  {searchQuery
+                    ? "No conversations found"
+                    : "No conversations yet"}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {groupedConversations.map((group) => (
+                    <div key={group.label}>
+                      <p className="text-[11px] text-muted-foreground/50 px-3 py-1 uppercase tracking-wider">
+                        {group.label}
+                      </p>
+                      <div className="flex flex-col gap-0.5">
+                        {group.conversations.map((conv) => (
+                          <div
+                            key={conv._id}
+                            onClick={() => loadConversation(conv)}
+                            className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-muted-foreground/40" />
+                            <span className="text-sm text-foreground/70 truncate">
+                              {conv.title}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/30 group-hover:hidden">
+                              {MODEL_LABELS[conv.llmModel] ?? conv.llmModel}
+                            </span>
+                            <button
+                              onClick={(e) => deleteConversation(conv._id, e)}
+                              className="hidden group-hover:flex col-start-3 items-center justify-center w-5 h-5 rounded hover:bg-destructive/10 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3 text-muted-foreground/50 hover:text-destructive" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      <div className="flex flex-col h-full">
+        <div className="flex items-center gap-2 px-4 py-2 border-b">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleSidebar(true)}
+            className="shrink-0"
+          >
+            <Menu className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleBack}
+            className="shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-foreground/70 truncate">{title}</span>
         </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            {messages.map((msg, i) => {
+              const isLastAssistant =
+                isStreaming &&
+                i === messages.length - 1 &&
+                msg.role === "assistant";
+
+              return (
+                <ChatMessage
+                  key={`${i}-${msg.createdAt}`}
+                  message={msg}
+                  isStreaming={isLastAssistant}
+                  streamSegments={isLastAssistant ? streamSegments : undefined}
+                  onApproveAll={handleApproveAll}
+                  onDenyAll={handleDenyAll}
+                  onRetry={msg.error ? retryFromError : undefined}
+                />
+              );
+            })}
+            {isStreaming &&
+              (messages.length === 0 ||
+                messages[messages.length - 1].role === "user") && (
+                <ChatMessage
+                  message={{
+                    role: "assistant",
+                    content: "",
+                    pendingActions:
+                      pendingConfirmations.length > 0
+                        ? pendingConfirmations
+                        : undefined,
+                    createdAt: new Date().toISOString(),
+                  }}
+                  isStreaming
+                  streamSegments={streamSegments}
+                  onApproveAll={handleApproveAll}
+                  onDenyAll={handleDenyAll}
+                />
+              )}
+          </div>
+        </div>
+
+        {backoff.active && (
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
+            <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+            <span>
+              Rate limited — retrying in{" "}
+              <span className="font-mono font-medium tabular-nums">
+                {Math.ceil(backoff.retryAfterMs / 1000)}s
+              </span>
+              <span className="text-amber-600/60 ml-1">
+                (attempt {backoff.attempt}/{backoff.maxAttempts})
+              </span>
+            </span>
+          </div>
+        )}
+
+        <ChatInput
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          model={model}
+          onModelChange={setModel}
+          disabled={isStreaming}
+          docked
+          modelLabel={MODEL_LABELS[model] ?? model}
+          toolsEnabled={toolsEnabled}
+          onToolsEnabledChange={setToolsEnabled}
+          webSearchEnabled={webSearchEnabled}
+          onWebSearchEnabledChange={setWebSearchEnabled}
+          attachments={attachments}
+          onAttachmentsChange={handleAttachmentsChange}
+        />
       </div>
-
-      {backoff.active && (
-        <div className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700">
-          <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
-          <span>
-            Rate limited — retrying in{" "}
-            <span className="font-mono font-medium tabular-nums">
-              {Math.ceil(backoff.retryAfterMs / 1000)}s
-            </span>
-            <span className="text-amber-600/60 ml-1">
-              (attempt {backoff.attempt}/{backoff.maxAttempts})
-            </span>
-          </span>
-        </div>
-      )}
-
-      <ChatInput
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        model={model}
-        onModelChange={setModel}
-        disabled={isStreaming}
-        docked
-        modelLabel={MODEL_LABELS[model] ?? model}
-        toolsEnabled={toolsEnabled}
-        onToolsEnabledChange={setToolsEnabled}
-        webSearchEnabled={webSearchEnabled}
-        onWebSearchEnabledChange={setWebSearchEnabled}
-        attachments={attachments}
-        onAttachmentsChange={handleAttachmentsChange}
-      />
-    </div>
+    </>
   );
 }

@@ -452,3 +452,72 @@ export interface IAuthenticatorCode {
   period: number;
   remaining: number;
 }
+
+export interface IDashboardStats {
+  contacts: {
+    total: number;
+    unread: number;
+    recent: Array<{
+      _id: string;
+      name: string;
+      email: string;
+      createdAt: string;
+      status: string;
+    }>;
+  };
+  projects: {
+    total: number;
+    featured: number;
+  };
+  blogs: {
+    total: number;
+    published: number;
+  };
+  calendar: {
+    todayEvents: number;
+    upcomingEvents: number;
+    events: Array<{
+      _id: string;
+      title: string;
+      date: string;
+      status: string;
+    }>;
+  };
+  comments: {
+    total: number;
+    pending: number;
+  };
+  timetable: Array<{
+    _id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    place?: string;
+    color: string;
+  }>;
+  resources: Array<{
+    _id: string;
+    name: string;
+    type: string;
+    status: "healthy" | "degraded" | "unreachable" | null;
+    lastCheckedAt: string | null;
+  }>;
+  emails: {
+    total: number;
+    unread: number;
+  };
+  notes: {
+    total: number;
+    recent: Array<{
+      _id: string;
+      title: string;
+      updatedAt: string;
+    }>;
+  };
+  llm: {
+    todayCost: number;
+    todayRequests: number;
+    todayInputTokens: number;
+    todayOutputTokens: number;
+  };
+}

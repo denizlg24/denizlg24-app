@@ -55,10 +55,7 @@ export function JournalGrid({
     );
     if (!journal) return false;
     return (
-      journal.content.trim().length > 0 ||
-      journal.events.length > 0 ||
-      journal.notes.length > 0 ||
-      !!journal.whiteboard
+      journal.content.trim().length > 0
     );
   };
 

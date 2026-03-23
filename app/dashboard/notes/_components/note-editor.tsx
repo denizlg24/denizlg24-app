@@ -289,7 +289,7 @@ export const NoteEditor = ({
   return (
     <div className="w-full relative flex-1 min-h-0 flex flex-col">
       {toolbarOpen ? (
-        <div className="flex flex-col gap-1 items-center absolute sm:right-2 right-0 sm:top-4 z-10 px-1 py-2 border shadow rounded-full bg-surface">
+        <div className="flex flex-col gap-1 items-center absolute sm:right-2 right-0 sm:top-4 z-90 px-1 py-2 border shadow rounded-full bg-surface">
           <Button
             variant="outline"
             size="icon-sm"
@@ -463,7 +463,7 @@ export const NoteEditor = ({
         <Button
           variant={"outline"}
           size={"icon-sm"}
-          className="absolute sm:top-4 sm:right-2 right-0 rounded-full"
+          className="absolute sm:top-4 sm:right-2 right-0 rounded-full z-90"
           onClick={() => setToolbarOpen(true)}
         >
           <ChevronLeftCircle />

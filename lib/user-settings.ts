@@ -5,6 +5,7 @@ const STORE_FILENAME = "settings.json";
 const userSettingsSchema = z.object({
   apiKey: z.string(),
   sidebarOpen: z.boolean(),
+  chatSidebarOpen: z.boolean(),
   defaultNoteDownloadPath: z.string(),
   defaultWhiteboardDownloadPath: z.string(),
   defaultPage: z.string(),
@@ -50,6 +51,12 @@ export const settingsFieldMeta: Record<keyof UserSettings, SettingsFieldMeta> =
       type: "boolean",
       hidden: true,
     },
+    chatSidebarOpen: {
+      label: "Chat Sidebar Open",
+      description: "Whether the chat history sidebar starts expanded.",
+      type: "boolean",
+      hidden: true,
+    },
     defaultNoteDownloadPath: {
       label: "Default Note Download Path",
       description:
@@ -91,6 +98,7 @@ export const settingsFieldMeta: Record<keyof UserSettings, SettingsFieldMeta> =
 const defaultSettings: UserSettings = {
   apiKey: "",
   sidebarOpen: true,
+  chatSidebarOpen: false,
   defaultNoteDownloadPath: "",
   defaultWhiteboardDownloadPath: "",
   defaultPage: "/dashboard",
@@ -112,6 +120,13 @@ const buildDefaultSettings = (current: unknown): UserSettings => {
       typeof current.sidebarOpen === "boolean"
         ? current.sidebarOpen
         : defaultSettings.sidebarOpen,
+    chatSidebarOpen:
+      typeof current === "object" &&
+      current !== null &&
+      "chatSidebarOpen" in current &&
+      typeof current.chatSidebarOpen === "boolean"
+        ? current.chatSidebarOpen
+        : defaultSettings.chatSidebarOpen,
     defaultNoteDownloadPath:
       typeof current === "object" &&
       current !== null &&
@@ -151,6 +166,9 @@ export async function loadSettings(): Promise<UserSettings> {
       (await store.get<string>("apiKey")) ?? defaultSettings.apiKey;
     const sidebarOpen =
       (await store.get<boolean>("sidebarOpen")) ?? defaultSettings.sidebarOpen;
+    const chatSidebarOpen =
+      (await store.get<boolean>("chatSidebarOpen")) ??
+      defaultSettings.chatSidebarOpen;
     const defaultNoteDownloadPath =
       (await store.get<string>("defaultNoteDownloadPath")) ??
       defaultSettings.defaultNoteDownloadPath;
@@ -163,6 +181,7 @@ export async function loadSettings(): Promise<UserSettings> {
     const result = userSettingsSchema.safeParse({
       apiKey,
       sidebarOpen,
+      chatSidebarOpen,
       defaultNoteDownloadPath,
       defaultWhiteboardDownloadPath,
       defaultPage,
@@ -172,6 +191,7 @@ export async function loadSettings(): Promise<UserSettings> {
       return buildDefaultSettings({
         apiKey,
         sidebarOpen,
+        chatSidebarOpen,
         defaultNoteDownloadPath,
         defaultWhiteboardDownloadPath,
         defaultPage,
