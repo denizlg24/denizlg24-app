@@ -152,7 +152,6 @@ export default function InboxPage() {
             onSelectAccount={handleSelectAccount}
             onSyncComplete={handleSyncComplete}
             onCompose={() => handleCompose()}
-            onAddAccount={() => setAddAccountOpen(true)}
           />
         )}
       </div>
