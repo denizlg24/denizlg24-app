@@ -165,7 +165,6 @@ export function DashboardSummary() {
 
   return (
     <div className="w-full flex flex-col items-center gap-8 animate-in fade-in duration-500">
-      {/* Stats row */}
       <div className="flex flex-wrap justify-center gap-1">
         <StatNumber value={stats.contacts.total} label="Contacts" />
         <StatNumber
@@ -178,7 +177,6 @@ export function DashboardSummary() {
         <StatNumber value={stats.emails.total} label="Emails" />
       </div>
 
-      {/* Today's Agenda - only show if there are items */}
       {agendaItems.length > 0 && (
         <div className="w-full max-w-md">
           <div className="flex flex-col">
@@ -200,9 +198,7 @@ export function DashboardSummary() {
         </div>
       )}
 
-      {/* Footer: System status + LLM */}
       <div className="flex flex-col items-center gap-4">
-        {/* System status - expanded with resource names */}
         {stats.resources.length > 0 && (
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
             {stats.resources.map((resource) => (
@@ -215,7 +211,6 @@ export function DashboardSummary() {
           </div>
         )}
 
-        {/* LLM */}
         {stats.llm.todayRequests > 0 && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Brain className="w-3 h-3" />

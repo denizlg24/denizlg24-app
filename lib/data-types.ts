@@ -92,6 +92,18 @@ export interface IEmailAccount {
   emails?: IEmail[];
 }
 
+export interface IFullEmail extends IEmail {
+  textBody?: string;
+  htmlBody?: string;
+}
+
+export interface IEmailAttachment {
+  index: number;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 export interface IFolder {
   _id: string;
   name: string;

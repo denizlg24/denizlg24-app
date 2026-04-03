@@ -52,6 +52,38 @@ export class denizApi {
     }
   }
 
+  public async GET_RAW({
+    endpoint,
+  }: {
+    endpoint: string;
+  }): Promise<Response | AuthError | ApiError> {
+    try {
+      const res = await fetch(`${BASE_URL}/${endpoint}`, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${this.apiKey}`,
+        },
+      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          return { message: "API key is invalid", code: 401 };
+        } else {
+          const errorData = await res.json();
+          return {
+            message: errorData.message ?? "An error occurred.",
+            code: res.status,
+          };
+        }
+      }
+      return res;
+    } catch (error) {
+      return {
+        message: (error as Error).message ?? "An unexpected error occurred.",
+        code: 500,
+      };
+    }
+  }
+
   public async POST_STREAM({
     endpoint,
     body,
