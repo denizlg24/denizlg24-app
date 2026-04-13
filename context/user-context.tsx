@@ -32,6 +32,7 @@ const KNOWN_ROUTES = new Set([
   "/dashboard/projects",
   "/dashboard/projects/new",
   "/dashboard/timeline",
+  "/dashboard/timeline/new",
   "/dashboard/now",
   "/dashboard/contacts",
   "/dashboard/inbox",

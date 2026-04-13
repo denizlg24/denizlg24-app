@@ -13,9 +13,9 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
-  Loader2,
   MessageCircle,
   MoreHorizontal,
+  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -470,7 +470,7 @@ export default function CommentsPage() {
             fetchComments();
           }}
         >
-          <Loader2 className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>

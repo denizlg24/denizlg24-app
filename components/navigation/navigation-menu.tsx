@@ -112,8 +112,20 @@ export const GROUPS: NavGroup[] = [
       },
       {
         label: "Timeline",
-        href: "/timeline",
+        href: "",
         icon: Briefcase,
+        children: [
+          {
+            label: "All Items",
+            href: "/timeline",
+            icon: HomeIcon,
+          },
+          {
+            label: "New",
+            href: "/timeline/new",
+            icon: Plus,
+          },
+        ],
       },
       {
         label: "Now Page",

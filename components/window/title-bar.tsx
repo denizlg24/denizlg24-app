@@ -7,6 +7,7 @@ import { BackgroundTasksIndicator } from "./background-tasks-indicator";
 
 const PATHNAME_TITLE_MAP = {
   "/": "home",
+  "/dashboard": "dashboard",
   "/dashboard/notes": "notes",
   "/dashboard/timetable": "timetable",
   "/dashboard/calendar": "calendar",
@@ -18,6 +19,17 @@ const PATHNAME_TITLE_MAP = {
   "/dashboard/resources": "resources",
   "/dashboard/settings": "settings",
   "/dashboard/journal": "journal",
+  "/dashboard/authenticator": "authenticator",
+  "/dashboard/contacts": "contacts",
+  "/dashboard/inbox": "inbox",
+  "/dashboard/blog": "blogs",
+  "/dashboard/blog/new": "new blog post",
+  "/dashboard/blog/comments": "blog comments",
+  "/dashboard/projects": "projects",
+  "/dashboard/projects/new": "new project",
+  "/dashboard/timeline": "timeline",
+  "/dashboard/timeline/new": "new timeline item",
+  "/dashboard/now": "now page",
 };
 
 type AppWindow = {
