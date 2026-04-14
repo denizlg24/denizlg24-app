@@ -47,11 +47,17 @@ const KNOWN_ROUTES = new Set([
   "/dashboard/llm-usage",
   "/dashboard/settings",
   "/dashboard/journal",
-  "/dashboard/authenticator"
+  "/dashboard/authenticator",
+  "/dashboard/spreadsheets",
+  "/dashboard/spreadsheets/editor",
 ]);
 
+function isKnownDynamicRoute(_pathname: string): boolean {
+  return false;
+}
+
 function isKnownRoute(pathname: string): boolean {
-  return KNOWN_ROUTES.has(pathname);
+  return KNOWN_ROUTES.has(pathname) || isKnownDynamicRoute(pathname);
 }
 
 export function UserSettingsProvider({

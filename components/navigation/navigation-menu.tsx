@@ -22,6 +22,7 @@ import {
   Plus,
   Radio,
   Settings,
+  Table,
   UserSquare,
 } from "lucide-react";
 
@@ -198,7 +199,12 @@ export const GROUPS: NavGroup[] = [
         label: "Kanban Boards",
         href: "/kanban",
         icon: Kanban,
-      }
+      },
+      {
+        label: "Spreadsheets",
+        href: "/spreadsheets",
+        icon: Table,
+      },
     ],
   },
   {

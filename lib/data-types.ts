@@ -465,6 +465,65 @@ export interface IAuthenticatorCode {
   remaining: number;
 }
 
+export interface ISpreadsheet {
+  _id: string;
+  title: string;
+  description?: string;
+  tags: string[];
+  pinataHash: string;
+  pinataFileId?: string;
+  pinataUrl: string;
+  sizeBytes: number;
+  sheetCount: number;
+  rowCount: number;
+  colCount: number;
+  lastOpenedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FortuneSheetCellValue {
+  v?: string | number | boolean | null;
+  m?: string;
+  ct?: { fa?: string; t?: string };
+  bg?: string;
+  fc?: string;
+  ff?: string | number;
+  fs?: number;
+  bl?: number;
+  it?: number;
+  cl?: number;
+  un?: number;
+  ht?: number;
+  vt?: number;
+  tb?: string;
+  mc?: { r: number; c: number; rs?: number; cs?: number };
+}
+
+export interface FortuneSheetCellData {
+  r: number;
+  c: number;
+  v: FortuneSheetCellValue | null;
+}
+
+export interface FortuneSheet {
+  name: string;
+  celldata?: FortuneSheetCellData[];
+  row?: number;
+  column?: number;
+  order?: number;
+  status?: number;
+  config?: {
+    merge?: Record<string, { r: number; c: number; rs: number; cs: number }>;
+    rowlen?: Record<string, number>;
+    columnlen?: Record<string, number>;
+    rowhidden?: Record<string, number>;
+    colhidden?: Record<string, number>;
+  };
+}
+
+export type FortuneSheetBook = FortuneSheet[];
+
 export interface IDashboardStats {
   contacts: {
     total: number;
