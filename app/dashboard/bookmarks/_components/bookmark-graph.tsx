@@ -1,18 +1,19 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import type {
+  ForceGraphProps,
+  LinkObject,
+  NodeObject,
+} from "react-force-graph-2d";
 import type {
   IBookmark,
   IBookmarkEdge,
   IBookmarkGroup,
 } from "@/lib/data-types";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-});
-
-type GraphNode = {
+type GraphNodeData = {
   id: string;
   label: string;
   type: "bookmark" | "group";
@@ -21,12 +22,19 @@ type GraphNode = {
   group?: IBookmarkGroup;
 };
 
-type GraphLink = {
+type GraphLinkData = {
   source: string;
   target: string;
   type: "membership" | "relation";
   strength: number;
 };
+
+type GraphNode = NodeObject<GraphNodeData>;
+type GraphLink = LinkObject<GraphNodeData, GraphLinkData>;
+
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
+  ssr: false,
+}) as ComponentType<ForceGraphProps<GraphNodeData, GraphLinkData>>;
 
 interface Props {
   bookmarks: IBookmark[];
