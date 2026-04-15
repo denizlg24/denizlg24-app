@@ -50,6 +50,7 @@
     "react-katex": "^3.1.0",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.4.0",
+    "react-force-graph-2d": "^1.27.0",
     "react-resizable-panels": "^4",
     "recharts": "2.15.4",
     "rehype-highlight": "^7.0.2",

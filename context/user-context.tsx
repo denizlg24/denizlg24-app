@@ -50,6 +50,7 @@ const KNOWN_ROUTES = new Set([
   "/dashboard/authenticator",
   "/dashboard/spreadsheets",
   "/dashboard/spreadsheets/editor",
+  "/dashboard/bookmarks",
 ]);
 
 function isKnownDynamicRoute(_pathname: string): boolean {

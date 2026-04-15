@@ -524,6 +524,48 @@ export interface FortuneSheet {
 
 export type FortuneSheetBook = FortuneSheet[];
 
+export interface IBookmark {
+  _id: string;
+  url: string;
+  title: string;
+  description?: string;
+  favicon?: string;
+  image?: string;
+  siteName?: string;
+  tags: string[];
+  groupIds: string[];
+  userNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IBookmarkGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  autoCreated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IBookmarkEdge {
+  _id: string;
+  from: string;
+  to: string;
+  strength: number;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IBookmarkGraph {
+  bookmarks: IBookmark[];
+  groups: IBookmarkGroup[];
+  edges: IBookmarkEdge[];
+  stats: { total: number; groups: number; edges: number };
+}
+
 export interface IDashboardStats {
   contacts: {
     total: number;
