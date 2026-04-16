@@ -90,7 +90,20 @@ export function GroupDetail({
     return groups.find((g) => g._id === group.parentId) ?? null;
   }, [group, groups]);
 
-  const members = bookmarks.filter((b) => b.groupIds.includes(group._id));
+  const subtreeIds = useMemo(() => {
+    const ids = descendantIds(group._id, groups);
+    ids.add(group._id);
+    return ids;
+  }, [group, groups]);
+  const members = useMemo(
+    () => bookmarks.filter((b) => b.groupIds.some((gid) => subtreeIds.has(gid))),
+    [bookmarks, subtreeIds],
+  );
+  const directMemberCount = useMemo(
+    () => bookmarks.filter((b) => b.groupIds.includes(group._id)).length,
+    [bookmarks, group._id],
+  );
+  const nestedMemberCount = members.length - directMemberCount;
   const children = groups.filter((g) => g.parentId === group._id);
 
   const saveName = () => {
@@ -237,7 +250,14 @@ export function GroupDetail({
           )}
 
           <div className="space-y-2">
-            <Label className="text-xs">Members ({members.length})</Label>
+            <Label className="text-xs">
+              Members ({members.length})
+              {nestedMemberCount > 0 && (
+                <span className="ml-1 font-normal text-muted-foreground">
+                  · {directMemberCount} direct · {nestedMemberCount} nested
+                </span>
+              )}
+            </Label>
             <div className="divide-y rounded border">
               {members.length === 0 ? (
                 <div className="p-3 text-xs text-muted-foreground">
