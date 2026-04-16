@@ -51,6 +51,8 @@ const KNOWN_ROUTES = new Set([
   "/dashboard/spreadsheets",
   "/dashboard/spreadsheets/editor",
   "/dashboard/bookmarks",
+  "/dashboard/bookmarks/new",
+  "/dashboard/bookmarks/new-group",
 ]);
 
 function isKnownDynamicRoute(_pathname: string): boolean {

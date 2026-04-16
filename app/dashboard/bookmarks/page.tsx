@@ -1,6 +1,15 @@
 "use client";
 
-import { Bookmark as BookmarkIcon, LayoutGrid, List, Loader2, Plus, RefreshCcw } from "lucide-react";
+import {
+  Bookmark as BookmarkIcon,
+  FolderPlus,
+  LayoutGrid,
+  List,
+  Loader2,
+  Plus,
+  RefreshCcw,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,15 +24,15 @@ import type {
   IBookmarkGraph,
   IBookmarkGroup,
 } from "@/lib/data-types";
+import { BookmarkDetail } from "./_components/bookmark-detail";
 import { BookmarkGraph } from "./_components/bookmark-graph";
 import { BookmarkList } from "./_components/bookmark-list";
-import { BookmarkSheet } from "./_components/bookmark-sheet";
-import { GroupSheet } from "./_components/group-sheet";
-import { PasteDialog } from "./_components/paste-dialog";
+import { GroupDetail } from "./_components/group-detail";
 
 type View = "graph" | "list";
 
 export default function BookmarksPage() {
+  const router = useRouter();
   const { settings, loading: loadingSettings } = useUserSettings();
 
   const api = useMemo(() => {
@@ -36,26 +45,26 @@ export default function BookmarksPage() {
   const [bookmarks, setBookmarks] = useState<IBookmark[]>([]);
   const [groups, setGroups] = useState<IBookmarkGroup[]>([]);
   const [edges, setEdges] = useState<IBookmarkEdge[]>([]);
-  const [pasteOpen, setPasteOpen] = useState(false);
-  const [selectedBookmark, setSelectedBookmark] = useState<IBookmark | null>(
-    null,
-  );
-  const [selectedGroup, setSelectedGroup] = useState<IBookmarkGroup | null>(
-    null,
-  );
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   const load = useCallback(async () => {
     if (!api) return;
     setLoading(true);
-    const res = await api.GET<IBookmarkGraph>({ endpoint: "bookmarks" });
-    if ("code" in res) {
-      toast.error(res.message);
+    const [graphRes, tagsRes] = await Promise.all([
+      api.GET<IBookmarkGraph>({ endpoint: "bookmarks" }),
+      api.GET<{ tags: string[] }>({ endpoint: "bookmarks/tags" }),
+    ]);
+    if ("code" in graphRes) {
+      toast.error(graphRes.message);
     } else {
-      setBookmarks(res.bookmarks);
-      setGroups(res.groups);
-      setEdges(res.edges);
+      setBookmarks(graphRes.bookmarks);
+      setGroups(graphRes.groups);
+      setEdges(graphRes.edges);
     }
+    if (!("code" in tagsRes)) setSuggestions(tagsRes.tags);
     setLoading(false);
   }, [api]);
 
@@ -63,53 +72,23 @@ export default function BookmarksPage() {
     load();
   }, [load]);
 
-  const handleAdd = useCallback(
-    async (url: string) => {
-      if (!api) return;
-      const res = await api.POST<{
-        bookmark: IBookmark;
-        groups: IBookmarkGroup[];
-        edges: IBookmarkEdge[];
-      }>({ endpoint: "bookmarks", body: { url } });
-      if ("code" in res) {
-        toast.error(res.message);
-        return false;
-      }
-      setBookmarks((prev) => [res.bookmark, ...prev]);
-      setGroups(res.groups);
-      setEdges((prev) => {
-        const map = new Map(prev.map((e) => [e._id, e]));
-        for (const e of res.edges) map.set(e._id, e);
-        return Array.from(map.values());
-      });
-      toast.success("Bookmark added");
-      return true;
-    },
-    [api],
-  );
-
-  const handleUpdateBookmark = useCallback(
-    async (id: string, patch: Partial<IBookmark>) => {
-      if (!api) return;
-      const prev = bookmarks;
-      setBookmarks((bs) =>
-        bs.map((b) => (b._id === id ? { ...b, ...patch } : b)),
-      );
+  const handlePatchBookmark = useCallback(
+    async (id: string, body: Record<string, unknown>) => {
+      if (!api) return null;
       const res = await api.PATCH<{ bookmark: IBookmark }>({
         endpoint: `bookmarks/${id}`,
-        body: patch,
+        body,
       });
       if ("code" in res) {
         toast.error(res.message);
-        setBookmarks(prev);
-        return;
+        return null;
       }
       setBookmarks((bs) =>
         bs.map((b) => (b._id === id ? res.bookmark : b)),
       );
-      setSelectedBookmark((s) => (s && s._id === id ? res.bookmark : s));
+      return res.bookmark;
     },
-    [api, bookmarks],
+    [api],
   );
 
   const handleDeleteBookmark = useCallback(
@@ -118,7 +97,7 @@ export default function BookmarksPage() {
       const prev = { bookmarks, edges };
       setBookmarks((bs) => bs.filter((b) => b._id !== id));
       setEdges((es) => es.filter((e) => e.from !== id && e.to !== id));
-      setSelectedBookmark(null);
+      setSelectedId(null);
       const res = await api.DELETE<{ success: true }>({
         endpoint: `bookmarks/${id}`,
       });
@@ -150,7 +129,6 @@ export default function BookmarksPage() {
         return;
       }
       setGroups((gs) => gs.map((g) => (g._id === id ? res.group : g)));
-      setSelectedGroup((s) => (s && s._id === id ? res.group : s));
     },
     [api, groups],
   );
@@ -166,7 +144,7 @@ export default function BookmarksPage() {
           groupIds: b.groupIds.filter((gid) => gid !== id),
         })),
       );
-      setSelectedGroup(null);
+      setSelectedGroupId(null);
       const res = await api.DELETE<{ success: true }>({
         endpoint: `bookmark-groups/${id}`,
       });
@@ -181,25 +159,6 @@ export default function BookmarksPage() {
     [api, groups, bookmarks],
   );
 
-  const handleCreateGroup = useCallback(
-    async (name: string) => {
-      if (!api) return;
-      const res = await api.POST<{ group: IBookmarkGroup }>({
-        endpoint: "bookmark-groups",
-        body: { name },
-      });
-      if ("code" in res) {
-        toast.error(res.message);
-        return;
-      }
-      setGroups((gs) =>
-        [...gs, res.group].sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      toast.success("Group created");
-    },
-    [api],
-  );
-
   const filteredBookmarks = useMemo(() => {
     if (!filter.trim()) return bookmarks;
     const q = filter.toLowerCase();
@@ -212,7 +171,55 @@ export default function BookmarksPage() {
     );
   }, [bookmarks, filter]);
 
+  const selected = useMemo(
+    () => (selectedId ? bookmarks.find((b) => b._id === selectedId) : null),
+    [bookmarks, selectedId],
+  );
+
+  const selectedGroup = useMemo(
+    () =>
+      selectedGroupId
+        ? groups.find((g) => g._id === selectedGroupId) ?? null
+        : null,
+    [groups, selectedGroupId],
+  );
+
   if (loading) return <BookmarksLoadingSkeleton />;
+
+  if (selected) {
+    return (
+      <BookmarkDetail
+        bookmark={selected}
+        allBookmarks={bookmarks}
+        groups={groups}
+        edges={edges}
+        suggestions={suggestions}
+        onPatch={(body) => handlePatchBookmark(selected._id, body)}
+        onDelete={() => handleDeleteBookmark(selected._id)}
+        onBack={() => setSelectedId(null)}
+        onSelectBookmark={(b) => setSelectedId(b._id)}
+        onSuggestionsChange={setSuggestions}
+      />
+    );
+  }
+
+  if (selectedGroup) {
+    return (
+      <GroupDetail
+        group={selectedGroup}
+        groups={groups}
+        bookmarks={bookmarks}
+        onBack={() => setSelectedGroupId(null)}
+        onUpdate={handleUpdateGroup}
+        onDelete={handleDeleteGroup}
+        onSelectBookmark={(b) => {
+          setSelectedGroupId(null);
+          setSelectedId(b._id);
+        }}
+        onSelectGroup={(g) => setSelectedGroupId(g._id)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -229,7 +236,7 @@ export default function BookmarksPage() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter…"
-            className="h-7 w-48 text-xs"
+            className="h-7 w-full! max-w-full! text-xs"
           />
           <Tabs value={view} onValueChange={(v) => setView(v as View)}>
             <TabsList className="h-7">
@@ -252,11 +259,20 @@ export default function BookmarksPage() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
             className="h-7"
-            onClick={() => setPasteOpen(true)}
+            onClick={() => router.push("/dashboard/bookmarks/new-group")}
+          >
+            <FolderPlus className="size-3.5" />
+            Group
+          </Button>
+          <Button
+            size="sm"
+            className="h-7"
+            onClick={() => router.push("/dashboard/bookmarks/new")}
           >
             <Plus className="size-3.5" />
-            Paste URL
+            Bookmark
           </Button>
         </div>
       </div>
@@ -267,41 +283,17 @@ export default function BookmarksPage() {
             bookmarks={filteredBookmarks}
             groups={groups}
             edges={edges}
-            onSelectBookmark={setSelectedBookmark}
-            onSelectGroup={setSelectedGroup}
+            onSelectBookmark={(b) => setSelectedId(b._id)}
+            onSelectGroup={(g) => setSelectedGroupId(g._id)}
           />
         ) : (
           <BookmarkList
             bookmarks={filteredBookmarks}
             groups={groups}
-            onSelect={setSelectedBookmark}
+            onSelect={(b) => setSelectedId(b._id)}
           />
         )}
       </div>
-
-      <PasteDialog
-        open={pasteOpen}
-        onOpenChange={setPasteOpen}
-        onSubmit={handleAdd}
-      />
-
-      <BookmarkSheet
-        bookmark={selectedBookmark}
-        groups={groups}
-        onClose={() => setSelectedBookmark(null)}
-        onUpdate={handleUpdateBookmark}
-        onDelete={handleDeleteBookmark}
-        onCreateGroup={handleCreateGroup}
-      />
-
-      <GroupSheet
-        group={selectedGroup}
-        bookmarks={bookmarks}
-        onClose={() => setSelectedGroup(null)}
-        onUpdate={handleUpdateGroup}
-        onDelete={handleDeleteGroup}
-        onSelectBookmark={setSelectedBookmark}
-      />
     </div>
   );
 }

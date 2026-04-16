@@ -7,6 +7,7 @@ import type {
   LinkObject,
   NodeObject,
 } from "react-force-graph-2d";
+import { classColor } from "@/lib/bookmark-color";
 import type {
   IBookmark,
   IBookmarkEdge,
@@ -18,6 +19,7 @@ type GraphNodeData = {
   label: string;
   type: "bookmark" | "group";
   val: number;
+  color: string;
   bookmark?: IBookmark;
   group?: IBookmarkGroup;
 };
@@ -48,28 +50,24 @@ interface Theme {
   background: string;
   foreground: string;
   mutedForeground: string;
-  accent: string;
-  accentStrong: string;
-  muted: string;
-  border: string;
-  surface: string;
+  scheme: "dark" | "light";
 }
 
 function readTheme(el: HTMLElement): Theme {
   const cs = getComputedStyle(el);
   const get = (v: string, fallback: string) =>
     cs.getPropertyValue(v).trim() || fallback;
+  const isDark = document.documentElement.classList.contains("dark");
   return {
-    background: get("--background", "#f9f8f6"),
-    foreground: get("--foreground", "#647560"),
-    mutedForeground: get("--muted-foreground", "#4f5a4a"),
-    accent: get("--accent", "#a1bc98"),
-    accentStrong: get("--accent-strong", "#303630"),
-    muted: get("--muted", "#d2dcb6"),
-    border: get("--border", "#d2dcb6"),
-    surface: get("--surface", "#f1f3e0"),
+    background: get("--background", isDark ? "#0b0d10" : "#f9f8f6"),
+    foreground: get("--foreground", isDark ? "#e6e7ea" : "#2a2b2c"),
+    mutedForeground: get("--muted-foreground", isDark ? "#8a8d93" : "#4f5a4a"),
+    scheme: isDark ? "dark" : "light",
   };
 }
+
+const NODE_REL_SIZE = 3;
+const LABEL_ZOOM_THRESHOLD = 2.8;
 
 export function BookmarkGraph({
   bookmarks,
@@ -81,6 +79,7 @@ export function BookmarkGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -104,6 +103,7 @@ export function BookmarkGraph({
   }, []);
 
   const data = useMemo(() => {
+    const scheme: "dark" | "light" = theme?.scheme ?? "dark";
     const visibleBookmarkIds = new Set(bookmarks.map((b) => b._id));
     const groupMemberCount = new Map<string, number>();
     for (const b of bookmarks) {
@@ -111,19 +111,33 @@ export function BookmarkGraph({
         groupMemberCount.set(gid, (groupMemberCount.get(gid) ?? 0) + 1);
       }
     }
+    const bookmarkEdgeCount = new Map<string, number>();
+    for (const e of edges) {
+      if (visibleBookmarkIds.has(e.from) && visibleBookmarkIds.has(e.to)) {
+        bookmarkEdgeCount.set(e.from, (bookmarkEdgeCount.get(e.from) ?? 0) + 1);
+        bookmarkEdgeCount.set(e.to, (bookmarkEdgeCount.get(e.to) ?? 0) + 1);
+      }
+    }
+
     const nodes: GraphNode[] = [
-      ...bookmarks.map<GraphNode>((b) => ({
-        id: b._id,
-        label: b.title,
-        type: "bookmark",
-        val: 2,
-        bookmark: b,
-      })),
+      ...bookmarks.map<GraphNode>((b) => {
+        const connections =
+          (bookmarkEdgeCount.get(b._id) ?? 0) + b.groupIds.length;
+        return {
+          id: b._id,
+          label: b.title,
+          type: "bookmark",
+          val: 0.5 + connections * 0.25,
+          color: b.class ? classColor(b.class, scheme) : classColor(null, scheme),
+          bookmark: b,
+        };
+      }),
       ...groups.map<GraphNode>((g) => ({
         id: `group:${g._id}`,
         label: g.name,
         type: "group",
-        val: 6 + (groupMemberCount.get(g._id) ?? 0) * 1.5,
+        val: 4 + (groupMemberCount.get(g._id) ?? 0) * 1.2,
+        color: classColor(g.name, scheme),
         group: g,
       })),
     ];
@@ -141,6 +155,16 @@ export function BookmarkGraph({
         }
       }
     }
+    for (const g of groups) {
+      if (g.parentId && groups.some((p) => p._id === g.parentId)) {
+        links.push({
+          source: `group:${g._id}`,
+          target: `group:${g.parentId}`,
+          type: "membership",
+          strength: 1,
+        });
+      }
+    }
     for (const e of edges) {
       if (visibleBookmarkIds.has(e.from) && visibleBookmarkIds.has(e.to)) {
         links.push({
@@ -152,9 +176,7 @@ export function BookmarkGraph({
       }
     }
     return { nodes, links };
-  }, [bookmarks, groups, edges]);
-
-  const NODE_REL_SIZE = 4;
+  }, [bookmarks, groups, edges, theme?.scheme]);
 
   return (
     <div ref={containerRef} className="h-full w-full bg-background">
@@ -169,11 +191,17 @@ export function BookmarkGraph({
           nodeVal={(n: GraphNode) => n.val}
           linkColor={(l: GraphLink) =>
             l.type === "membership"
-              ? `${theme.mutedForeground}55`
-              : `${theme.accentStrong}88`
+              ? `${theme.mutedForeground}44`
+              : `${theme.mutedForeground}66`
           }
-          linkWidth={(l: GraphLink) => (l.type === "relation" ? 1.4 : 0.8)}
-          cooldownTicks={150}
+          linkWidth={(l: GraphLink) => (l.type === "relation" ? 0.8 : 0.5)}
+          cooldownTicks={180}
+          onNodeHover={(n: GraphNode | null) => {
+            setHoveredId(n ? n.id : null);
+            if (containerRef.current) {
+              containerRef.current.style.cursor = n ? "pointer" : "default";
+            }
+          }}
           onNodeClick={(n: GraphNode) => {
             if (n.type === "bookmark" && n.bookmark) onSelectBookmark(n.bookmark);
             if (n.type === "group" && n.group) onSelectGroup(n.group);
@@ -186,31 +214,19 @@ export function BookmarkGraph({
           ) => {
             if (node.x == null || node.y == null) return;
             const radius = Math.sqrt(node.val) * NODE_REL_SIZE;
+            const isHovered = hoveredId === node.id;
 
             ctx.beginPath();
             ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
-            if (node.type === "group") {
-              ctx.fillStyle = theme.accent;
-              ctx.fill();
-              ctx.lineWidth = 1.5 / globalScale;
-              ctx.strokeStyle = theme.accentStrong;
-              ctx.stroke();
-            } else {
-              ctx.fillStyle = theme.foreground;
-              ctx.fill();
-              ctx.lineWidth = 1 / globalScale;
-              ctx.strokeStyle = theme.background;
-              ctx.stroke();
-            }
+            ctx.fillStyle = node.color;
+            ctx.fill();
 
             const showLabel =
-              node.type === "group" || globalScale >= 1.4;
+              isHovered || globalScale >= LABEL_ZOOM_THRESHOLD;
             if (!showLabel) return;
 
             const isGroup = node.type === "group";
-            const fontSize = isGroup
-              ? Math.max(11, 12 / globalScale)
-              : 10 / globalScale;
+            const fontSize = (isGroup ? 11 : 9) / globalScale;
             ctx.font = `${isGroup ? 600 : 500} ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -250,7 +266,7 @@ export function BookmarkGraph({
             ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = isGroup ? theme.accentStrong : theme.foreground;
+            ctx.fillStyle = theme.foreground;
             ctx.fillText(label, cx, cy);
           }}
           nodePointerAreaPaint={(

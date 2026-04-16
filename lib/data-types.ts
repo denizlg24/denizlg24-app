@@ -524,6 +524,8 @@ export interface FortuneSheet {
 
 export type FortuneSheetBook = FortuneSheet[];
 
+export type BookmarkStatus = "open" | "archived";
+
 export interface IBookmark {
   _id: string;
   url: string;
@@ -534,7 +536,10 @@ export interface IBookmark {
   siteName?: string;
   tags: string[];
   groupIds: string[];
-  userNotes?: string;
+  content: string;
+  publishedDate?: string;
+  status: BookmarkStatus;
+  class?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -544,6 +549,7 @@ export interface IBookmarkGroup {
   name: string;
   description?: string;
   color?: string;
+  parentId?: string | null;
   autoCreated: boolean;
   createdAt: string;
   updatedAt: string;
