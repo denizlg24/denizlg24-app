@@ -4,14 +4,13 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   AlarmClock,
-  Bookmark as BookmarkIcon,
   Brain,
   Briefcase,
   Calendar,
   CalendarDays,
   ChevronRight,
   Clock,
-  Folder,
+  FileText,
   FolderGit2,
   HomeIcon,
   Inbox,
@@ -177,7 +176,7 @@ export const GROUPS: NavGroup[] = [
       {
         label: "Notes",
         href: "/notes",
-        icon: Folder,
+        icon: FileText,
       },
       {
         label: "Whiteboard",
@@ -205,11 +204,6 @@ export const GROUPS: NavGroup[] = [
         label: "Spreadsheets",
         href: "/spreadsheets",
         icon: Table,
-      },
-      {
-        label: "Bookmarks",
-        href: "/bookmarks",
-        icon: BookmarkIcon,
       },
     ],
   },

@@ -104,21 +104,50 @@ export interface IEmailAttachment {
   size: number;
 }
 
-export interface IFolder {
-  _id: string;
-  name: string;
-  parentFolder?: string;
-  notes: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface INote {
   _id: string;
   title: string;
   content: string;
+  url?: string;
+  description?: string;
+  siteName?: string;
+  favicon?: string;
+  image?: string;
+  publishedDate?: string;
+  tags: string[];
+  groupIds: string[];
+  status: "open" | "archived";
+  class?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface INoteGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  parentId?: string | null;
+  autoCreated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface INoteEdge {
+  _id: string;
+  from: string;
+  to: string;
+  strength: number;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface INoteGraph {
+  notes: INote[];
+  groups: INoteGroup[];
+  edges: INoteEdge[];
+  stats: { total: number; groups: number; edges: number };
 }
 
 export interface INowPage {
@@ -523,54 +552,6 @@ export interface FortuneSheet {
 }
 
 export type FortuneSheetBook = FortuneSheet[];
-
-export type BookmarkStatus = "open" | "archived";
-
-export interface IBookmark {
-  _id: string;
-  url: string;
-  title: string;
-  description?: string;
-  favicon?: string;
-  image?: string;
-  siteName?: string;
-  tags: string[];
-  groupIds: string[];
-  content: string;
-  publishedDate?: string;
-  status: BookmarkStatus;
-  class?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IBookmarkGroup {
-  _id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  parentId?: string | null;
-  autoCreated: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IBookmarkEdge {
-  _id: string;
-  from: string;
-  to: string;
-  strength: number;
-  reason?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface IBookmarkGraph {
-  bookmarks: IBookmark[];
-  groups: IBookmarkGroup[];
-  edges: IBookmarkEdge[];
-  stats: { total: number; groups: number; edges: number };
-}
 
 export interface IDashboardStats {
   contacts: {

@@ -37,7 +37,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -70,7 +70,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -106,7 +106,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -142,7 +142,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -179,7 +179,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -216,7 +216,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }
@@ -252,7 +252,7 @@ export class denizApi {
         } else {
           const errorData = await res.json();
           return {
-            message: errorData.message ?? "An error occurred.",
+            message: errorData.message ?? errorData.error ?? "An error occurred.",
             code: res.status,
           };
         }

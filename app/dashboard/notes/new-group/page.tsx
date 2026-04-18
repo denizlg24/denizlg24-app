@@ -7,17 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
-import type { IBookmarkGroup } from "@/lib/data-types";
+import type { INoteGroup } from "@/lib/data-types";
+import { GroupTreeCombobox } from "../_components/group-tree-combobox";
 
 const NONE_VALUE = "__none__";
 
@@ -33,45 +27,51 @@ export default function NewGroupPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState<string>(NONE_VALUE);
-  const [groups, setGroups] = useState<IBookmarkGroup[]>([]);
+  const [groups, setGroups] = useState<INoteGroup[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const selectedParentIds = parentId === NONE_VALUE ? [] : [parentId];
 
   useEffect(() => {
     if (!api) return;
-    api
-      .GET<{ groups: IBookmarkGroup[] }>({ endpoint: "bookmark-groups" })
-      .then((res) => {
-        if (!("code" in res)) {
-          setGroups(
-            res.groups.sort((a, b) => a.name.localeCompare(b.name)),
-          );
-        }
-      });
+
+    api.GET<{ groups: INoteGroup[] }>({ endpoint: "note-groups" }).then((result) => {
+      if ("code" in result) return;
+
+      setGroups(
+        [...result.groups].sort((left, right) => left.name.localeCompare(right.name)),
+      );
+    });
   }, [api]);
 
   const submit = async () => {
     if (!api || submitting) return;
-    const trimmed = name.trim();
-    if (!trimmed) {
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       toast.error("Name is required");
       return;
     }
+
     setSubmitting(true);
-    const res = await api.POST<{ group: IBookmarkGroup }>({
-      endpoint: "bookmark-groups",
+
+    const result = await api.POST<{ group: INoteGroup }>({
+      endpoint: "note-groups",
       body: {
-        name: trimmed,
+        name: trimmedName,
         description: description.trim() || undefined,
         parentId: parentId === NONE_VALUE ? null : parentId,
       },
     });
+
     setSubmitting(false);
-    if ("code" in res) {
-      toast.error(res.message);
+
+    if ("code" in result) {
+      toast.error(result.message);
       return;
     }
+
     toast.success("Group created");
-    router.push("/dashboard/bookmarks");
+    router.push("/dashboard/notes");
   };
 
   return (
@@ -81,7 +81,7 @@ export default function NewGroupPage() {
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => router.push("/dashboard/bookmarks")}
+            onClick={() => router.push("/dashboard/notes")}
             title="Back"
           >
             <ArrowLeft className="size-4" />
@@ -89,6 +89,7 @@ export default function NewGroupPage() {
           <FolderPlus className="size-4" />
           <h1 className="text-sm font-medium">New group</h1>
         </div>
+
         <Button size="sm" className="h-7" onClick={submit} disabled={submitting}>
           {submitting && <Loader2 className="size-3.5 animate-spin" />}
           Create
@@ -102,11 +103,13 @@ export default function NewGroupPage() {
             <Input
               autoFocus
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submit();
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void submit();
+                }
               }}
-              placeholder="Papers"
+              placeholder="Research"
               className="h-8 text-xs"
             />
           </div>
@@ -115,7 +118,7 @@ export default function NewGroupPage() {
             <Label className="text-xs">Description</Label>
             <Textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(event) => setDescription(event.target.value)}
               placeholder="What this group is about…"
               className="min-h-20 text-xs"
             />
@@ -123,21 +126,17 @@ export default function NewGroupPage() {
 
           <div className="space-y-2">
             <Label className="text-xs">Parent group</Label>
-            <Select value={parentId} onValueChange={setParentId}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE} className="text-xs">
-                  None (top level)
-                </SelectItem>
-                {groups.map((g) => (
-                  <SelectItem key={g._id} value={g._id} className="text-xs">
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <GroupTreeCombobox
+              groups={groups}
+              value={selectedParentIds}
+              onChange={(next) => setParentId(next.at(-1) ?? NONE_VALUE)}
+              placeholder="Choose parent group…"
+              searchPlaceholder="Search group hierarchy…"
+              emptyMessage="No groups yet"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Leave empty to create a top-level group.
+            </p>
           </div>
         </div>
       </div>

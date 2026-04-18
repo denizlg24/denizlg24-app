@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Folder, Trash2 } from "lucide-react";
+import { ArrowLeft, FolderTree, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -25,48 +25,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { IBookmark, IBookmarkGroup } from "@/lib/data-types";
+import type { INote, INoteGroup } from "@/lib/data-types";
 
 interface Props {
-  group: IBookmarkGroup;
-  groups: IBookmarkGroup[];
-  bookmarks: IBookmark[];
+  group: INoteGroup;
+  groups: INoteGroup[];
+  notes: INote[];
   onBack: () => void;
-  onUpdate: (id: string, patch: Partial<IBookmarkGroup>) => Promise<void>;
+  onUpdate: (id: string, patch: Partial<INoteGroup>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onSelectBookmark: (b: IBookmark) => void;
-  onSelectGroup: (g: IBookmarkGroup) => void;
+  onSelectNote: (note: INote) => void;
+  onSelectGroup: (group: INoteGroup) => void;
 }
 
 const NONE_VALUE = "__none__";
 
-function descendantIds(
-  rootId: string,
-  groups: IBookmarkGroup[],
-): Set<string> {
+function descendantIds(rootId: string, groups: INoteGroup[]): Set<string> {
   const result = new Set<string>();
   const stack = [rootId];
+
   while (stack.length > 0) {
     const current = stack.pop();
     if (!current) continue;
-    for (const g of groups) {
-      if (g.parentId === current && !result.has(g._id)) {
-        result.add(g._id);
-        stack.push(g._id);
+
+    for (const group of groups) {
+      if (group.parentId === current && !result.has(group._id)) {
+        result.add(group._id);
+        stack.push(group._id);
       }
     }
   }
+
   return result;
 }
 
 export function GroupDetail({
   group,
   groups,
-  bookmarks,
+  notes,
   onBack,
   onUpdate,
   onDelete,
-  onSelectBookmark,
+  onSelectNote,
   onSelectGroup,
 }: Props) {
   const [name, setName] = useState(group.name);
@@ -80,63 +80,63 @@ export function GroupDetail({
   const parentOptions = useMemo(() => {
     const forbidden = descendantIds(group._id, groups);
     forbidden.add(group._id);
+
     return groups
-      .filter((g) => !forbidden.has(g._id))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [group, groups]);
+      .filter((candidate) => !forbidden.has(candidate._id))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [group._id, groups]);
 
   const parent = useMemo(() => {
     if (!group.parentId) return null;
-    return groups.find((g) => g._id === group.parentId) ?? null;
-  }, [group, groups]);
+    return groups.find((candidate) => candidate._id === group.parentId) ?? null;
+  }, [group.parentId, groups]);
 
   const subtreeIds = useMemo(() => {
-    const ids = descendantIds(group._id, groups);
-    ids.add(group._id);
-    return ids;
-  }, [group, groups]);
+    const result = descendantIds(group._id, groups);
+    result.add(group._id);
+    return result;
+  }, [group._id, groups]);
+
   const members = useMemo(
-    () => bookmarks.filter((b) => b.groupIds.some((gid) => subtreeIds.has(gid))),
-    [bookmarks, subtreeIds],
+    () =>
+      notes.filter((note) => note.groupIds.some((groupId) => subtreeIds.has(groupId))),
+    [notes, subtreeIds],
   );
+
   const directMemberCount = useMemo(
-    () => bookmarks.filter((b) => b.groupIds.includes(group._id)).length,
-    [bookmarks, group._id],
+    () => notes.filter((note) => note.groupIds.includes(group._id)).length,
+    [notes, group._id],
   );
+
   const nestedMemberCount = members.length - directMemberCount;
-  const children = groups.filter((g) => g.parentId === group._id);
+  const children = groups.filter((candidate) => candidate.parentId === group._id);
 
   const saveName = () => {
     if (name.trim() && name !== group.name) {
-      onUpdate(group._id, { name: name.trim() });
+      void onUpdate(group._id, { name: name.trim() });
     }
   };
 
   const saveDescription = () => {
     if (description !== (group.description || "")) {
-      onUpdate(group._id, { description });
+      void onUpdate(group._id, { description });
     }
   };
 
-  const onParentChange = (value: string) => {
+  const handleParentChange = (value: string) => {
     const next = value === NONE_VALUE ? null : value;
     if ((group.parentId ?? null) === next) return;
-    onUpdate(group._id, { parentId: next });
+    void onUpdate(group._id, { parentId: next });
   };
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-12 items-center justify-between border-b px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onBack}
-            title="Back"
-          >
+          <Button variant="ghost" size="icon-sm" onClick={onBack} title="Back">
             <ArrowLeft className="size-4" />
           </Button>
-          <Folder className="size-4" />
+          <FolderTree className="size-4" />
           <div className="flex items-center gap-1.5 text-xs">
             {parent && (
               <>
@@ -153,6 +153,7 @@ export function GroupDetail({
             <span className="font-medium">{group.name}</span>
           </div>
         </div>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
@@ -168,13 +169,13 @@ export function GroupDetail({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this group?</AlertDialogTitle>
               <AlertDialogDescription>
-                Sub-groups become top-level. Bookmarks stay but lose membership.
+                Child groups become top-level. Notes stay but lose this membership.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => onDelete(group._id)}
+                onClick={() => void onDelete(group._id)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete
@@ -190,7 +191,7 @@ export function GroupDetail({
             <Label className="text-xs">Name</Label>
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               onBlur={saveName}
               className="h-8 text-xs"
             />
@@ -200,7 +201,7 @@ export function GroupDetail({
             <Label className="text-xs">Description</Label>
             <Textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(event) => setDescription(event.target.value)}
               onBlur={saveDescription}
               placeholder="What this group is about…"
               className="min-h-20 text-xs"
@@ -211,7 +212,7 @@ export function GroupDetail({
             <Label className="text-xs">Parent group</Label>
             <Select
               value={group.parentId ?? NONE_VALUE}
-              onValueChange={onParentChange}
+              onValueChange={handleParentChange}
             >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="None" />
@@ -220,9 +221,13 @@ export function GroupDetail({
                 <SelectItem value={NONE_VALUE} className="text-xs">
                   None (top level)
                 </SelectItem>
-                {parentOptions.map((g) => (
-                  <SelectItem key={g._id} value={g._id} className="text-xs">
-                    {g.name}
+                {parentOptions.map((option) => (
+                  <SelectItem
+                    key={option._id}
+                    value={option._id}
+                    className="text-xs"
+                  >
+                    {option.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -231,18 +236,16 @@ export function GroupDetail({
 
           {children.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-xs">
-                Sub-groups ({children.length})
-              </Label>
+              <Label className="text-xs">Sub-groups ({children.length})</Label>
               <div className="flex flex-wrap gap-1">
-                {children.map((c) => (
+                {children.map((child) => (
                   <button
                     type="button"
-                    key={c._id}
-                    onClick={() => onSelectGroup(c)}
+                    key={child._id}
+                    onClick={() => onSelectGroup(child)}
                     className="rounded border px-2 py-0.5 text-[10px] hover:bg-muted"
                   >
-                    {c.name}
+                    {child.name}
                   </button>
                 ))}
               </div>
@@ -261,19 +264,19 @@ export function GroupDetail({
             <div className="divide-y rounded border">
               {members.length === 0 ? (
                 <div className="p-3 text-xs text-muted-foreground">
-                  No bookmarks in this group.
+                  No notes in this group.
                 </div>
               ) : (
-                members.map((b) => (
+                members.map((note) => (
                   <button
                     type="button"
-                    key={b._id}
-                    onClick={() => onSelectBookmark(b)}
+                    key={note._id}
+                    onClick={() => onSelectNote(note)}
                     className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left hover:bg-muted/40"
                   >
-                    {b.favicon ? (
+                    {note.favicon ? (
                       <Image
-                        src={b.favicon}
+                        src={note.favicon}
                         alt=""
                         width={14}
                         height={14}
@@ -281,10 +284,12 @@ export function GroupDetail({
                         unoptimized
                       />
                     ) : (
-                      <div className="size-3.5 shrink-0 rounded-sm bg-muted" />
+                      <div className="flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-muted text-[8px] text-muted-foreground">
+                        N
+                      </div>
                     )}
                     <span className="min-w-0 flex-1 truncate text-xs">
-                      {b.title}
+                      {note.title}
                     </span>
                   </button>
                 ))

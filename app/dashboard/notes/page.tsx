@@ -1,44 +1,23 @@
 "use client";
+
 import {
   FilePlus2,
   FileText,
-  Folder,
   FolderPlus,
+  FolderTree,
+  LayoutGrid,
+  Link2,
+  List,
   Loader2,
-  MoveLeft,
+  RefreshCcw,
+  Tags,
+  X,
 } from "lucide-react";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  Breadcrumb,
-  BreadcrumbItem as BreadcrumbItemUI,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { TagAutocomplete } from "@/app/dashboard/notes/_components/tag-autocomplete";
 import { Button } from "@/components/ui/button";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -47,826 +26,825 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
-import { IFolder, type IKanbanBoard, type INote } from "@/lib/data-types";
-import { cn } from "@/lib/utils";
-import { FileItem } from "./_components/file-item";
-import { NoteEditor } from "./_components/note-editor";
+import type { INote, INoteEdge, INoteGraph, INoteGroup } from "@/lib/data-types";
+import {
+  buildDescendantIdMap,
+  buildPathLabelMap,
+} from "@/lib/note-group-tree";
+import { GroupDetail } from "./_components/group-detail";
+import { GroupTreeCombobox } from "./_components/group-tree-combobox";
+import { NoteDetail } from "./_components/note-detail";
+import { NoteGraph } from "./_components/note-graph";
+import { NoteList } from "./_components/note-list";
 
-interface FileItem {
-  type: "folder" | "note";
-  _id: string;
-  name: string;
-  updatedAt: string;
+type View = "graph" | "list";
+type Sort =
+  | "updated-desc"
+  | "updated-asc"
+  | "created-desc"
+  | "created-asc"
+  | "title-asc"
+  | "title-desc";
+type HasUrlFilter = "all" | "with-url" | "without-url";
+type StatusFilter = "all" | INote["status"];
+
+function parseHttpUrl(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed || /\s/.test(trimmed)) return null;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
-interface BreadcrumbItem {
-  folderId: string;
-  folderName: string;
+function isEditablePasteTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  const editableAncestor = target.closest(
+    "input, textarea, [contenteditable='true'], [role='textbox']",
+  );
+
+  return Boolean(editableAncestor);
+}
+
+function sortNotes(notes: INote[], sort: Sort) {
+  const items = [...notes];
+
+  items.sort((left, right) => {
+    switch (sort) {
+      case "updated-asc":
+        return (
+          new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
+        );
+      case "created-desc":
+        return (
+          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+        );
+      case "created-asc":
+        return (
+          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+        );
+      case "title-asc":
+        return left.title.localeCompare(right.title);
+      case "title-desc":
+        return right.title.localeCompare(left.title);
+      case "updated-desc":
+      default:
+        return (
+          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+        );
+    }
+  });
+
+  return items;
+}
+
+function matchesQuery(
+  note: INote,
+  query: string,
+  groupSearchLabels: string[],
+) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+
+  return [
+    note.title,
+    note.content,
+    note.url,
+    note.description,
+    note.siteName,
+    note.class,
+    ...groupSearchLabels,
+    ...note.tags,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(normalized));
+}
+
+function collectVisibleGroups(notes: INote[], groups: INoteGroup[]) {
+  const byId = new Map(groups.map((group) => [group._id, group]));
+  const visible = new Set<string>();
+
+  for (const note of notes) {
+    for (const groupId of note.groupIds) {
+      let currentId: string | null | undefined = groupId;
+      while (currentId) {
+        if (visible.has(currentId)) break;
+        visible.add(currentId);
+        currentId = byId.get(currentId)?.parentId ?? null;
+      }
+    }
+  }
+
+  return groups.filter((group) => visible.has(group._id));
 }
 
 export default function NotesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { settings, loading: loadingSettings } = useUserSettings();
 
-  const API = useMemo(() => {
+  const api = useMemo(() => {
     if (loadingSettings) return null;
     return new denizApi(settings.apiKey);
   }, [settings, loadingSettings]);
 
-  const filesCache = useRef<Map<string, FileItem[]>>(new Map());
-
-  const cacheKey = useCallback(
-    (parentId: string | undefined, searchQuery: string, sortOrder: string) =>
-      `${parentId ?? "root"}|${searchQuery}|${sortOrder}`,
-    [],
-  );
-
+  const [view, setView] = useState<View>("graph");
   const [loading, setLoading] = useState(true);
-  const [noteLoading, setNoteLoading] = useState(false);
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [directory, setDirectory] = useState<BreadcrumbItem[]>([]);
-  const [breadcrumbDragOver, setBreadcrumbDragOver] = useState<
-    string | "home" | "back" | null
-  >(null);
-  const [dragging, setDragging] = useState<{
-    _id: string;
-    type: "folder" | "note";
-  } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notes, setNotes] = useState<INote[]>([]);
+  const [groups, setGroups] = useState<INoteGroup[]>([]);
+  const [edges, setEdges] = useState<INoteEdge[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedGroupFilters, setSelectedGroupFilters] = useState<string[]>([]);
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [hasUrlFilter, setHasUrlFilter] = useState<HasUrlFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<Sort>("updated-desc");
+  const [importingLink, setImportingLink] = useState(false);
 
-  const mousePosRef = useRef({ x: 0, y: 0 });
-  const ghostRef = useRef<HTMLDivElement>(null);
+  const load = useCallback(
+    async (silent = false) => {
+      if (!api) return;
 
-  const [note, setNote] = useState<INote | undefined>(undefined);
+      if (silent) setRefreshing(true);
+      else setLoading(true);
 
-  const [searching, setSearching] = useState(false);
-  const [search, setSearch] = useState("");
-  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+      const [graphResult, tagsResult] = await Promise.all([
+        api.GET<INoteGraph>({ endpoint: "notes" }),
+        api.GET<{ tags: string[] }>({ endpoint: "notes/tags" }),
+      ]);
 
-  const [newFileDialogOpen, setNewFileDialogOpen] = useState(false);
-  const [newFolderDialogOpen, setNewFolderDialogOpen] = useState(false);
-  const [newName, setNewName] = useState("");
+      if ("code" in graphResult) {
+        toast.error(graphResult.message);
+      } else {
+        setNotes(graphResult.notes);
+        setGroups(graphResult.groups);
+        setEdges(graphResult.edges);
+      }
 
-  const [sort, setSort] = useState<
-    "nameAsc" | "nameDesc" | "dateAsc" | "dateDesc"
-  >("dateDesc");
+      if ("code" in tagsResult) {
+        if (!silent) toast.error(tagsResult.message);
+      } else {
+        setTagSuggestions(tagsResult.tags);
+      }
 
-  const [addToBoardItem, setAddToBoardItem] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [kanbanBoards, setKanbanBoards] = useState<IKanbanBoard[]>([]);
-  const [kanbanBoardsLoading, setKanbanBoardsLoading] = useState(false);
-  const [addingToBoard, setAddingToBoard] = useState(false);
+      if (silent) setRefreshing(false);
+      else setLoading(false);
+    },
+    [api],
+  );
 
   useEffect(() => {
-    if (!addToBoardItem || !API) return;
-    setKanbanBoardsLoading(true);
-    API.GET<{ boards: IKanbanBoard[] }>({ endpoint: "kanban/boards" })
-      .then((result) => {
-        if (!("code" in result)) setKanbanBoards(result.boards ?? []);
-      })
-      .finally(() => setKanbanBoardsLoading(false));
-  }, [addToBoardItem, API]);
+    void load();
+  }, [load]);
 
-  const handleAddToBoard = async (board: IKanbanBoard) => {
-    if (!API || !addToBoardItem) return;
-    setAddingToBoard(true);
-    try {
-      const boardResult = await API.GET<{
-        board: { columns: { _id: string; order: number }[] };
-      }>({ endpoint: `kanban/boards/${board._id}` });
-      if ("code" in boardResult) {
-        toast.error("Failed to fetch board");
-        return;
-      }
-      const columns = (boardResult.board.columns ?? []).sort(
-        (a, b) => a.order - b.order,
-      );
-      if (columns.length === 0) {
-        toast.error("This board has no columns");
-        return;
-      }
-      const cardResult = await API.POST<{}>({
-        endpoint: `kanban/boards/${board._id}/cards`,
-        body: {
-          columnId: columns[0]._id,
-          title: `Read ${addToBoardItem.name}`,
-          description: `[note](${addToBoardItem.id},${addToBoardItem.name})`,
-          priority: "none",
-        },
-      });
-      if ("code" in cardResult) {
-        toast.error("Failed to add card to board");
-        return;
-      }
-      toast.success(`Added to "${board.title}"`);
-      setAddToBoardItem(null);
-    } finally {
-      setAddingToBoard(false);
+  useEffect(() => {
+    if (selectedId && !notes.some((note) => note._id === selectedId)) {
+      setSelectedId(null);
     }
-  };
+  }, [notes, selectedId]);
 
-  const fetchFiles = useCallback(
-    async (parentId?: string, skipCache = false, resetNote = true) => {
-      if (!API) return;
-      const key = cacheKey(parentId, search, sort);
-      if (!skipCache && filesCache.current.has(key)) {
-        setFiles(filesCache.current.get(key)!);
-        if (resetNote) setNote(undefined);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      const endpoint = parentId
-        ? `files?folderId=${parentId}&search=${search}&sort=${sort}`
-        : `files?search=${search}&sort=${sort}`;
-      const result = await API.GET<{
-        items: FileItem[];
-        breadcrumbs: BreadcrumbItem[];
-      }>({ endpoint });
-      if ("code" in result) {
-        setFiles([]);
-      } else {
-        filesCache.current.set(key, result.items);
-        setFiles(result.items);
-        setDirectory(result.breadcrumbs);
-      }
-      setLoading(false);
-      if (resetNote) setNote(undefined);
-    },
-    [API, cacheKey, search, sort],
-  );
-
-  const currentFolderId =
-    directory.length > 0 ? directory[directory.length - 1].folderId : undefined;
-
-  const invalidateFolderCache = useCallback((folderId: string | undefined) => {
-    const prefix = `${folderId ?? "root"}|`;
-    for (const key of filesCache.current.keys()) {
-      if (key.startsWith(prefix)) {
-        filesCache.current.delete(key);
-      }
+  useEffect(() => {
+    if (selectedGroupId && !groups.some((group) => group._id === selectedGroupId)) {
+      setSelectedGroupId(null);
     }
+  }, [groups, selectedGroupId]);
+
+  useEffect(() => {
+    const deepLinkedNoteId = searchParams.get("note");
+    if (!deepLinkedNoteId || notes.length === 0) return;
+
+    const nextNote = notes.find((note) => note._id === deepLinkedNoteId);
+    if (nextNote) {
+      setSelectedGroupId(null);
+      setSelectedId(nextNote._id);
+    }
+
+    router.replace("/dashboard/notes");
+  }, [notes, router, searchParams]);
+
+  const applyUpdatedNote = useCallback((next: INote) => {
+    setNotes((current) =>
+      current.some((note) => note._id === next._id)
+        ? current.map((note) => (note._id === next._id ? next : note))
+        : [next, ...current],
+    );
+    setSelectedGroupId(null);
+    setSelectedId(next._id);
   }, []);
 
-  const handleMouseUpMove = async (targetFolderId: string | undefined) => {
-    if (!dragging || !API) return;
-    const item = dragging;
-    setDragging(null);
-    setBreadcrumbDragOver(null);
-    await API.PATCH({
-      endpoint:
-        item.type === "folder" ? `folders/${item._id}` : `notes/${item._id}`,
-      body: { parentId: targetFolderId ?? "null" },
-    });
-    setFiles((prev) => prev.filter((f) => f._id !== item._id));
-    invalidateFolderCache(targetFolderId);
-  };
+  const handlePatchNote = useCallback(
+    async (id: string, body: Record<string, unknown>) => {
+      if (!api) return null;
 
-  useEffect(() => {
-    if (!dragging) return;
-    document.body.style.cursor = "grabbing";
-    const handleMouseMove = (e: MouseEvent) => {
-      mousePosRef.current = { x: e.clientX, y: e.clientY };
-      if (ghostRef.current) {
-        ghostRef.current.style.left = `${e.clientX + 12}px`;
-        ghostRef.current.style.top = `${e.clientY - 12}px`;
+      const result = await api.PATCH<{ note: INote }>({
+        endpoint: `notes/${id}`,
+        body,
+      });
+
+      if ("code" in result) {
+        toast.error(result.message);
+        return null;
       }
-    };
-    const handleMouseUp = () => {
-      document.body.style.cursor = "";
-      setDragging(null);
-      setBreadcrumbDragOver(null);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      document.body.style.cursor = "";
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [dragging]);
 
-  useEffect(() => {
-    if (!API) return;
-    const hasNoteParam = new URLSearchParams(window.location.search).has(
-      "note",
-    );
-    fetchFiles(currentFolderId, false, !hasNoteParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [API, sort]);
+      applyUpdatedNote(result.note);
+      return result.note;
+    },
+    [api, applyUpdatedNote],
+  );
 
-  useEffect(() => {
-    if (!API) return;
-    const params = new URLSearchParams(window.location.search);
-    const noteId = params.get("note");
-    if (!noteId) return;
-    window.history.replaceState({}, "", "/dashboard/notes");
-    setNoteLoading(true);
-    API.GET<{ note: INote }>({ endpoint: `notes/${noteId}` })
-      .then((result) => {
-        if (!("code" in result)) {
-          setNote(result.note);
-        }
-      })
-      .finally(() => setNoteLoading(false));
-  }, [API]);
+  const handleDeleteNote = useCallback(
+    async (id: string) => {
+      if (!api) return;
 
-  //
-  useEffect(() => {
-    const key = cacheKey(currentFolderId, search, sort);
-    if (filesCache.current.has(key)) {
-      filesCache.current.set(key, files);
+      const previousNotes = notes;
+      const previousEdges = edges;
+
+      setNotes((current) => current.filter((note) => note._id !== id));
+      setEdges((current) => current.filter((edge) => edge.from !== id && edge.to !== id));
+      setSelectedId(null);
+
+      const result = await api.DELETE<{ success: true }>({
+        endpoint: `notes/${id}`,
+      });
+
+      if ("code" in result) {
+        toast.error(result.message);
+        setNotes(previousNotes);
+        setEdges(previousEdges);
+        return;
+      }
+
+      toast.success("Note deleted");
+    },
+    [api, edges, notes],
+  );
+
+  const handlePasteImport = useCallback(
+    async (url: string) => {
+      if (!api || importingLink) return;
+
+      setImportingLink(true);
+      const toastId = toast.loading("Importing link...");
+
+      const result = await api.POST<{
+        note: INote;
+        groups: INoteGroup[];
+        edges: INoteEdge[];
+      }>({
+        endpoint: "notes",
+        body: { url },
+      });
+
+      setImportingLink(false);
+
+      if ("code" in result) {
+        toast.error(result.message, { id: toastId });
+        return;
+      }
+
+      setGroups(result.groups);
+      setEdges((current) => [
+        ...current.filter(
+          (edge) =>
+            edge.from !== result.note._id && edge.to !== result.note._id,
+        ),
+        ...result.edges,
+      ]);
+      setTagSuggestions((current) =>
+        [...new Set([...current, ...result.note.tags])].sort((left, right) =>
+          left.localeCompare(right),
+        ),
+      );
+      applyUpdatedNote(result.note);
+      toast.success("Link imported", { id: toastId });
+    },
+    [api, applyUpdatedNote, importingLink],
+  );
+
+  const handleCategorizeNote = useCallback(
+    async (id: string) => {
+      if (!api) return;
+
+      const result = await api.POST<{
+        note: INote;
+        groups: INoteGroup[];
+        edges: INoteEdge[];
+      }>({
+        endpoint: `notes/${id}/categorize`,
+        body: {},
+      });
+
+      if ("code" in result) {
+        toast.error(result.message);
+        return;
+      }
+
+      applyUpdatedNote(result.note);
+      setGroups(result.groups);
+      setEdges((current) => [
+        ...current.filter((edge) => edge.from !== id && edge.to !== id),
+        ...result.edges,
+      ]);
+      setTagSuggestions((current) =>
+        [...new Set([...current, ...result.note.tags])].sort((left, right) =>
+          left.localeCompare(right),
+        ),
+      );
+      toast.success("Note categorized");
+    },
+    [api, applyUpdatedNote],
+  );
+
+  const handleUpdateGroup = useCallback(
+    async (id: string, patch: Partial<INoteGroup>) => {
+      if (!api) return;
+
+      const previousGroups = groups;
+
+      setGroups((current) =>
+        current.map((group) => (group._id === id ? { ...group, ...patch } : group)),
+      );
+
+      const result = await api.PATCH<{ group: INoteGroup }>({
+        endpoint: `note-groups/${id}`,
+        body: patch,
+      });
+
+      if ("code" in result) {
+        toast.error(result.message);
+        setGroups(previousGroups);
+        return;
+      }
+
+      setGroups((current) =>
+        current.map((group) => (group._id === id ? result.group : group)),
+      );
+
+      if (patch.parentId !== undefined) {
+        await load(true);
+      }
+    },
+    [api, groups, load],
+  );
+
+  const handleDeleteGroup = useCallback(
+    async (id: string) => {
+      if (!api) return;
+
+      const previousGroups = groups;
+      const previousNotes = notes;
+
+      setGroups((current) => current.filter((group) => group._id !== id));
+      setNotes((current) =>
+        current.map((note) => ({
+          ...note,
+          groupIds: note.groupIds.filter((groupId) => groupId !== id),
+        })),
+      );
+      setSelectedGroupId(null);
+
+      const result = await api.DELETE<{ success: true }>({
+        endpoint: `note-groups/${id}`,
+      });
+
+      if ("code" in result) {
+        toast.error(result.message);
+        setGroups(previousGroups);
+        setNotes(previousNotes);
+        return;
+      }
+
+      toast.success("Group deleted");
+      await load(true);
+    },
+    [api, groups, notes, load],
+  );
+
+  const allTags = useMemo(
+    () =>
+      [...new Set([...tagSuggestions, ...notes.flatMap((note) => note.tags)])].sort(
+        (left, right) => left.localeCompare(right),
+      ),
+    [notes, tagSuggestions],
+  );
+  const pathLabelById = useMemo(() => buildPathLabelMap(groups), [groups]);
+  const descendantIdsByGroup = useMemo(
+    () => buildDescendantIdMap(groups),
+    [groups],
+  );
+  const selectedGroupScope = useMemo(() => {
+    const next = new Set<string>();
+
+    for (const groupId of selectedGroupFilters) {
+      for (const scopedId of descendantIdsByGroup.get(groupId) ?? [groupId]) {
+        next.add(scopedId);
+      }
     }
-  }, [files, cacheKey, currentFolderId, search, sort]);
+
+    return next;
+  }, [descendantIdsByGroup, selectedGroupFilters]);
+
+  const filteredNotes = useMemo(() => {
+    return notes.filter((note) => {
+      const groupSearchLabels = note.groupIds
+        .map((groupId) => pathLabelById.get(groupId))
+        .filter((label): label is string => Boolean(label));
+
+      if (!matchesQuery(note, query, groupSearchLabels)) return false;
+
+      if (statusFilter !== "all" && note.status !== statusFilter) return false;
+
+      if (hasUrlFilter === "with-url" && !note.url) return false;
+      if (hasUrlFilter === "without-url" && note.url) return false;
+
+      if (
+        selectedGroupScope.size > 0 &&
+        !note.groupIds.some((groupId) => selectedGroupScope.has(groupId))
+      ) {
+        return false;
+      }
+
+      if (
+        selectedTagFilters.length > 0 &&
+        !selectedTagFilters.every((tag) => note.tags.includes(tag))
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    hasUrlFilter,
+    notes,
+    pathLabelById,
+    query,
+    selectedGroupScope,
+    selectedTagFilters,
+    statusFilter,
+  ]);
+
+  const sortedNotes = useMemo(
+    () => sortNotes(filteredNotes, sort),
+    [filteredNotes, sort],
+  );
+
+  const graphGroups = useMemo(
+    () => collectVisibleGroups(sortedNotes, groups),
+    [groups, sortedNotes],
+  );
+
+  const graphEdges = useMemo(() => {
+    const visibleIds = new Set(sortedNotes.map((note) => note._id));
+    return edges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
+  }, [edges, sortedNotes]);
+
+  const selectedNote = useMemo(
+    () => notes.find((note) => note._id === selectedId) ?? null,
+    [notes, selectedId],
+  );
+
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group._id === selectedGroupId) ?? null,
+    [groups, selectedGroupId],
+  );
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (
+        importingLink ||
+        selectedId ||
+        selectedGroupId ||
+        isEditablePasteTarget(event.target)
+      ) {
+        return;
+      }
+
+      const text = event.clipboardData?.getData("text") ?? "";
+      const url = parseHttpUrl(text);
+      if (!url) return;
+
+      event.preventDefault();
+      void handlePasteImport(url);
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [handlePasteImport, importingLink, selectedGroupId, selectedId]);
+
+  const hasActiveFilters =
+    query.trim().length > 0 ||
+    selectedGroupFilters.length > 0 ||
+    selectedTagFilters.length > 0 ||
+    hasUrlFilter !== "all" ||
+    statusFilter !== "all" ||
+    sort !== "updated-desc";
 
   if (loading) {
+    return <NotesLoadingSkeleton />;
+  }
+
+  if (selectedNote) {
     return (
-      <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
-        <div className="flex flex-row items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={directory.length === 0}
-          >
-            <MoveLeft />
-          </Button>
-          {searching ? (
-            <Input
-              placeholder=""
-              className="w-full border-border"
-              onChange={(e) => {
-                setSearch(e.target.value);
-              }}
-              value={search}
-            />
-          ) : (
-            <Breadcrumb className="h-9 border border-border w-full px-3 py-1 rounded-md flex items-center">
-              <BreadcrumbList className="text-sm">
-                <BreadcrumbItemUI>
-                  <BreadcrumbLink>home</BreadcrumbLink>
-                </BreadcrumbItemUI>
-                {directory.map((parent, index) => (
-                  <React.Fragment key={parent.folderId}>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItemUI>{parent.folderName}</BreadcrumbItemUI>
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-          )}
-
-          <Select
-            value={sort ?? "dateAsc"}
-            onValueChange={(value) => {
-              setSort(value as typeof sort);
-            }}
-          >
-            <SelectTrigger className="w-40 border-border">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nameAsc">Name A-Z</SelectItem>
-              <SelectItem value="nameDesc">Name Z-A</SelectItem>
-              <SelectItem value="dateDesc">Recent First</SelectItem>
-              <SelectItem value="dateAsc">Oldest first</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="icon">
-            <FolderPlus />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={directory.length === 0}
-          >
-            <FilePlus2 />
-          </Button>
-        </div>
-        <div className="w-full flex flex-col gap-0">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index}>
-              <div className="w-full relative">
-                <div className="flex flex-row items-center gap-1">
-                  <Skeleton className="h-4 w-4 rounded" />
-                  <Skeleton className="h-3 w-24 rounded" />
-                  <div className="grow" />
-                  <Skeleton className="h-3 w-20 rounded" />
-                </div>
-              </div>
-              <Separator className="my-1 w-full" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <NoteDetail
+        note={selectedNote}
+        allNotes={notes}
+        groups={groups}
+        edges={edges}
+        suggestions={allTags}
+        onPatch={(body) => handlePatchNote(selectedNote._id, body)}
+        onDelete={() => handleDeleteNote(selectedNote._id)}
+        onBack={() => setSelectedId(null)}
+        onSelectNote={(note) => {
+          setSelectedGroupId(null);
+          setSelectedId(note._id);
+        }}
+        onSuggestionsChange={setTagSuggestions}
+        onUpdated={applyUpdatedNote}
+        api={api}
+        onCategorize={() => handleCategorizeNote(selectedNote._id)}
+      />
     );
   }
 
-  if (noteLoading) {
+  if (selectedGroup) {
     return (
-      <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
-        <div className="flex flex-row items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={directory.length === 0}
-          >
-            <MoveLeft />
-          </Button>
-          {searching ? (
-            <Input
-              placeholder=""
-              className="w-full border-border"
-              onChange={(e) => {
-                setSearch(e.target.value);
-              }}
-              value={search}
-            />
-          ) : (
-            <Breadcrumb className="h-9 border border-border w-full px-3 py-1 rounded-md flex items-center">
-              <BreadcrumbList className="text-sm">
-                <BreadcrumbItemUI>
-                  <BreadcrumbLink>home</BreadcrumbLink>
-                </BreadcrumbItemUI>
-                {directory.map((parent, index) => (
-                  <React.Fragment key={parent.folderId}>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItemUI>{parent.folderName}</BreadcrumbItemUI>
-                  </React.Fragment>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-          )}
-
-          <Select
-            value={sort ?? "dateAsc"}
-            onValueChange={(value) => {
-              setSort(value as typeof sort);
-            }}
-          >
-            <SelectTrigger className="w-40 border-border">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nameAsc">Name A-Z</SelectItem>
-              <SelectItem value="nameDesc">Name Z-A</SelectItem>
-              <SelectItem value="dateDesc">Recent First</SelectItem>
-              <SelectItem value="dateAsc">Oldest first</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="icon">
-            <FolderPlus />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={directory.length === 0}
-          >
-            <FilePlus2 />
-          </Button>
-        </div>
-
-        <Skeleton className="flex-1 min-h-0 w-full rounded" />
-      </div>
+      <GroupDetail
+        group={selectedGroup}
+        groups={groups}
+        notes={notes}
+        onBack={() => setSelectedGroupId(null)}
+        onUpdate={handleUpdateGroup}
+        onDelete={handleDeleteGroup}
+        onSelectNote={(note) => {
+          setSelectedGroupId(null);
+          setSelectedId(note._id);
+        }}
+        onSelectGroup={(group) => setSelectedGroupId(group._id)}
+      />
     );
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-4 px-4 py-2 overflow-hidden">
-      <div className="flex flex-row items-center gap-1">
-        <Button
-          onClick={() => {
-            if (directory.length === 0) return;
-            const newDirectory = [...directory];
-            newDirectory.pop();
-            setDirectory(newDirectory);
-            fetchFiles(
-              newDirectory.length > 0
-                ? newDirectory[newDirectory.length - 1].folderId
-                : undefined,
-            );
-          }}
-          onMouseEnter={() => {
-            if (dragging && directory.length > 0) setBreadcrumbDragOver("back");
-          }}
-          onMouseLeave={() => setBreadcrumbDragOver(null)}
-          onMouseUp={async () => {
-            if (!dragging || directory.length === 0) return;
-            const parentFolderId =
-              directory.length > 1
-                ? directory[directory.length - 2].folderId
-                : undefined;
-            await handleMouseUpMove(parentFolderId);
-          }}
-          variant={breadcrumbDragOver === "back" ? "default" : "outline"}
-          size="icon"
-          disabled={directory.length === 0}
-        >
-          <MoveLeft />
-        </Button>
-        {searching ? (
+    <div className="flex h-full flex-col">
+      <div className="flex h-12 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4" />
+          <h1 className="text-sm font-medium">Notes</h1>
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+            {sortedNotes.length} / {notes.length} · {groups.length} groups
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 grow ml-2">
           <Input
-            autoFocus
-            ref={searchInputRef}
-            onBlur={() => {
-              setSearching(false);
-              setSearch("");
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search title, content, url, tags…"
+            className="h-7 w-full! max-w-full! text-xs"
+          />
+
+          <Tabs value={view} onValueChange={(value) => setView(value as View)}>
+            <TabsList className="h-7!">
+              <TabsTrigger value="graph" className="h-5.5 px-2 text-xs">
+                <LayoutGrid className="size-3.5" />
+              </TabsTrigger>
+              <TabsTrigger value="list" className="h-5.5 px-2 text-xs">
+                <List className="size-3.5" />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => void load(true)}
+            title="Refresh"
+          >
+            {refreshing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <RefreshCcw className="size-3.5" />
+            )}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => router.push("/dashboard/notes/new-group")}
+          >
+            <FolderPlus className="size-3.5" />
+            Group
+          </Button>
+
+          <Button
+            size="sm"
+            className="h-7"
+            onClick={() => router.push("/dashboard/notes/new")}
+          >
+            <FilePlus2 className="size-3.5" />
+            Note
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 w-full">
+        <div className="flex min-w-0 max-w-full items-center gap-2">
+          <span className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <FolderTree className="size-3.5" />
+          </span>
+          <GroupTreeCombobox
+            groups={groups}
+            value={selectedGroupFilters}
+            onChange={setSelectedGroupFilters}
+            placeholder="Filter groups…"
+            searchPlaceholder="Search group hierarchy…"
+            emptyMessage="No groups yet"
+          />
+        </div>
+
+        <div className="flex min-w-0 max-w-full items-center gap-2">
+          <span className="flex shrink-0 items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <Tags className="size-3.5" />
+          </span>
+          <TagAutocomplete
+            value={selectedTagFilters}
+            onChange={setSelectedTagFilters}
+            suggestions={allTags}
+            placeholder="Filter tags…"
+            allowCreate={false}
+            searchPlaceholder="Search tags…"
+            emptyMessage="No tags found"
+          />
+        </div>
+
+        <Select
+          value={hasUrlFilter}
+          onValueChange={(value) => setHasUrlFilter(value as HasUrlFilter)}
+        >
+          <SelectTrigger size="sm" className="w-32 text-xs ml-auto">
+            <div className="flex items-center gap-1.5 h-4!">
+              <Link2 className="size-3.5" />
+              <SelectValue />
+            </div>
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="all" className="text-xs">
+              All links
+            </SelectItem>
+            <SelectItem value="with-url" className="text-xs">
+              With URL
+            </SelectItem>
+            <SelectItem value="without-url" className="text-xs">
+              Without URL
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+        >
+          <SelectTrigger size="sm" className="h-7 w-32 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">
+              All status
+            </SelectItem>
+            <SelectItem value="open" className="text-xs">
+              Open
+            </SelectItem>
+            <SelectItem value="archived" className="text-xs">
+              Archived
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
+          <SelectTrigger size="sm" className="h-7 w-40 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="updated-desc" className="text-xs">
+              Updated newest
+            </SelectItem>
+            <SelectItem value="updated-asc" className="text-xs">
+              Updated oldest
+            </SelectItem>
+            <SelectItem value="created-desc" className="text-xs">
+              Created newest
+            </SelectItem>
+            <SelectItem value="created-asc" className="text-xs">
+              Created oldest
+            </SelectItem>
+            <SelectItem value="title-asc" className="text-xs">
+              Title A-Z
+            </SelectItem>
+            <SelectItem value="title-desc" className="text-xs">
+              Title Z-A
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => {
+              setQuery("");
+              setSelectedGroupFilters([]);
+              setSelectedTagFilters([]);
+              setHasUrlFilter("all");
+              setStatusFilter("all");
+              setSort("updated-desc");
             }}
-            placeholder=""
-            className="w-full border-border"
-            onChange={(e) => {
-              setSearch(e.target.value);
+          >
+            <X className="size-3.5" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {view === "graph" ? (
+          <NoteGraph
+            notes={sortedNotes}
+            groups={graphGroups}
+            edges={graphEdges}
+            onSelectNote={(note) => {
+              setSelectedGroupId(null);
+              setSelectedId(note._id);
             }}
-            value={search}
-            onKeyDown={(e) => {
-              if (e.key == "Enter") {
-                fetchFiles(
-                  directory.length > 0
-                    ? directory[directory.length - 1].folderId
-                    : undefined,
-                );
-              }
+            onSelectGroup={(group) => {
+              setSelectedId(null);
+              setSelectedGroupId(group._id);
             }}
           />
         ) : (
-          <Breadcrumb
-            onClick={() => {
-              setSearching(true);
-              searchInputRef.current?.focus();
+          <NoteList
+            notes={sortedNotes}
+            groups={groups}
+            onSelect={(note) => {
+              setSelectedGroupId(null);
+              setSelectedId(note._id);
             }}
-            className="h-9 border border-border w-full px-3 py-1 rounded-md flex items-center"
-          >
-            <BreadcrumbList className="text-sm">
-              <BreadcrumbItemUI
-                className={cn(
-                  "hover:cursor-pointer transition-colors",
-                  breadcrumbDragOver === "home" && "text-primary underline",
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDirectory([]);
-                  fetchFiles(undefined);
-                }}
-                onMouseEnter={() => {
-                  if (dragging) setBreadcrumbDragOver("home");
-                }}
-                onMouseLeave={() => setBreadcrumbDragOver(null)}
-                onMouseUp={async () => {
-                  await handleMouseUpMove(undefined);
-                }}
-              >
-                <BreadcrumbLink>home</BreadcrumbLink>
-              </BreadcrumbItemUI>
-              {directory.map((parent, index) => (
-                <React.Fragment key={parent.folderId}>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItemUI
-                    className={cn(
-                      "hover:cursor-pointer transition-colors",
-                      breadcrumbDragOver === parent.folderId &&
-                        "text-primary underline",
-                    )}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (index === directory.length - 1) return;
-                      const newDirectory = directory.slice(0, index + 1);
-                      setDirectory(newDirectory);
-                      fetchFiles(
-                        newDirectory.length > 0
-                          ? newDirectory[newDirectory.length - 1].folderId
-                          : undefined,
-                      );
-                    }}
-                    onMouseEnter={() => {
-                      if (dragging) setBreadcrumbDragOver(parent.folderId);
-                    }}
-                    onMouseLeave={() => setBreadcrumbDragOver(null)}
-                    onMouseUp={async () => {
-                      await handleMouseUpMove(parent.folderId);
-                    }}
-                  >
-                    <BreadcrumbLink>{parent.folderName}</BreadcrumbLink>
-                  </BreadcrumbItemUI>
-                </React.Fragment>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
-        )}
-
-        {!note && (
-          <>
-            <Select
-              value={sort ?? "dateAsc"}
-              onValueChange={(value) => {
-                setSort(value as typeof sort);
-              }}
-            >
-              <SelectTrigger className="w-40! border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="start" position="popper">
-                <SelectItem value="nameAsc">Name A-Z</SelectItem>
-                <SelectItem value="nameDesc">Name Z-A</SelectItem>
-                <SelectItem value="dateDesc">Recent First</SelectItem>
-                <SelectItem value="dateAsc">Oldest first</SelectItem>
-              </SelectContent>
-            </Select>
-            <Dialog
-              open={newFolderDialogOpen}
-              onOpenChange={setNewFolderDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <FolderPlus />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogTitle>Create new folder</DialogTitle>
-                <DialogDescription>
-                  Enter the name for the new folder.
-                </DialogDescription>
-                <Input
-                  value={newName}
-                  onChange={(e) => {
-                    setNewName(e.target.value);
-                  }}
-                  placeholder="New folder"
-                  className="w-full"
-                />
-                <DialogFooter>
-                  <Button
-                    onClick={() => {
-                      setNewName("");
-                      setNewFolderDialogOpen(false);
-                    }}
-                    variant="outline"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      if (!API) return;
-                      const result = await API.POST<{ _id: string }>({
-                        endpoint: "folders",
-                        body: {
-                          name: newName,
-                          parentId:
-                            directory.length > 0
-                              ? directory[directory.length - 1].folderId
-                              : "null",
-                        },
-                      });
-                      if ("code" in result) {
-                        return;
-                      } else {
-                        setFiles((prev) => [
-                          ...prev,
-                          {
-                            _id: result._id,
-                            name: newName,
-                            type: "folder",
-                            updatedAt: new Date().toISOString(),
-                          },
-                        ]);
-                        setNewName("");
-                        setNewFolderDialogOpen(false);
-                      }
-                    }}
-                    variant="default"
-                  >
-                    Create
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog
-              open={newFileDialogOpen}
-              onOpenChange={setNewFileDialogOpen}
-            >
-              <DialogTrigger disabled={directory.length === 0} asChild>
-                <Button variant="outline" size="icon">
-                  <FilePlus2 />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogTitle>Create new file</DialogTitle>
-                <DialogDescription>
-                  Enter the name for the new file.
-                </DialogDescription>
-                <Input
-                  value={newName}
-                  onChange={(e) => {
-                    setNewName(e.target.value);
-                  }}
-                  placeholder="New file"
-                  className="w-full"
-                />
-                <DialogFooter>
-                  <Button
-                    onClick={() => {
-                      setNewName("");
-                      setNewFileDialogOpen(false);
-                    }}
-                    variant="outline"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      if (!API) return;
-                      const result = await API.POST<{ _id: string }>({
-                        endpoint: "notes",
-                        body: {
-                          name: newName,
-                          parentId:
-                            directory.length > 0
-                              ? directory[directory.length - 1].folderId
-                              : "null",
-                        },
-                      });
-                      if ("code" in result) {
-                        return;
-                      } else {
-                        setFiles((prev) => [
-                          ...prev,
-                          {
-                            _id: result._id,
-                            name: newName,
-                            type: "note",
-                            updatedAt: new Date().toISOString(),
-                          },
-                        ]);
-                        setNewName("");
-                        setNewFileDialogOpen(false);
-                      }
-                    }}
-                    variant="default"
-                  >
-                    Create
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </>
+            onSelectGroup={(group) => {
+              setSelectedId(null);
+              setSelectedGroupId(group._id);
+            }}
+          />
         )}
       </div>
-      {!note ? (
-        <ContextMenu>
-          <ContextMenuTrigger className="w-full flex flex-col gap-0 flex-1 min-h-0 overflow-y-auto">
-            {files.map((file) => (
-              <FileItem
-                API={API}
-                setFiles={setFiles}
-                currentFolderId={currentFolderId}
-                dragging={dragging}
-                setDragging={setDragging}
-                invalidateFolderCache={invalidateFolderCache}
-                onClick={async () => {
-                  if (file.type === "folder") {
-                    setDirectory((prev) => [
-                      ...prev,
-                      { folderId: file._id, folderName: file.name },
-                    ]);
-                    fetchFiles(file._id);
-                    return;
-                  }
-                  if (!API) return;
-                  setNoteLoading(true);
-                  const result = await API?.GET<{ note: INote }>({
-                    endpoint: `notes/${file._id}`,
-                  });
-                  if ("code" in result) {
-                    setNoteLoading(false);
-                    return;
-                  } else {
-                    setNote(result.note);
-                    setDirectory((prev) => [
-                      ...prev,
-                      {
-                        folderId: result.note._id,
-                        folderName: file.name + ".md",
-                      },
-                    ]);
-                    setNoteLoading(false);
-                  }
-                }}
-                key={file._id}
-                type={file.type}
-                _id={file._id}
-                name={file.name}
-                updatedAt={file.updatedAt}
-                onAddToBoard={
-                  file.type === "note"
-                    ? () => setAddToBoardItem({ id: file._id, name: file.name })
-                    : undefined
-                }
-              />
-            ))}
-          </ContextMenuTrigger>
-          <ContextMenuContent>
-            <ContextMenuItem
-              onClick={() => {
-                setNewFolderDialogOpen(true);
-              }}
-              className="text-xs!"
-            >
-              New Folder
-              <ContextMenuShortcut className="text-xs!">
-                <FolderPlus className="w-3 h-3" />
-              </ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem
-              disabled={directory.length === 0}
-              onClick={() => {
-                setNewFileDialogOpen(true);
-              }}
-              className="text-xs!"
-            >
-              New File
-              <ContextMenuShortcut className="text-xs!">
-                <FilePlus2 className="w-3 h-3" />
-              </ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
-      ) : (
-        <NoteEditor note={note} API={API} />
-      )}
+    </div>
+  );
+}
 
-      {dragging &&
-        (() => {
-          const file = files.find((f) => f._id === dragging._id);
-          if (!file) return null;
-          const GhostIcon = file.type === "folder" ? Folder : FileText;
-          return (
-            <div
-              ref={ghostRef}
-              className="fixed z-50 pointer-events-none opacity-75"
-              style={{
-                left: mousePosRef.current.x + 12,
-                top: mousePosRef.current.y - 12,
-              }}
-            >
-              <div className="bg-card rounded-lg border shadow-2xl px-3 py-2 flex items-center gap-2 select-none">
-                <GhostIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-xs font-medium truncate max-w-48">
-                  {file.name}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
+function NotesLoadingSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-12 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-2">
+          <FileText className="size-4" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-7 w-72" />
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-7 w-20" />
+        </div>
+      </div>
 
-      <Dialog
-        open={!!addToBoardItem}
-        onOpenChange={(open) => !open && setAddToBoardItem(null)}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Add to board</DialogTitle>
-            <DialogDescription>
-              Select a board to add &quot;{addToBoardItem?.name}&quot; as a
-              card.
-            </DialogDescription>
-          </DialogHeader>
-          {kanbanBoardsLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : kanbanBoards.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No boards found. Create a board in Kanban first.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {kanbanBoards.map((board) => (
-                <button
-                  key={board._id}
-                  disabled={addingToBoard}
-                  onClick={() => handleAddToBoard(board)}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg hover:bg-accent transition-colors text-left disabled:opacity-50"
-                >
-                  <div
-                    className="size-3 rounded-full shrink-0"
-                    style={{ backgroundColor: board.color ?? "#6366f1" }}
-                  />
-                  <span className="text-sm font-medium truncate">
-                    {board.title}
-                  </span>
-                  {addingToBoard && (
-                    <Loader2 className="size-3 animate-spin ml-auto shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <div className="flex flex-wrap gap-2 border-b px-4 py-2 w-full">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-7 w-20" />
+        <Skeleton className="ml-auto h-7 w-24" />
+        <Skeleton className="h-7 w-36" />
+      </div>
+
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   Edit2,
   Eye,
   FileText,
+  FolderTree,
   Loader2,
   Save,
   Sparkles,
@@ -45,13 +46,31 @@ import { FindReplaceBar, type MatchResult } from "./find-replace-bar";
 export const NoteEditor = ({
   note,
   API,
+  onUpdated,
+  onContentChange,
+  onSaveContent,
+  saveLabel = "Save",
+  saveDisabled,
+  disableAiEnhance = false,
+  onCategorize,
+  startInEditMode = false,
+  autoFocusEditor = false,
 }: {
   note: INote;
   API: denizApi | null;
+  onUpdated?: (note: INote) => void;
+  onContentChange?: (content: string) => void;
+  onSaveContent?: (content: string) => Promise<void>;
+  saveLabel?: string;
+  saveDisabled?: boolean;
+  disableAiEnhance?: boolean;
+  onCategorize?: () => Promise<void>;
+  startInEditMode?: boolean;
+  autoFocusEditor?: boolean;
 }) => {
   const { settings, setSettings } = useUserSettings();
 
-  const [togglePreview, setTogglePreview] = useState(true);
+  const [togglePreview, setTogglePreview] = useState(!startInEditMode);
   const [initialContent, setInitialContent] = useState(note.content || "");
   const [content, setContent] = useState(initialContent);
   const [loading, setLoading] = useState(false);
@@ -61,6 +80,7 @@ export const NoteEditor = ({
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const [enhancing, setEnhancing] = useState(false);
+  const [categorizing, setCategorizing] = useState(false);
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [model, setModel] = useState("claude-haiku-4-5");
 
@@ -80,6 +100,23 @@ export const NoteEditor = ({
     multiSelections,
     clearMultiSelections,
   } = useTextareaEditor(contentTextareaRef, content, setContent);
+
+  useEffect(() => {
+    setInitialContent(note.content || "");
+    setContent(note.content || "");
+  }, [note._id, note.content]);
+
+  useEffect(() => {
+    setTogglePreview(!startInEditMode);
+  }, [note._id, startInEditMode]);
+
+  const setEditorContent = useCallback(
+    (nextContent: string) => {
+      setContent(nextContent);
+      onContentChange?.(nextContent);
+    },
+    [onContentChange],
+  );
 
   const openFind = useCallback(
     (withReplace: boolean) => {
@@ -163,6 +200,16 @@ export const NoteEditor = ({
   );
 
   const handleSave = async () => {
+    if (onSaveContent) {
+      try {
+        setLoading(true);
+        await onSaveContent(content);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!API) return;
     try {
       setLoading(true);
@@ -173,12 +220,24 @@ export const NoteEditor = ({
       if ("code" in result) {
         return;
       }
-      setInitialContent(content);
+      setInitialContent(result.note.content || "");
+      setContent(result.note.content || "");
+      onUpdated?.(result.note);
     } catch (error) {
       console.error("Error saving note content:", error);
     } finally {
       setLoading(false);
       setTogglePreview(true);
+    }
+  };
+
+  const handleCategorize = async () => {
+    if (!onCategorize) return;
+    try {
+      setCategorizing(true);
+      await onCategorize();
+    } finally {
+      setCategorizing(false);
     }
   };
 
@@ -267,7 +326,7 @@ export const NoteEditor = ({
             const event = JSON.parse(json);
             if (event.type === "delta") {
               accumulated += event.text;
-              setContent(accumulated);
+              setEditorContent(accumulated);
             } else if (event.type === "done") {
               const { inputTokens, outputTokens, costUsd } = event.usage;
               toast.success(
@@ -297,63 +356,84 @@ export const NoteEditor = ({
           >
             {togglePreview ? <Edit2 /> : <Eye />}
           </Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon-sm" className="">
-                <Sparkles />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Enhance Note with AI</DialogTitle>
-
-                <DialogDescription>
-                  Use AI to enhance your note by making it more detailed, clear,
-                  and well-structured.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col items-start gap-1">
-                  <Label htmlFor="model" className="w-32">
-                    Model
-                  </Label>
-                  <ModelSelector model={model} onModelChange={setModel} />
-                </div>
-                <Separator />
-                <div className="flex flex-col items-start gap-1">
-                  <Label htmlFor="info" className="w-32">
-                    Additional Info
-                  </Label>
-                  <Textarea
-                    value={additionalInfo}
-                    onChange={(e) => setAdditionalInfo(e.target.value)}
-                    id="info"
-                    className="font-mono text-sm h-24 overflow-y-auto rounded-none resize-none"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button
-                    ref={closeEnhanceDialogRef}
-                    variant="outline"
-                    disabled={enhancing}
-                  >
-                    Cancel
-                  </Button>
-                </DialogClose>
-                <Button onClick={handleAIEnhance} disabled={enhancing}>
-                  {enhancing ? (
-                    <>
-                      Enhancing... <Loader2 className="animate-spin" />
-                    </>
-                  ) : (
-                    "Enhance Note"
-                  )}
+          {!disableAiEnhance && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="icon-sm" className="">
+                  <Sparkles />
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Enhance Note with AI</DialogTitle>
+
+                  <DialogDescription>
+                    Use AI to enhance your note by making it more detailed, clear,
+                    and well-structured.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col items-start gap-1">
+                    <Label htmlFor="model" className="w-32">
+                      Model
+                    </Label>
+                    <ModelSelector model={model} onModelChange={setModel} />
+                  </div>
+                  <Separator />
+                  <div className="flex flex-col items-start gap-1">
+                    <Label htmlFor="info" className="w-32">
+                      Additional Info
+                    </Label>
+                    <Textarea
+                      value={additionalInfo}
+                      onChange={(e) => setAdditionalInfo(e.target.value)}
+                      id="info"
+                      className="font-mono text-sm h-24 overflow-y-auto rounded-none resize-none"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button
+                      ref={closeEnhanceDialogRef}
+                      variant="outline"
+                      disabled={enhancing}
+                    >
+                      Cancel
+                    </Button>
+                  </DialogClose>
+                  <Button onClick={handleAIEnhance} disabled={enhancing}>
+                    {enhancing ? (
+                      <>
+                        Enhancing... <Loader2 className="animate-spin" />
+                      </>
+                    ) : (
+                      "Enhance Note"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+          {onCategorize && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={handleCategorize}
+              disabled={categorizing || loading || content !== initialContent}
+              title={
+                content !== initialContent
+                  ? "Save content before categorizing"
+                  : "Categorize note"
+              }
+            >
+              {categorizing ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <FolderTree />
+              )}
+            </Button>
+          )}
           <Button
             disabled={content !== initialContent || loading}
             variant={"outline"}
@@ -430,19 +510,23 @@ export const NoteEditor = ({
           <Button
             onClick={handleSave}
             size="icon-sm"
-            disabled={content === initialContent || loading}
+            disabled={(saveDisabled ?? content === initialContent) || loading}
+            title={saveLabel}
           >
             {loading ? (
               <>
                 <Loader2 className="animate-spin" />
               </>
             ) : (
-              <Save />
+              <>
+                <Save />
+                <span className="sr-only">{saveLabel}</span>
+              </>
             )}
           </Button>
           <Button
             onClick={() => {
-              setContent(initialContent);
+              setEditorContent(initialContent);
             }}
             disabled={content === initialContent || loading}
             variant="secondary"
@@ -570,8 +654,9 @@ export const NoteEditor = ({
           )}
           <Textarea
             ref={contentTextareaRef}
+            autoFocus={autoFocusEditor && !togglePreview}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => setEditorContent(e.target.value)}
             onKeyDown={onKeyDown}
             onMouseDown={clearMultiSelections}
             onScroll={(e) => {
