@@ -8,6 +8,15 @@ import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type { IDashboardStats } from "@/lib/data-types";
 
+const SUMMARY_SKELETON_ITEMS = [
+  "contacts",
+  "today",
+  "projects",
+  "posts",
+  "notes",
+  "action-required",
+] as const;
+
 function StatNumber({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5 px-4">
@@ -90,8 +99,8 @@ function LoadingSkeleton() {
   return (
     <div className="w-full flex flex-col items-center gap-6 animate-in fade-in duration-300">
       <div className="flex justify-center gap-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1.5">
+        {SUMMARY_SKELETON_ITEMS.map((item) => (
+          <div key={item} className="flex flex-col items-center gap-1.5">
             <Skeleton className="h-7 w-7" />
             <Skeleton className="h-2 w-12" />
           </div>
@@ -174,7 +183,7 @@ export function DashboardSummary() {
         <StatNumber value={stats.projects.total} label="Projects" />
         <StatNumber value={stats.blogs.published} label="Posts" />
         <StatNumber value={stats.notes.total} label="Notes" />
-        <StatNumber value={stats.emails.total} label="Emails" />
+        <StatNumber value={stats.triage.actionRequired} label="Action Req" />
       </div>
 
       {agendaItems.length > 0 && (

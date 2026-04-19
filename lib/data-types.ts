@@ -606,6 +606,9 @@ export interface IDashboardStats {
     total: number;
     unread: number;
   };
+  triage: {
+    actionRequired: number;
+  };
   notes: {
     total: number;
     recent: Array<{
@@ -620,4 +623,75 @@ export interface IDashboardStats {
     todayInputTokens: number;
     todayOutputTokens: number;
   };
+}
+
+export type TriageCategory =
+  | "spam"
+  | "newsletter"
+  | "promo"
+  | "purchases"
+  | "fyi"
+  | "action-needed"
+  | "scheduled";
+
+export type TriageSuggestionStatus = "pending" | "accepted" | "dismissed";
+export type TriagePriority = "none" | "low" | "medium" | "high" | "urgent";
+
+export interface ITriageTaskSuggestion {
+  _id: string;
+  title: string;
+  description?: string;
+  priority: TriagePriority;
+  dueDate?: string;
+  kanbanBoardId?: string;
+  kanbanBoardTitle?: string;
+  kanbanColumnId?: string;
+  kanbanColumnTitle?: string;
+  status: TriageSuggestionStatus;
+  acceptedCardId?: string;
+}
+
+export interface ITriageEventSuggestion {
+  _id: string;
+  title: string;
+  date: string;
+  place?: string;
+  status: TriageSuggestionStatus;
+  acceptedEventId?: string;
+}
+
+export interface IEmailTriage {
+  _id: string;
+  emailId: string;
+  accountId: string;
+  stage: "prefilter" | "full";
+  category: TriageCategory;
+  confidence: number;
+  summary?: string;
+  suggestedTasks: ITriageTaskSuggestion[];
+  suggestedEvents: ITriageEventSuggestion[];
+  userStatus: "pending" | "reviewed" | "archived";
+  modelUsed: string;
+  triagedAt: string;
+  email: {
+    subject: string;
+    from: { name?: string; address: string }[];
+    date: string;
+    threadId?: string;
+  } | null;
+}
+
+export interface ITriageCategoryRouting {
+  autoCreateCard: boolean;
+  autoAcceptThreshold: number;
+}
+
+export interface ITriageSettings {
+  _id: string;
+  enabled: boolean;
+  runIntervalMinutes: number;
+  prefilterModel: string;
+  fullModel: string;
+  categoryRouting: Record<TriageCategory, ITriageCategoryRouting>;
+  lastRunAt?: string;
 }

@@ -148,6 +148,23 @@ export const GROUPS: NavGroup[] = [
         href: "/inbox",
         icon: Inbox,
       },
+      {
+        label: "Triage",
+        href: "",
+        icon: Brain,
+        children: [
+          {
+            label: "Review",
+            href: "/triage",
+            icon: Inbox,
+          },
+          {
+            label: "Settings",
+            href: "/triage/settings",
+            icon: Settings,
+          },
+        ],
+      },
     ],
   },
   {
