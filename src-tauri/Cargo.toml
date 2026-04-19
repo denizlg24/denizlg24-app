@@ -1,6 +1,6 @@
 [package]
 name = "denizlg24"
-version = "0.5.0"
+version = "0.5.1"
 description = "Personal Manager for Deniz Lopes Gunes"
 authors = ["Deniz Lopes Gunes"]
 license = ""

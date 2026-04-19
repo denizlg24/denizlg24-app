@@ -726,7 +726,7 @@ export default function NotesPage() {
           <SelectTrigger size="sm" className="h-7 w-32 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="all" className="text-xs">
               All status
             </SelectItem>
@@ -743,7 +743,7 @@ export default function NotesPage() {
           <SelectTrigger size="sm" className="h-7 w-40 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="updated-desc" className="text-xs">
               Updated newest
             </SelectItem>

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { INote, INoteGroup } from "@/lib/data-types";
+import { GroupTreeCombobox } from "./group-tree-combobox";
 
 interface Props {
   group: INoteGroup;
@@ -99,7 +100,9 @@ export function GroupDetail({
 
   const members = useMemo(
     () =>
-      notes.filter((note) => note.groupIds.some((groupId) => subtreeIds.has(groupId))),
+      notes.filter((note) =>
+        note.groupIds.some((groupId) => subtreeIds.has(groupId)),
+      ),
     [notes, subtreeIds],
   );
 
@@ -109,7 +112,9 @@ export function GroupDetail({
   );
 
   const nestedMemberCount = members.length - directMemberCount;
-  const children = groups.filter((candidate) => candidate.parentId === group._id);
+  const children = groups.filter(
+    (candidate) => candidate.parentId === group._id,
+  );
 
   const saveName = () => {
     if (name.trim() && name !== group.name) {
@@ -169,7 +174,8 @@ export function GroupDetail({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this group?</AlertDialogTitle>
               <AlertDialogDescription>
-                Child groups become top-level. Notes stay but lose this membership.
+                Child groups become top-level. Notes stay but lose this
+                membership.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -210,28 +216,23 @@ export function GroupDetail({
 
           <div className="space-y-2">
             <Label className="text-xs">Parent group</Label>
-            <Select
-              value={group.parentId ?? NONE_VALUE}
-              onValueChange={handleParentChange}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE} className="text-xs">
-                  None (top level)
-                </SelectItem>
-                {parentOptions.map((option) => (
-                  <SelectItem
-                    key={option._id}
-                    value={option._id}
-                    className="text-xs"
-                  >
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <GroupTreeCombobox
+              groups={[
+                {
+                  _id: NONE_VALUE,
+                  name: "None",
+                  autoCreated: false,
+                  createdAt: new Date().toDateString(),
+                  updatedAt: new Date().toDateString(),
+                },
+                ...parentOptions,
+              ]}
+              value={[parent ? parent._id : NONE_VALUE]}
+              onChange={(value) => handleParentChange(value[0])}
+              placeholder="None"
+              searchPlaceholder="Search group hierarchy…"
+              emptyMessage="No groups yet"
+            />
           </div>
 
           {children.length > 0 && (
