@@ -367,7 +367,7 @@ function DataTable<TData>({
   });
 
   return (
-    <Table>
+    <Table className="h-max overflow-y-auto">
       <TableHeader>
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
@@ -384,7 +384,7 @@ function DataTable<TData>({
           </TableRow>
         ))}
       </TableHeader>
-      <TableBody>
+      <TableBody className="h-max overflow-y-auto">
         {table.getRowModel().rows.length ? (
           table.getRowModel().rows.map((row) => (
             <TableRow key={row.id}>
@@ -480,7 +480,7 @@ export default function LlmUsagePage() {
   const stats = data[period];
 
   return (
-    <div className="flex flex-col gap-2 pb-8">
+    <div className="flex flex-col gap-2 pb-8 h-full overflow-y-auto">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <Brain className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Token Usage</span>
@@ -612,13 +612,13 @@ export default function LlmUsagePage() {
             <TabsTrigger value="models">By Model</TabsTrigger>
             <TabsTrigger value="sources">By Source</TabsTrigger>
           </TabsList>
-          <TabsContent value="requests" className="mt-2">
+          <TabsContent value="requests" className="mt-2 overflow-y-auto h-max">
             <DataTable columns={requestColumns} data={data.recentRequests} />
           </TabsContent>
-          <TabsContent value="models" className="mt-2">
+          <TabsContent value="models" className="mt-2 overflow-y-auto h-max">
             <DataTable columns={modelColumns} data={data.byModel} />
           </TabsContent>
-          <TabsContent value="sources" className="mt-2">
+          <TabsContent value="sources" className="mt-2 overflow-y-auto h-max">
             <DataTable columns={sourceColumns} data={data.bySource} />
           </TabsContent>
         </Tabs>

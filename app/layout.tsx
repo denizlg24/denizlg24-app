@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-screen overflow-hidden">
+    <html lang="en" className="h-screen overflow-y-auto overflow-x-hidden">
       <body
         className={`${inter.variable} ${calistoga.variable} antialiased font-inter bg-background text-foreground h-screen overflow-hidden`}
       >
