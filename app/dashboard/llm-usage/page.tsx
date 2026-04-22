@@ -1,38 +1,19 @@
 "use client";
 
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Brain } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
-  type ChartConfig,
 } from "@/components/ui/chart";
+import { PaginatedDataTable } from "@/components/ui/paginated-data-table";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 
@@ -132,10 +113,20 @@ const PERIOD_LABELS: Record<TimePeriod, string> = {
   last24h: "24 Hours",
 };
 
-function SortHeader({ label, column }: { label: string; column: any }) {
+function SortHeader({
+  label,
+  column,
+}: {
+  label: string;
+  column: {
+    getIsSorted: () => false | "asc" | "desc";
+    toggleSorting: (desc: boolean) => void;
+  };
+}) {
   const sorted = column.getIsSorted();
   return (
     <button
+      type="button"
       className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
@@ -348,68 +339,6 @@ const sourceColumns: ColumnDef<SourceBreakdown>[] = [
   },
 ];
 
-function DataTable<TData>({
-  columns,
-  data,
-}: {
-  columns: ColumnDef<TData, any>[];
-  data: TData[];
-}) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: { sorting },
-  });
-
-  return (
-    <Table className="h-max overflow-y-auto">
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-xs">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody className="h-max overflow-y-auto">
-        {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-xs">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell
-              colSpan={columns.length}
-              className="h-20 text-center text-muted-foreground"
-            >
-              No data
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
-  );
-}
-
 function UsageLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-2 pb-8">
@@ -480,17 +409,14 @@ export default function LlmUsagePage() {
   const stats = data[period];
 
   return (
-    <div className="flex flex-col gap-2 pb-8 h-full overflow-y-auto">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <Brain className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Token Usage</span>
       </div>
 
-      <div className="px-4 flex flex-col gap-6 pt-3">
-        <Tabs
-          value={period}
-          onValueChange={(v) => setPeriod(v as TimePeriod)}
-        >
+      <div className="flex flex-1 min-h-0 flex-col gap-6 overflow-y-auto px-4 pt-3 pb-8">
+        <Tabs value={period} onValueChange={(v) => setPeriod(v as TimePeriod)}>
           <TabsList variant={"line"}>
             {(Object.keys(PERIOD_LABELS) as TimePeriod[]).map((key) => (
               <TabsTrigger key={key} value={key}>
@@ -502,8 +428,14 @@ export default function LlmUsagePage() {
 
         <div className="flex items-baseline gap-8 flex-wrap">
           <Stat label="Requests" value={stats.totalRequests.toLocaleString()} />
-          <Stat label="Input Tokens" value={formatTokens(stats.totalInputTokens)} />
-          <Stat label="Output Tokens" value={formatTokens(stats.totalOutputTokens)} />
+          <Stat
+            label="Input Tokens"
+            value={formatTokens(stats.totalInputTokens)}
+          />
+          <Stat
+            label="Output Tokens"
+            value={formatTokens(stats.totalOutputTokens)}
+          />
           <Stat label="Total Cost" value={formatCost(stats.totalCost)} />
         </div>
 
@@ -515,22 +447,10 @@ export default function LlmUsagePage() {
               <p className="text-xs text-muted-foreground mt-0.5 mb-3">
                 Last 30 days
               </p>
-              <ChartContainer
-                config={chartConfig}
-                className="h-48 w-full"
-              >
-                <AreaChart
-                  data={data.dailyBreakdown}
-                  accessibilityLayer
-                >
+              <ChartContainer config={chartConfig} className="h-48 w-full">
+                <AreaChart data={data.dailyBreakdown} accessibilityLayer>
                   <defs>
-                    <linearGradient
-                      id="costFill"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
+                    <linearGradient id="costFill" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="0%"
                         stopColor="var(--color-cost)"
@@ -606,20 +526,32 @@ export default function LlmUsagePage() {
 
         <Separator />
 
-        <Tabs defaultValue="requests">
+        <Tabs defaultValue="requests" className="flex flex-col gap-2">
           <TabsList variant="line">
             <TabsTrigger value="requests">Recent Requests</TabsTrigger>
             <TabsTrigger value="models">By Model</TabsTrigger>
             <TabsTrigger value="sources">By Source</TabsTrigger>
           </TabsList>
-          <TabsContent value="requests" className="mt-2 overflow-y-auto h-max">
-            <DataTable columns={requestColumns} data={data.recentRequests} />
+          <TabsContent value="requests" className="mt-0">
+            <PaginatedDataTable
+              columns={requestColumns}
+              data={data.recentRequests}
+              emptyMessage="No recent requests"
+            />
           </TabsContent>
-          <TabsContent value="models" className="mt-2 overflow-y-auto h-max">
-            <DataTable columns={modelColumns} data={data.byModel} />
+          <TabsContent value="models" className="mt-0">
+            <PaginatedDataTable
+              columns={modelColumns}
+              data={data.byModel}
+              emptyMessage="No model usage yet"
+            />
           </TabsContent>
-          <TabsContent value="sources" className="mt-2 overflow-y-auto h-max">
-            <DataTable columns={sourceColumns} data={data.bySource} />
+          <TabsContent value="sources" className="mt-0">
+            <PaginatedDataTable
+              columns={sourceColumns}
+              data={data.bySource}
+              emptyMessage="No source usage yet"
+            />
           </TabsContent>
         </Tabs>
       </div>

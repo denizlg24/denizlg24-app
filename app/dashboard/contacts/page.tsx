@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   Archive,
   ArrowDown,
@@ -31,16 +24,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PaginatedDataTable } from "@/components/ui/paginated-data-table";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
@@ -101,11 +87,15 @@ function SortHeader({
   column,
 }: {
   label: string;
-  column: { getIsSorted: () => false | "asc" | "desc"; toggleSorting: (desc: boolean) => void };
+  column: {
+    getIsSorted: () => false | "asc" | "desc";
+    toggleSorting: (desc: boolean) => void;
+  };
 }) {
   const sorted = column.getIsSorted();
   return (
     <button
+      type="button"
       className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
@@ -118,76 +108,6 @@ function SortHeader({
         <ArrowUpDown className="size-3 opacity-40" />
       )}
     </button>
-  );
-}
-
-function DataTable({
-  columns,
-  data,
-  onRowClick,
-}: {
-  columns: ColumnDef<IContact, unknown>[];
-  data: IContact[];
-  onRowClick: (contact: IContact) => void;
-}) {
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ]);
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: { sorting },
-  });
-
-  return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-xs">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              className="cursor-pointer"
-              onClick={() => onRowClick(row.original)}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-xs">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell
-              colSpan={columns.length}
-              className="h-20 text-center text-muted-foreground"
-            >
-              No contacts found
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
   );
 }
 
@@ -250,9 +170,11 @@ export default function ContactsPage() {
 
   const fetchContacts = useCallback(async () => {
     if (!api) return;
-    const result = await api.GET<{ contacts: IContact[]; stats: ContactStats }>({
-      endpoint: "contacts",
-    });
+    const result = await api.GET<{ contacts: IContact[]; stats: ContactStats }>(
+      {
+        endpoint: "contacts",
+      },
+    );
     if (!("code" in result)) {
       setContacts(result.contacts);
       setStats(result.stats);
@@ -334,133 +256,128 @@ export default function ContactsPage() {
     }
   };
 
-  const columns: ColumnDef<IContact, unknown>[] = useMemo(
-    () => [
-      {
-        accessorKey: "ticketId",
-        header: "Ticket",
-        cell: ({ row }) => (
-          <span className="font-mono text-muted-foreground">
-            {row.getValue("ticketId")}
+  const columns: ColumnDef<IContact, unknown>[] = [
+    {
+      accessorKey: "ticketId",
+      header: "Ticket",
+      cell: ({ row }) => (
+        <span className="font-mono text-muted-foreground">
+          {row.getValue("ticketId")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.getValue("name")}</span>
+      ),
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{row.getValue("email")}</span>
+      ),
+    },
+    {
+      accessorKey: "message",
+      header: "Message",
+      cell: ({ row }) => {
+        const msg = row.getValue("message") as string;
+        return (
+          <span className="text-muted-foreground max-w-[200px] truncate block">
+            {msg}
           </span>
-        ),
+        );
       },
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.getValue("name")}</span>
-        ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.getValue("status") as ContactStatus;
+        const config = STATUS_CONFIG[status];
+        return (
+          <Badge variant={config.variant} className="text-[10px]">
+            {config.label}
+          </Badge>
+        );
       },
-      {
-        accessorKey: "email",
-        header: "Email",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {row.getValue("email")}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "message",
-        header: "Message",
-        cell: ({ row }) => {
-          const msg = row.getValue("message") as string;
-          return (
-            <span className="text-muted-foreground max-w-[200px] truncate block">
-              {msg}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-          const status = row.getValue("status") as ContactStatus;
-          const config = STATUS_CONFIG[status];
-          return (
-            <Badge variant={config.variant} className="text-[10px]">
-              {config.label}
-            </Badge>
-          );
-        },
-      },
-      {
-        accessorKey: "createdAt",
-        header: ({ column }) => <SortHeader label="Date" column={column} />,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {formatRelativeDate(row.getValue("createdAt"))}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => {
-          const contact = row.original;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <SortHeader label="Date" column={column} />,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatRelativeDate(row.getValue("createdAt"))}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const contact = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRowClick(contact);
+                }}
+              >
+                <Eye className="size-3.5" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {contact.status !== "read" && (
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRowClick(contact);
-                  }}
+                  onClick={(e) =>
+                    handleQuickStatus(e, contact.ticketId, "read")
+                  }
                 >
-                  <Eye className="size-3.5" />
-                  View Details
+                  <BookOpen className="size-3.5" />
+                  Mark as Read
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {contact.status !== "read" && (
-                  <DropdownMenuItem
-                    onClick={(e) =>
-                      handleQuickStatus(e, contact.ticketId, "read")
-                    }
-                  >
-                    <BookOpen className="size-3.5" />
-                    Mark as Read
-                  </DropdownMenuItem>
-                )}
-                {contact.status !== "responded" && (
-                  <DropdownMenuItem
-                    onClick={(e) =>
-                      handleQuickStatus(e, contact.ticketId, "responded")
-                    }
-                  >
-                    <MessageSquare className="size-3.5" />
-                    Mark as Responded
-                  </DropdownMenuItem>
-                )}
-                {contact.status !== "archived" && (
-                  <DropdownMenuItem
-                    onClick={(e) =>
-                      handleQuickStatus(e, contact.ticketId, "archived")
-                    }
-                  >
-                    <Archive className="size-3.5" />
-                    Archive
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
+              )}
+              {contact.status !== "responded" && (
+                <DropdownMenuItem
+                  onClick={(e) =>
+                    handleQuickStatus(e, contact.ticketId, "responded")
+                  }
+                >
+                  <MessageSquare className="size-3.5" />
+                  Mark as Responded
+                </DropdownMenuItem>
+              )}
+              {contact.status !== "archived" && (
+                <DropdownMenuItem
+                  onClick={(e) =>
+                    handleQuickStatus(e, contact.ticketId, "archived")
+                  }
+                >
+                  <Archive className="size-3.5" />
+                  Archive
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
       },
-    ],
-    [],
-  );
+    },
+  ];
 
   if (loadingSettings || loading) {
     return <ContactsLoadingSkeleton />;
@@ -481,7 +398,7 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pb-8 h-full">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <UserSquare className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Contacts</span>
@@ -494,17 +411,19 @@ export default function ContactsPage() {
             fetchContacts();
           }}
         >
-          <RefreshCw
-            className={`size-3.5 ${loading ? "animate-spin" : ""}`}
-          />
+          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
 
-      <div className="px-4 flex flex-col gap-4 pt-3 flex-1 min-h-0 overflow-y-auto">
+      <div className="px-4 flex flex-1 min-h-0 flex-col gap-4 overflow-hidden pt-3 pb-8">
         <div className="flex items-baseline gap-8 flex-wrap">
           <Stat label="Total" value={stats.total} />
-          <Stat label="Pending" value={stats.pending} highlight={stats.pending > 0} />
+          <Stat
+            label="Pending"
+            value={stats.pending}
+            highlight={stats.pending > 0}
+          />
           <Stat label="Read" value={stats.read} />
           <Stat label="Responded" value={stats.responded} />
           <Stat label="Archived" value={stats.archived} />
@@ -535,11 +454,15 @@ export default function ContactsPage() {
           </TabsList>
         </Tabs>
 
-        <DataTable
-          columns={columns}
-          data={filteredContacts}
-          onRowClick={handleRowClick}
-        />
+        <div className="min-h-0 flex-1">
+          <PaginatedDataTable
+            columns={columns}
+            data={filteredContacts}
+            emptyMessage="No contacts found"
+            initialSorting={[{ id: "createdAt", desc: true }]}
+            onRowClick={handleRowClick}
+          />
+        </div>
       </div>
 
       <ContactDetailSheet

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowDown,
   ArrowUp,
@@ -40,16 +33,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PaginatedDataTable } from "@/components/ui/paginated-data-table";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
@@ -101,6 +87,7 @@ function SortHeader({
   const sorted = column.getIsSorted();
   return (
     <button
+      type="button"
       className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
@@ -203,13 +190,15 @@ export default function CommentsPage() {
     return comments.filter((c) => c.isDeleted);
   }, [comments, filter]);
 
-  const handleApprove = async (e: React.MouseEvent, comment: CommentWithBlogTitle) => {
+  const handleApprove = async (
+    e: React.MouseEvent,
+    comment: CommentWithBlogTitle,
+  ) => {
     e.stopPropagation();
+    if (!api) return;
 
     setComments((prev) =>
-      prev.map((c) =>
-        c._id === comment._id ? { ...c, isApproved: true } : c,
-      ),
+      prev.map((c) => (c._id === comment._id ? { ...c, isApproved: true } : c)),
     );
     setStats((prev) => ({
       ...prev,
@@ -217,7 +206,7 @@ export default function CommentsPage() {
       approved: prev.approved + 1,
     }));
 
-    const result = await api!.PATCH<{ success: boolean }>({
+    const result = await api.PATCH<{ success: boolean }>({
       endpoint: `comments/${comment._id}`,
       body: { action: "approve" },
     });
@@ -226,9 +215,7 @@ export default function CommentsPage() {
       toast.error("Failed to approve comment");
       setComments((prev) =>
         prev.map((c) =>
-          c._id === comment._id
-            ? { ...c, isApproved: comment.isApproved }
-            : c,
+          c._id === comment._id ? { ...c, isApproved: comment.isApproved } : c,
         ),
       );
       setStats((prev) => ({
@@ -239,8 +226,12 @@ export default function CommentsPage() {
     }
   };
 
-  const handleReject = async (e: React.MouseEvent, comment: CommentWithBlogTitle) => {
+  const handleReject = async (
+    e: React.MouseEvent,
+    comment: CommentWithBlogTitle,
+  ) => {
     e.stopPropagation();
+    if (!api) return;
 
     setComments((prev) =>
       prev.map((c) =>
@@ -253,7 +244,7 @@ export default function CommentsPage() {
       pending: prev.pending + 1,
     }));
 
-    const result = await api!.PATCH<{ success: boolean }>({
+    const result = await api.PATCH<{ success: boolean }>({
       endpoint: `comments/${comment._id}`,
       body: { action: "reject" },
     });
@@ -262,9 +253,7 @@ export default function CommentsPage() {
       toast.error("Failed to reject comment");
       setComments((prev) =>
         prev.map((c) =>
-          c._id === comment._id
-            ? { ...c, isApproved: comment.isApproved }
-            : c,
+          c._id === comment._id ? { ...c, isApproved: comment.isApproved } : c,
         ),
       );
       setStats((prev) => ({
@@ -309,134 +298,134 @@ export default function CommentsPage() {
 
   const getCommentStatus = (
     comment: CommentWithBlogTitle,
-  ): { label: string; variant: "outline" | "secondary" | "default" | "destructive" } => {
+  ): {
+    label: string;
+    variant: "outline" | "secondary" | "default" | "destructive";
+  } => {
     if (comment.isDeleted) return { label: "Deleted", variant: "destructive" };
     if (comment.isApproved) return { label: "Approved", variant: "default" };
     return { label: "Pending", variant: "outline" };
   };
 
-  const columns: ColumnDef<CommentWithBlogTitle, unknown>[] = useMemo(
-    () => [
-      {
-        accessorKey: "authorName",
-        header: "Author",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.getValue("authorName")}</span>
-        ),
+  const columns: ColumnDef<CommentWithBlogTitle, unknown>[] = [
+    {
+      accessorKey: "authorName",
+      header: "Author",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.getValue("authorName")}</span>
+      ),
+    },
+    {
+      accessorKey: "blogTitle",
+      header: "Post",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground truncate block max-w-[150px]">
+          {row.original.blogTitle ?? "-"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "content",
+      header: "Content",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground truncate block max-w-[250px]">
+          {row.getValue("content")}
+        </span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = getCommentStatus(row.original);
+        return (
+          <Badge variant={status.variant} className="text-[10px]">
+            {status.label}
+          </Badge>
+        );
       },
-      {
-        accessorKey: "blogTitle",
-        header: "Post",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground truncate block max-w-[150px]">
-            {row.original.blogTitle ?? "-"}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "content",
-        header: "Content",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground truncate block max-w-[250px]">
-            {row.getValue("content")}
-          </span>
-        ),
-      },
-      {
-        id: "status",
-        header: "Status",
-        cell: ({ row }) => {
-          const status = getCommentStatus(row.original);
-          return (
-            <Badge variant={status.variant} className="text-[10px]">
-              {status.label}
-            </Badge>
-          );
-        },
-      },
-      {
-        accessorKey: "createdAt",
-        header: ({ column }) => <SortHeader label="Date" column={column} />,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {formatRelativeDate(row.getValue("createdAt"))}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => {
-          const comment = row.original;
-          if (comment.isDeleted) return null;
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <SortHeader label="Date" column={column} />,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatRelativeDate(row.getValue("createdAt"))}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const comment = row.original;
+        if (comment.isDeleted) return null;
 
-          return (
-            <div className="flex items-center gap-1">
-              {!comment.isApproved && (
+        return (
+          <div className="flex items-center gap-1">
+            {!comment.isApproved && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-green-600 hover:text-green-700"
+                onClick={(e) => handleApprove(e, comment)}
+                title="Approve"
+              >
+                <Check className="size-3.5" />
+              </Button>
+            )}
+            {comment.isApproved && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-orange-500 hover:text-orange-600"
+                onClick={(e) => handleReject(e, comment)}
+                title="Reject"
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-green-600 hover:text-green-700"
-                  onClick={(e) => handleApprove(e, comment)}
-                  title="Approve"
+                  className="h-7 w-7 p-0"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Check className="size-3.5" />
+                  <MoreHorizontal className="size-3.5" />
                 </Button>
-              )}
-              {comment.isApproved && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-orange-500 hover:text-orange-600"
-                  onClick={(e) => handleReject(e, comment)}
-                  title="Reject"
-                >
-                  <X className="size-3.5" />
-                </Button>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {!comment.isApproved ? (
-                    <DropdownMenuItem onClick={(e) => handleApprove(e, comment)}>
-                      <Check className="size-3.5" />
-                      Approve
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={(e) => handleReject(e, comment)}>
-                      <X className="size-3.5" />
-                      Reject
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteTarget(comment);
-                    }}
-                  >
-                    <Trash2 className="size-3.5" />
-                    Delete
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!comment.isApproved ? (
+                  <DropdownMenuItem onClick={(e) => handleApprove(e, comment)}>
+                    <Check className="size-3.5" />
+                    Approve
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        },
+                ) : (
+                  <DropdownMenuItem onClick={(e) => handleReject(e, comment)}>
+                    <X className="size-3.5" />
+                    Reject
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(comment);
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
       },
-    ],
-    [],
-  );
+    },
+  ];
 
   if (loadingSettings || loading) {
     return <CommentsLoadingSkeleton />;
@@ -457,7 +446,7 @@ export default function CommentsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pb-8 h-full">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <MessageCircle className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Comments</span>
@@ -475,7 +464,7 @@ export default function CommentsPage() {
         </Button>
       </div>
 
-      <div className="px-4 flex flex-col gap-4 pt-3 flex-1 min-h-0 overflow-y-auto">
+      <div className="px-4 flex flex-1 min-h-0 flex-col gap-4 overflow-hidden pt-3 pb-8">
         <div className="flex items-baseline gap-8 flex-wrap">
           <Stat label="Total" value={stats.total} />
           <Stat
@@ -521,7 +510,14 @@ export default function CommentsPage() {
           </TabsList>
         </Tabs>
 
-        <DataTable columns={columns} data={filteredComments} />
+        <div className="min-h-0 flex-1">
+          <PaginatedDataTable
+            columns={columns}
+            data={filteredComments}
+            emptyMessage="No comments found"
+            initialSorting={[{ id: "createdAt", desc: true }]}
+          />
+        </div>
       </div>
 
       <AlertDialog
@@ -549,70 +545,6 @@ export default function CommentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-function DataTable({
-  columns,
-  data,
-}: {
-  columns: ColumnDef<CommentWithBlogTitle, unknown>[];
-  data: CommentWithBlogTitle[];
-}) {
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ]);
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: { sorting },
-  });
-
-  return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-xs">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-xs">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell
-              colSpan={columns.length}
-              className="h-20 text-center text-muted-foreground"
-            >
-              No comments found
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
   );
 }
 

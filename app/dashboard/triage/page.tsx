@@ -1,24 +1,11 @@
 "use client";
 
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Archive, Brain, Loader2, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { PaginatedDataTable } from "@/components/ui/paginated-data-table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
@@ -219,19 +206,12 @@ export default function TriagePage() {
     [],
   );
 
-  const table = useReactTable({
-    data: items,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
   if (loadingSettings) {
     return <TriageLoadingSkeleton />;
   }
 
   return (
-    <div className="flex flex-col gap-2 pb-8">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <Brain className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Triage</span>
@@ -251,7 +231,7 @@ export default function TriagePage() {
         </Button>
       </div>
 
-      <div className="px-4">
+      <div className="px-4 flex flex-1 min-h-0 flex-col gap-4 overflow-hidden pt-3 pb-8">
         <Tabs
           value={filter}
           onValueChange={(value) => {
@@ -269,76 +249,38 @@ export default function TriagePage() {
             ))}
           </TabsList>
         </Tabs>
-      </div>
 
-      {filter !== "archived" && (
-        <div className="px-4">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-xs"
-            onClick={handleArchiveAll}
-            disabled={loading || archivingAll || items.length === 0}
-          >
-            {archivingAll ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Archive className="size-3.5" />
-            )}
-            Archive all in {activeFilterLabel}
-          </Button>
-        </div>
-      )}
-
-      <div className="px-4">
-        {loading ? (
-          <TriageLoadingSkeleton contentOnly />
-        ) : (
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id}>
-                  {group.headers.map((h) => (
-                    <TableHead key={h.id} className="text-xs">
-                      {h.isPlaceholder
-                        ? null
-                        : flexRender(h.column.columnDef.header, h.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length > 0 ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelectedId(row.original._id)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+        {filter !== "archived" && (
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs"
+              onClick={handleArchiveAll}
+              disabled={loading || archivingAll || items.length === 0}
+            >
+              {archivingAll ? (
+                <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-20 text-center text-muted-foreground text-xs"
-                  >
-                    No triage items
-                  </TableCell>
-                </TableRow>
+                <Archive className="size-3.5" />
               )}
-            </TableBody>
-          </Table>
+              Archive all in {activeFilterLabel}
+            </Button>
+          </div>
         )}
+
+        <div className="min-h-0 flex-1">
+          {loading ? (
+            <TriageLoadingSkeleton contentOnly />
+          ) : (
+            <PaginatedDataTable
+              columns={columns}
+              data={items}
+              emptyMessage="No triage items"
+              onRowClick={(item) => setSelectedId(item._id)}
+            />
+          )}
+        </div>
       </div>
 
       {api && (

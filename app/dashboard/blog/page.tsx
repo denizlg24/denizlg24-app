@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  type ColumnDef,
-  type SortingState,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowDown,
   ArrowUp,
@@ -43,16 +36,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PaginatedDataTable } from "@/components/ui/paginated-data-table";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
@@ -94,6 +80,7 @@ function SortHeader({
   const sorted = column.getIsSorted();
   return (
     <button
+      type="button"
       className="flex items-center gap-1 hover:text-foreground transition-colors"
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
@@ -188,11 +175,9 @@ export default function BlogPage() {
     return blogs.filter((b) => !b.isActive);
   }, [blogs, filter]);
 
-  const handleToggleActive = async (
-    e: React.MouseEvent,
-    blog: IBlog,
-  ) => {
+  const handleToggleActive = async (e: React.MouseEvent, blog: IBlog) => {
     e.stopPropagation();
+    if (!api) return;
 
     setBlogs((prev) =>
       prev.map((b) =>
@@ -200,7 +185,7 @@ export default function BlogPage() {
       ),
     );
 
-    const result = await api!.PATCH<{ blog: IBlog }>({
+    const result = await api.PATCH<{ blog: IBlog }>({
       endpoint: `blogs/${blog._id}`,
       body: { toggleActive: true },
     });
@@ -239,146 +224,140 @@ export default function BlogPage() {
   };
 
   const handleSaved = (updated: IBlog) => {
-    setBlogs((prev) =>
-      prev.map((b) => (b._id === updated._id ? updated : b)),
-    );
+    setBlogs((prev) => prev.map((b) => (b._id === updated._id ? updated : b)));
   };
 
-  const columns: ColumnDef<IBlog, unknown>[] = useMemo(
-    () => [
-      {
-        accessorKey: "title",
-        header: ({ column }) => <SortHeader label="Title" column={column} />,
-        cell: ({ row }) => (
-          <div className="min-w-0">
-            <span className="font-medium block truncate max-w-[300px]">
-              {row.getValue("title")}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-mono">
-              /{row.original.slug}
-            </span>
+  const columns: ColumnDef<IBlog, unknown>[] = [
+    {
+      accessorKey: "title",
+      header: ({ column }) => <SortHeader label="Title" column={column} />,
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <span className="font-medium block truncate max-w-[300px]">
+            {row.getValue("title")}
+          </span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            /{row.original.slug}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "tags",
+      header: "Tags",
+      cell: ({ row }) => {
+        const tags = row.original.tags ?? [];
+        if (!tags.length)
+          return <span className="text-muted-foreground">-</span>;
+        return (
+          <div className="flex gap-1 flex-wrap max-w-[150px]">
+            {tags.slice(0, 3).map((tag) => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0"
+              >
+                {tag}
+              </Badge>
+            ))}
+            {tags.length > 3 && (
+              <span className="text-[10px] text-muted-foreground">
+                +{tags.length - 3}
+              </span>
+            )}
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) =>
+        row.original.isActive ? (
+          <Badge variant="default" className="text-[10px]">
+            Published
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px]">
+            Draft
+          </Badge>
         ),
+    },
+    {
+      accessorKey: "timeToRead",
+      header: "Read",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground tabular-nums">
+          {row.original.timeToRead}m
+        </span>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <SortHeader label="Created" column={column} />,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatRelativeDate(row.getValue("createdAt"))}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const blog = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRowClick(blog);
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => handleToggleActive(e, blog)}>
+                {blog.isActive ? (
+                  <>
+                    <EyeOff className="size-3.5" />
+                    Unpublish
+                  </>
+                ) : (
+                  <>
+                    <Eye className="size-3.5" />
+                    Publish
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(blog);
+                }}
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
       },
-      {
-        accessorKey: "tags",
-        header: "Tags",
-        cell: ({ row }) => {
-          const tags = row.original.tags ?? [];
-          if (!tags.length) return <span className="text-muted-foreground">-</span>;
-          return (
-            <div className="flex gap-1 flex-wrap max-w-[150px]">
-              {tags.slice(0, 3).map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="text-[10px] px-1.5 py-0"
-                >
-                  {tag}
-                </Badge>
-              ))}
-              {tags.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">
-                  +{tags.length - 3}
-                </span>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "isActive",
-        header: "Status",
-        cell: ({ row }) =>
-          row.original.isActive ? (
-            <Badge variant="default" className="text-[10px]">
-              Published
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-[10px]">
-              Draft
-            </Badge>
-          ),
-      },
-      {
-        accessorKey: "timeToRead",
-        header: "Read",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground tabular-nums">
-            {row.original.timeToRead}m
-          </span>
-        ),
-      },
-      {
-        accessorKey: "createdAt",
-        header: ({ column }) => <SortHeader label="Created" column={column} />,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {formatRelativeDate(row.getValue("createdAt"))}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: ({ row }) => {
-          const blog = row.original;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRowClick(blog);
-                  }}
-                >
-                  <Pencil className="size-3.5" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => handleToggleActive(e, blog)}
-                >
-                  {blog.isActive ? (
-                    <>
-                      <EyeOff className="size-3.5" />
-                      Unpublish
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="size-3.5" />
-                      Publish
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteTarget(blog);
-                  }}
-                >
-                  <Trash2 className="size-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      },
-    ],
-    [],
-  );
+    },
+  ];
 
   if (loadingSettings || loading) {
     return <BlogLoadingSkeleton />;
@@ -399,7 +378,7 @@ export default function BlogPage() {
   }
 
   return (
-    <div className="flex flex-col gap-2 pb-8 h-full">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 px-4 border-b h-12 shrink-0">
         <NotebookPen className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold flex-1">Blog Posts</span>
@@ -423,11 +402,15 @@ export default function BlogPage() {
         </Button>
       </div>
 
-      <div className="px-4 flex flex-col gap-4 pt-3 flex-1 min-h-0 overflow-y-auto">
+      <div className="px-4 flex flex-1 min-h-0 flex-col gap-4 overflow-hidden pt-3 pb-8">
         <div className="flex items-baseline gap-8 flex-wrap">
           <Stat label="Total" value={stats.total} />
           <Stat label="Published" value={stats.published} />
-          <Stat label="Drafts" value={stats.draft} highlight={stats.draft > 0} />
+          <Stat
+            label="Drafts"
+            value={stats.draft}
+            highlight={stats.draft > 0}
+          />
         </div>
 
         <Separator />
@@ -458,11 +441,15 @@ export default function BlogPage() {
           </TabsList>
         </Tabs>
 
-        <DataTable
-          columns={columns}
-          data={filteredBlogs}
-          onRowClick={handleRowClick}
-        />
+        <div className="min-h-0 flex-1">
+          <PaginatedDataTable
+            columns={columns}
+            data={filteredBlogs}
+            emptyMessage="No posts found"
+            initialSorting={[{ id: "createdAt", desc: true }]}
+            onRowClick={handleRowClick}
+          />
+        </div>
       </div>
 
       <BlogEditorSheet
@@ -498,76 +485,6 @@ export default function BlogPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-function DataTable({
-  columns,
-  data,
-  onRowClick,
-}: {
-  columns: ColumnDef<IBlog, unknown>[];
-  data: IBlog[];
-  onRowClick: (blog: IBlog) => void;
-}) {
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ]);
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onSortingChange: setSorting,
-    state: { sorting },
-  });
-
-  return (
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((headerGroup) => (
-          <TableRow key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <TableHead key={header.id} className="text-xs">
-                {header.isPlaceholder
-                  ? null
-                  : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.length ? (
-          table.getRowModel().rows.map((row) => (
-            <TableRow
-              key={row.id}
-              className="cursor-pointer"
-              onClick={() => onRowClick(row.original)}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="text-xs">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
-        ) : (
-          <TableRow>
-            <TableCell
-              colSpan={columns.length}
-              className="h-20 text-center text-muted-foreground"
-            >
-              No posts found
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
   );
 }
 
