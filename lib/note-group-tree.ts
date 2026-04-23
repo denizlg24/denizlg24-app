@@ -1,11 +1,15 @@
-import type { INoteGroup } from "@/lib/data-types";
+import type { INoteGroup, IPersonGroup } from "@/lib/data-types";
 
-export function buildGroupById(groups: INoteGroup[]) {
+type GroupLike = INoteGroup | IPersonGroup;
+
+export function buildGroupById<TGroup extends GroupLike>(groups: TGroup[]) {
   return new Map(groups.map((group) => [group._id, group] as const));
 }
 
-export function buildChildrenByParent(groups: INoteGroup[]) {
-  const childrenByParent = new Map<string | null, INoteGroup[]>();
+export function buildChildrenByParent<TGroup extends GroupLike>(
+  groups: TGroup[],
+) {
+  const childrenByParent = new Map<string | null, TGroup[]>();
 
   for (const group of groups) {
     const parentId = group.parentId ?? null;
@@ -23,7 +27,7 @@ export function buildChildrenByParent(groups: INoteGroup[]) {
 
 export function collectAncestorIds(
   groupId: string,
-  byId: Map<string, INoteGroup>,
+  byId: Map<string, GroupLike>,
 ): string[] {
   const ancestors: string[] = [];
   const visited = new Set<string>();
@@ -38,7 +42,7 @@ export function collectAncestorIds(
   return ancestors;
 }
 
-export function buildPathLabelMap(groups: INoteGroup[]) {
+export function buildPathLabelMap<TGroup extends GroupLike>(groups: TGroup[]) {
   const byId = buildGroupById(groups);
   const pathLabelById = new Map<string, string>();
 
@@ -70,7 +74,9 @@ export function buildPathLabelMap(groups: INoteGroup[]) {
   return pathLabelById;
 }
 
-export function buildDescendantIdMap(groups: INoteGroup[]) {
+export function buildDescendantIdMap<TGroup extends GroupLike>(
+  groups: TGroup[],
+) {
   const childrenByParent = buildChildrenByParent(groups);
   const descendantIdsByGroup = new Map<string, Set<string>>();
 

@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Minus, Square, Copy, X, Maximize2, Minimize2 } from "lucide-react";
+import { Copy, Maximize2, Minimize2, Minus, Square, X } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { BackgroundTasksIndicator } from "./background-tasks-indicator";
 
 const PATHNAME_TITLE_MAP = {
   "/": "home",
   "/dashboard": "dashboard",
   "/dashboard/notes": "notes",
+  "/dashboard/people": "people",
+  "/dashboard/people/new": "new person",
   "/dashboard/timetable": "timetable",
   "/dashboard/calendar": "calendar",
   "/dashboard/kanban": "kanban boards",
@@ -30,6 +32,8 @@ const PATHNAME_TITLE_MAP = {
   "/dashboard/timeline": "timeline",
   "/dashboard/timeline/new": "new timeline item",
   "/dashboard/now": "now page",
+  "/dashboard/triage": "triage",
+  "/dashboard/triage/settings": "triage settings",
 };
 
 type AppWindow = {

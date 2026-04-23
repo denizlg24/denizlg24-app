@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  FolderTree,
-  Plus,
-} from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { INoteGroup } from "@/lib/data-types";
+import type { INoteGroup, IPersonGroup } from "@/lib/data-types";
 import {
   buildChildrenByParent,
   buildGroupById,
@@ -26,9 +20,10 @@ import {
 } from "@/lib/note-group-tree";
 
 interface Props {
-  groups: INoteGroup[];
+  groups: Array<INoteGroup | IPersonGroup>;
   value: string[];
   onChange: (next: string[]) => void;
+  onCreateGroup?: (name: string) => Promise<INoteGroup | IPersonGroup | null>;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
@@ -47,22 +42,29 @@ export function GroupTreeCombobox({
   groups,
   value,
   onChange,
+  onCreateGroup,
   placeholder = "Add group…",
   searchPlaceholder = "Search groups…",
   emptyMessage = "No groups yet",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const groupById = useMemo(() => buildGroupById(groups), [groups]);
-  const childrenByParent = useMemo(() => buildChildrenByParent(groups), [groups]);
+  const childrenByParent = useMemo(
+    () => buildChildrenByParent(groups),
+    [groups],
+  );
   const pathLabelById = useMemo(() => buildPathLabelMap(groups), [groups]);
 
   useEffect(() => {
     const next = new Set<string>();
     for (const groupId of value) {
-      for (const ancestorId of collectAncestorIds(groupId, groupById).slice(1)) {
+      for (const ancestorId of collectAncestorIds(groupId, groupById).slice(
+        1,
+      )) {
         next.add(ancestorId);
       }
     }
@@ -124,6 +126,21 @@ export function GroupTreeCombobox({
       }
       return next;
     });
+  };
+
+  const createGroup = async () => {
+    if (!onCreateGroup || creating) return;
+    const name = query.trim();
+    if (!name) return;
+
+    setCreating(true);
+    const group = await onCreateGroup(name);
+    setCreating(false);
+    if (!group) return;
+
+    onChange(unique([...value, group._id]));
+    setQuery("");
+    setOpen(false);
   };
 
   const renderNode = (group: INoteGroup, depth: number): React.ReactNode => {
@@ -194,6 +211,12 @@ export function GroupTreeCombobox({
     visibility.get(group._id),
   );
   const triggerLabel = formatSelectionLabel(value.length, placeholder);
+  const showCreate =
+    Boolean(onCreateGroup) &&
+    query.trim().length > 0 &&
+    !groups.some(
+      (group) => group.name.toLowerCase() === query.trim().toLowerCase(),
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -222,26 +245,46 @@ export function GroupTreeCombobox({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
             className="h-8 text-xs"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && showCreate) {
+                event.preventDefault();
+                void createGroup();
+              }
+            }}
           />
         </div>
 
-        {groups.length === 0 ? (
-          <div className="px-3 py-6 text-xs text-muted-foreground">
-            {emptyMessage}
-          </div>
-        ) : rootGroups.length === 0 ? (
-          <div className="px-3 py-6 text-xs text-muted-foreground">
-            No groups found.
-          </div>
-        ) : (
-          <ScrollArea className="max-h-72 overflow-x-hidden">
+        <ScrollArea className="max-h-72 overflow-x-hidden">
+          {groups.length === 0 ? (
+            <div className="px-3 py-6 text-xs text-muted-foreground">
+              {emptyMessage}
+            </div>
+          ) : rootGroups.length === 0 ? (
+            <div className="px-3 py-6 text-xs text-muted-foreground">
+              No groups found.
+            </div>
+          ) : (
             <div className="min-w-0 p-2">
               <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
                 {rootGroups.map((group) => renderNode(group, 0))}
               </div>
             </div>
-          </ScrollArea>
-        )}
+          )}
+
+          {showCreate && (
+            <div className="border-t p-2">
+              <button
+                type="button"
+                onClick={() => void createGroup()}
+                disabled={creating}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+              >
+                <Plus className="size-3" />
+                {creating ? "Creating..." : `Create "${query.trim()}"`}
+              </button>
+            </div>
+          )}
+        </ScrollArea>
 
         {value.length > 0 && (
           <div className="border-t p-2">

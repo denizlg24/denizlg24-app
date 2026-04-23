@@ -86,6 +86,7 @@ export const settingsFieldMeta: Record<keyof UserSettings, SettingsFieldMeta> =
         { label: "Calendar", value: "/dashboard/calendar" },
         { label: "Timetable", value: "/dashboard/timetable" },
         { label: "Notes", value: "/dashboard/notes" },
+        { label: "People", value: "/dashboard/people" },
         { label: "Whiteboards", value: "/dashboard/whiteboard" },
         { label: "Today's Board", value: "/dashboard/whiteboard/today" },
         { label: "Kanban Boards", value: "/dashboard/kanban" },

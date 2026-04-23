@@ -1,7 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import {
   AlarmClock,
   Brain,
@@ -24,8 +23,16 @@ import {
   Settings,
   Table,
   UserSquare,
+  UsersRound,
 } from "lucide-react";
-
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -40,13 +47,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import type { LucideIcon } from "lucide-react";
-import Image from "next/image";
 
 export type NavChild = {
   label: string;
@@ -194,6 +194,11 @@ export const GROUPS: NavGroup[] = [
         label: "Notes",
         href: "/notes",
         icon: FileText,
+      },
+      {
+        label: "People",
+        href: "/people",
+        icon: UsersRound,
       },
       {
         label: "Whiteboard",

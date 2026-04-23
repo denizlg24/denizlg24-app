@@ -36,6 +36,19 @@ export interface IBlogView {
 export interface ICalendarEvent {
   _id: string;
   date: string;
+  calendarDate: string;
+  isAllDay: boolean;
+  kind: "manual" | "holiday" | "birthday";
+  source?: {
+    provider: "nager-date" | "people";
+    providerKey: string;
+    countryCode?: string;
+    personId?: string;
+    generatedYear?: number;
+    isCustomized: boolean;
+    isSuppressed: boolean;
+    metadata?: Record<string, unknown>;
+  };
   title: string;
   place?: string;
   links: {
@@ -49,6 +62,18 @@ export interface ICalendarEvent {
   isNotificationSent: boolean;
   notifyBeforeMinutes: number;
   notifyAt?: string;
+}
+
+export interface ICalendarSettings {
+  _id: "singleton";
+  holidayCountryCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ICountryOption {
+  countryCode: string;
+  name: string;
 }
 
 export interface IContact {
@@ -147,6 +172,52 @@ export interface INoteGraph {
   notes: INote[];
   groups: INoteGroup[];
   edges: INoteEdge[];
+  stats: { total: number; groups: number; edges: number };
+}
+
+export interface BirthdayParts {
+  month: number;
+  day: number;
+  year?: number | null;
+}
+
+export interface IPerson {
+  _id: string;
+  name: string;
+  birthday?: BirthdayParts | null;
+  placeMet?: string;
+  notes: string;
+  photos: string[];
+  groupIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPersonGroup {
+  _id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  parentId?: string | null;
+  autoCreated: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPersonEdge {
+  _id: string;
+  from: string;
+  to: string;
+  strength: number;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPersonGraph {
+  people: IPerson[];
+  groups: IPersonGroup[];
+  edges: IPersonEdge[];
   stats: { total: number; groups: number; edges: number };
 }
 

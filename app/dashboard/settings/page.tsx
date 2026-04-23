@@ -1,8 +1,20 @@
 "use client";
 
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Settings as SettingsIcon } from "lucide-react";
-import { type KeyboardEvent, useRef, useState } from "react";
+import {
+  CalendarSync,
+  FolderOpen,
+  Loader2,
+  Settings as SettingsIcon,
+} from "lucide-react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +29,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
+import type { ICalendarSettings, ICountryOption } from "@/lib/data-types";
 import {
   ensureTrailingSeparator,
   type SettingsFieldMeta,
@@ -163,6 +177,163 @@ function SettingsFieldRow({
   );
 }
 
+function regionFromLocale(value: string) {
+  try {
+    const locale = new Intl.Locale(value);
+    return locale.region?.toUpperCase() ?? null;
+  } catch {
+    const match = value.match(/[-_]([A-Za-z]{2})\b/);
+    return match?.[1]?.toUpperCase() ?? null;
+  }
+}
+
+function CalendarSyncSettings({ api }: { api: denizApi | null }) {
+  const [countries, setCountries] = useState<ICountryOption[]>([]);
+  const [remoteSettings, setRemoteSettings] =
+    useState<ICalendarSettings | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string>("none");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!api) return;
+    const client = api;
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      const [settingsResult, countriesResult] = await Promise.all([
+        client.GET<{ settings: ICalendarSettings }>({
+          endpoint: "calendar/settings",
+        }),
+        client.GET<{ countries: ICountryOption[] }>({
+          endpoint: "calendar/countries",
+        }),
+      ]);
+
+      if (cancelled) return;
+
+      if ("code" in settingsResult) {
+        toast.error(settingsResult.message);
+      } else {
+        setRemoteSettings(settingsResult.settings);
+        setSelectedCountry(
+          settingsResult.settings.holidayCountryCode ?? "none",
+        );
+      }
+
+      if ("code" in countriesResult) {
+        toast.error(countriesResult.message);
+      } else {
+        setCountries(countriesResult.countries);
+      }
+
+      setLoading(false);
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  useEffect(() => {
+    if (remoteSettings?.holidayCountryCode || selectedCountry !== "none")
+      return;
+    if (countries.length === 0) return;
+
+    async function prefillFromLocale() {
+      try {
+        const { locale } = await import("@tauri-apps/plugin-os");
+        const osLocale = await locale();
+        const region = osLocale ? regionFromLocale(osLocale) : null;
+        if (
+          region &&
+          countries.some((country) => country.countryCode === region)
+        ) {
+          setSelectedCountry(region);
+        }
+      } catch {}
+    }
+
+    void prefillFromLocale();
+  }, [countries, remoteSettings?.holidayCountryCode, selectedCountry]);
+
+  const selectedLabel = useMemo(
+    () =>
+      countries.find((country) => country.countryCode === selectedCountry)
+        ?.name ?? "No country",
+    [countries, selectedCountry],
+  );
+
+  const save = async () => {
+    if (!api) return;
+    setSaving(true);
+    const result = await api.PATCH<{ settings: ICalendarSettings }>({
+      endpoint: "calendar/settings",
+      body: {
+        holidayCountryCode: selectedCountry === "none" ? null : selectedCountry,
+      },
+    });
+    setSaving(false);
+    if ("code" in result) {
+      toast.error(result.message);
+      return;
+    }
+    setRemoteSettings(result.settings);
+    toast.success("Calendar sync settings saved");
+  };
+
+  return (
+    <div className="py-4 w-full">
+      <div className="mb-4 flex items-start gap-2 shrink-0">
+        <CalendarSync className="mt-0.5 size-4 text-muted-foreground" />
+        <div>
+          <Label className="text-sm font-medium shrink-0">Calendar Sync</Label>
+          <p className="text-xs text-muted-foreground">
+            Remote holiday country used by backend calendar generation.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <Skeleton className="h-9 w-full" />
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 w-full grow">
+          <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+            <SelectTrigger className="w-full grow">
+              <SelectValue>{selectedLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent position="popper" className="max-h-72">
+              <SelectItem value="none">No holiday sync</SelectItem>
+              {countries.map((country) => (
+                <SelectItem
+                  key={country.countryCode}
+                  value={country.countryCode}
+                >
+                  {country.name} ({country.countryCode})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            className="shrink-0"
+            size="sm"
+            onClick={save}
+            disabled={
+              saving ||
+              selectedCountry === (remoteSettings?.holidayCountryCode ?? "none")
+            }
+          >
+            {saving && <Loader2 className="size-3.5 animate-spin" />}
+            Save
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-2 pb-4">
@@ -197,6 +368,10 @@ function SettingsLoadingSkeleton() {
 
 export default function SettingsPage() {
   const { settings, setSettings, loading } = useUserSettings();
+  const api = useMemo(() => {
+    if (loading) return null;
+    return new denizApi(settings.apiKey);
+  }, [settings.apiKey, loading]);
 
   if (loading) {
     return <SettingsLoadingSkeleton />;
@@ -230,6 +405,7 @@ export default function SettingsPage() {
         ))}
 
         <Separator className="mt-2" />
+        <CalendarSyncSettings api={api} />
       </div>
     </div>
   );

@@ -1,37 +1,45 @@
 "use client";
 
-import { useUserSettings } from "@/context/user-context";
-import { denizApi } from "@/lib/api-wrapper";
+import { format, formatDuration } from "date-fns";
+import {
+  Bell,
+  BellOff,
+  CalendarDays,
+  CalendarIcon,
+  Check,
+  ChevronDown,
+  Clock,
+  ExternalLink,
+  Link as LinkIcon,
+  MapPin,
+  Pencil,
+  Plus,
+  X,
+} from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarGrid } from "./_components/calendar-grid";
-import type { ICalendarEvent } from "@/lib/data-types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { format, formatDuration } from "date-fns";
 import {
-  MapPin,
-  Bell,
-  BellOff,
-  Clock,
-  ExternalLink,
-  Pencil,
-  Check,
-  X,
-  ChevronDown,
-  Plus,
-  CalendarDays,
-  CalendarIcon,
-  Link as LinkIcon,
-} from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -39,19 +47,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { useUserSettings } from "@/context/user-context";
+import { denizApi } from "@/lib/api-wrapper";
+import type { ICalendarEvent } from "@/lib/data-types";
+import { CalendarGrid } from "./_components/calendar-grid";
 
 function getFaviconUrl(url: string) {
   try {
@@ -160,6 +161,7 @@ export default function CalendarPage() {
     title: string;
     place: string;
     date: string;
+    isAllDay: boolean;
     status: ICalendarEvent["status"];
     notifyBySlack: boolean;
     notifyBeforeMinutes: number;
@@ -168,6 +170,7 @@ export default function CalendarPage() {
     title: "",
     place: "",
     date: "",
+    isAllDay: false,
     status: "scheduled",
     notifyBySlack: false,
     notifyBeforeMinutes: 0,
@@ -190,6 +193,7 @@ export default function CalendarPage() {
       title: viewEvent.title,
       place: viewEvent.place ?? "",
       date: format(new Date(viewEvent.date), "yyyy-MM-dd'T'HH:mm"),
+      isAllDay: viewEvent.isAllDay,
       status: viewEvent.status,
       notifyBySlack: viewEvent.notifyBySlack,
       notifyBeforeMinutes: viewEvent.notifyBeforeMinutes,
@@ -213,6 +217,8 @@ export default function CalendarPage() {
           title: editForm.title,
           place: editForm.place || undefined,
           date: new Date(editForm.date).toISOString(),
+          calendarDate: editForm.date.slice(0, 10),
+          isAllDay: editForm.isAllDay,
           status: editForm.status,
           notifyBySlack: editForm.notifyBySlack,
           notifyBeforeMinutes: editForm.notifyBeforeMinutes,
@@ -262,6 +268,7 @@ export default function CalendarPage() {
     place: "",
     date: "",
     notifyBySlack: false,
+    isAllDay: false,
     notifyBeforeMinutes: 30,
     links: [] as EventLink[],
   });
@@ -279,6 +286,7 @@ export default function CalendarPage() {
         ? format(date, "yyyy-MM-dd'T'HH:mm")
         : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
       notifyBySlack: false,
+      isAllDay: false,
       notifyBeforeMinutes: 30,
       links: [],
     });
@@ -296,6 +304,9 @@ export default function CalendarPage() {
           title: addForm.title,
           place: addForm.place || undefined,
           date: new Date(addForm.date).toISOString(),
+          calendarDate: addForm.date.slice(0, 10),
+          isAllDay: false,
+          kind: "manual",
           status: "scheduled",
           notifyBySlack: addForm.notifyBySlack,
           notifyBeforeMinutes: addForm.notifyBeforeMinutes,
@@ -320,14 +331,16 @@ export default function CalendarPage() {
     if (!dayViewDate) return [];
     return events
       .filter((e) => {
-        const d = new Date(e.date);
-        return (
-          d.getFullYear() === dayViewDate.getFullYear() &&
-          d.getMonth() === dayViewDate.getMonth() &&
-          d.getDate() === dayViewDate.getDate()
-        );
+        const key =
+          e.calendarDate ??
+          `${new Date(e.date).getFullYear()}-${String(new Date(e.date).getMonth() + 1).padStart(2, "0")}-${String(new Date(e.date).getDate()).padStart(2, "0")}`;
+        const dayKey = `${dayViewDate.getFullYear()}-${String(dayViewDate.getMonth() + 1).padStart(2, "0")}-${String(dayViewDate.getDate()).padStart(2, "0")}`;
+        return key === dayKey;
       })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => {
+        if (a.isAllDay !== b.isAllDay) return a.isAllDay ? -1 : 1;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
   }, [dayViewDate, events]);
 
   const openDayView = useCallback((date: Date) => {
@@ -338,8 +351,9 @@ export default function CalendarPage() {
     async (start: Date, end: Date, skipCache = false) => {
       if (!API) return;
       const key = cacheKey(start, end);
-      if (!skipCache && eventsCache.current.has(key)) {
-        setEvents(eventsCache.current.get(key)!);
+      const cachedEvents = eventsCache.current.get(key);
+      if (!skipCache && cachedEvents) {
+        setEvents(cachedEvents);
         return;
       }
       try {
@@ -443,7 +457,9 @@ export default function CalendarPage() {
                 <DialogDescription className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 shrink-0" />
                   {viewEvent
-                    ? `${format(new Date(viewEvent.date), "p")} · ${format(new Date(viewEvent.date), "PPP")}`
+                    ? viewEvent.isAllDay
+                      ? `All day · ${format(new Date(`${viewEvent.calendarDate}T12:00:00`), "PPP")}`
+                      : `${format(new Date(viewEvent.date), "p")} · ${format(new Date(viewEvent.date), "PPP")}`
                     : ""}
                 </DialogDescription>
               </div>
@@ -499,10 +515,13 @@ export default function CalendarPage() {
                         className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {link.icon ? (
-                          <img
+                          <Image
                             src={link.icon}
                             alt=""
-                            className="w-4 h-4 shrink-0"
+                            width={16}
+                            height={16}
+                            className="size-4 shrink-0"
+                            unoptimized
                           />
                         ) : (
                           <ExternalLink className="w-4 h-4 shrink-0" />
@@ -597,11 +616,13 @@ export default function CalendarPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" className="max-h-48">
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <SelectItem key={i} value={String(i)}>
-                            {String(i).padStart(2, "0")}
-                          </SelectItem>
-                        ))}
+                        {Array.from({ length: 24 }, (_, i) => String(i)).map(
+                          (hour) => (
+                            <SelectItem key={hour} value={hour}>
+                              {hour.padStart(2, "0")}
+                            </SelectItem>
+                          ),
+                        )}
                       </SelectContent>
                     </Select>
                     <span className="text-sm text-muted-foreground">:</span>
@@ -626,14 +647,27 @@ export default function CalendarPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent position="popper" className="max-h-48">
-                        {Array.from({ length: 60 }, (_, i) => (
-                          <SelectItem key={i} value={String(i)}>
-                            {String(i).padStart(2, "0")}
-                          </SelectItem>
-                        ))}
+                        {Array.from({ length: 60 }, (_, i) => String(i)).map(
+                          (minute) => (
+                            <SelectItem key={minute} value={minute}>
+                              {minute.padStart(2, "0")}
+                            </SelectItem>
+                          ),
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-all-day">All-day event</Label>
+                  <Switch
+                    id="edit-all-day"
+                    checked={editForm.isAllDay}
+                    onCheckedChange={(v) =>
+                      setEditForm((f) => ({ ...f, isAllDay: v }))
+                    }
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -690,12 +724,12 @@ export default function CalendarPage() {
                         const cur = editForm.notifyBeforeMinutes.toString();
                         return opts.some((o) => o.value === cur)
                           ? cur
-                          : opts[0]?.value ?? "15";
+                          : (opts[0]?.value ?? "15");
                       })()}
                       onValueChange={(v) =>
                         setEditForm((f) => ({
                           ...f,
-                          notifyBeforeMinutes: Number.parseInt(v),
+                          notifyBeforeMinutes: Number.parseInt(v, 10),
                         }))
                       }
                     >
@@ -748,13 +782,11 @@ export default function CalendarPage() {
                       className="shrink-0"
                       disabled={!editNewLink.label || !editNewLink.url}
                       onClick={() => {
-                        const icon = getFaviconUrl(editNewLink.url) ?? undefined;
+                        const icon =
+                          getFaviconUrl(editNewLink.url) ?? undefined;
                         setEditForm((f) => ({
                           ...f,
-                          links: [
-                            ...f.links,
-                            { ...editNewLink, icon },
-                          ],
+                          links: [...f.links, { ...editNewLink, icon }],
                         }));
                         setEditNewLink({ label: "", url: "" });
                       }}
@@ -766,14 +798,17 @@ export default function CalendarPage() {
                     <div className="space-y-1">
                       {editForm.links.map((link, i) => (
                         <div
-                          key={i}
+                          key={`${link.label}-${link.url}`}
                           className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm"
                         >
                           {link.icon ? (
-                            <img
+                            <Image
                               src={link.icon}
                               alt=""
-                              className="w-4 h-4 shrink-0"
+                              width={16}
+                              height={16}
+                              className="size-4 shrink-0"
+                              unoptimized
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display =
                                   "none";
@@ -911,11 +946,13 @@ export default function CalendarPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" className="max-h-48">
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <SelectItem key={i} value={String(i)}>
-                        {String(i).padStart(2, "0")}
-                      </SelectItem>
-                    ))}
+                    {Array.from({ length: 24 }, (_, i) => String(i)).map(
+                      (hour) => (
+                        <SelectItem key={hour} value={hour}>
+                          {hour.padStart(2, "0")}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
                 <span className="text-sm text-muted-foreground">:</span>
@@ -940,11 +977,13 @@ export default function CalendarPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" className="max-h-48">
-                    {Array.from({ length: 60 }, (_, i) => (
-                      <SelectItem key={i} value={String(i)}>
-                        {String(i).padStart(2, "0")}
-                      </SelectItem>
-                    ))}
+                    {Array.from({ length: 60 }, (_, i) => String(i)).map(
+                      (minute) => (
+                        <SelectItem key={minute} value={minute}>
+                          {minute.padStart(2, "0")}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -982,12 +1021,12 @@ export default function CalendarPage() {
                     const cur = addForm.notifyBeforeMinutes.toString();
                     return opts.some((o) => o.value === cur)
                       ? cur
-                      : opts[0]?.value ?? "15";
+                      : (opts[0]?.value ?? "15");
                   })()}
                   onValueChange={(v) =>
                     setAddForm((f) => ({
                       ...f,
-                      notifyBeforeMinutes: Number.parseInt(v),
+                      notifyBeforeMinutes: Number.parseInt(v, 10),
                     }))
                   }
                 >
@@ -996,10 +1035,7 @@ export default function CalendarPage() {
                   </SelectTrigger>
                   <SelectContent position="popper">
                     {getSmartNotificationOptions(addForm.date).map((opt, i) => (
-                      <SelectItem
-                        key={`${opt.value}-${i}`}
-                        value={opt.value}
-                      >
+                      <SelectItem key={`${opt.value}-${i}`} value={opt.value}>
                         {opt.label}
                       </SelectItem>
                     ))}
@@ -1050,14 +1086,17 @@ export default function CalendarPage() {
                 <div className="space-y-1">
                   {addForm.links.map((link, i) => (
                     <div
-                      key={i}
+                      key={`${link.label}-${link.url}`}
                       className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm"
                     >
                       {link.icon ? (
-                        <img
+                        <Image
                           src={link.icon}
                           alt=""
-                          className="w-4 h-4 shrink-0"
+                          width={16}
+                          height={16}
+                          className="size-4 shrink-0"
+                          unoptimized
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display =
                               "none";
@@ -1156,7 +1195,9 @@ export default function CalendarPage() {
                         {event.title}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.date), "p")}
+                        {event.isAllDay
+                          ? "All day"
+                          : format(new Date(event.date), "p")}
                       </span>
                     </div>
                     <Badge

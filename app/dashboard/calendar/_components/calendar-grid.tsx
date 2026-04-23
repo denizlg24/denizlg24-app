@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { ICalendarEvent } from "@/lib/data-types";
+import { cn } from "@/lib/utils";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -45,6 +45,12 @@ function isSameDay(a: Date, b: Date) {
 function formatEventTime(dateStr: string): string {
   const d = new Date(dateStr);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function eventKindClass(event: ICalendarEvent) {
+  if (event.kind === "holiday") return "border-l-2 border-l-amber-400";
+  if (event.kind === "birthday") return "border-l-2 border-l-sky-400";
+  return "";
 }
 
 interface CalendarGridProps {
@@ -99,19 +105,30 @@ export function CalendarGrid({
 
   const eventsByDate = new Map<string, ICalendarEvent[]>();
   for (const event of events) {
-    const key = event.date.slice(0, 10);
+    const key = event.calendarDate ?? event.date.slice(0, 10);
     const list = eventsByDate.get(key) ?? [];
     list.push(event);
     eventsByDate.set(key, list);
   }
 
-  const cells: { day: number | null; date: Date | null }[] = [];
+  for (const list of eventsByDate.values()) {
+    list.sort((left, right) => {
+      if (left.isAllDay !== right.isAllDay) return left.isAllDay ? -1 : 1;
+      return new Date(left.date).getTime() - new Date(right.date).getTime();
+    });
+  }
+
+  const cells: { day: number | null; date: Date | null; key: string }[] = [];
   for (let i = 0; i < rows * 7; i++) {
     const dayNum = i - startDow + 1;
     if (dayNum < 1 || dayNum > daysInMonth) {
-      cells.push({ day: null, date: null });
+      cells.push({ day: null, date: null, key: `blank-${year}-${month}-${i}` });
     } else {
-      cells.push({ day: dayNum, date: new Date(year, month, dayNum) });
+      cells.push({
+        day: dayNum,
+        date: new Date(year, month, dayNum),
+        key: `${year}-${month}-${dayNum}`,
+      });
     }
   }
 
@@ -159,7 +176,7 @@ export function CalendarGrid({
             </div>
           ))}
 
-          {cells.map((cell, i) => {
+          {cells.map((cell) => {
             const isToday = cell.date !== null && isSameDay(cell.date, today);
             const dateKey = cell.date
               ? `${cell.date.getFullYear()}-${String(cell.date.getMonth() + 1).padStart(2, "0")}-${String(cell.date.getDate()).padStart(2, "0")}`
@@ -167,11 +184,8 @@ export function CalendarGrid({
             const dayEvents = dateKey ? (eventsByDate.get(dateKey) ?? []) : [];
 
             return (
-              <button
-                type="button"
-                key={`cell-${i}`}
-                onClick={() => cell.date && onDayClick?.(cell.date)}
-                disabled={cell.day === null}
+              <div
+                key={cell.key}
                 className={cn(
                   "relative border-b border-r aspect-square p-1.5 text-left transition-colors overflow-hidden flex flex-col gap-1 pt-8",
                   "last:border-r-0 nth-[7n]:border-r-0",
@@ -182,9 +196,15 @@ export function CalendarGrid({
               >
                 {cell.day !== null && (
                   <>
+                    <button
+                      type="button"
+                      className="absolute inset-0 z-0 text-left"
+                      onClick={() => cell.date && onDayClick?.(cell.date)}
+                      aria-label={`Open ${dateKey}`}
+                    />
                     <span
                       className={cn(
-                        "inline-flex items-center justify-center text-xs leading-none absolute top-1 right-1",
+                        "pointer-events-none z-10 inline-flex items-center justify-center text-xs leading-none absolute top-1 right-1",
                         isToday &&
                           "bg-accent-strong text-background rounded-full size-5 font-bold",
                       )}
@@ -195,14 +215,16 @@ export function CalendarGrid({
                     {dayEvents.length > 0 && (
                       <div className="flex flex-col gap-0.5 overflow-hidden min-w-0 w-full">
                         {dayEvents.slice(0, 5).map((event) => (
-                          <div
+                          <button
+                            type="button"
                             key={event._id}
                             onClick={(e) => {
                               e.stopPropagation();
                               onEventClick?.(event);
                             }}
                             className={cn(
-                              "text-[10px] leading-tight text-left rounded px-1 py-0.5 transition-opacity hover:opacity-80 overflow-hidden text-ellipsis whitespace-nowrap min-w-0",
+                              "relative z-10 text-[10px] leading-tight text-left rounded px-1 py-0.5 transition-opacity hover:opacity-80 overflow-hidden text-ellipsis whitespace-nowrap min-w-0",
+                              eventKindClass(event),
                               event.status === "completed" &&
                                 "bg-accent text-accent-strong line-through opacity-60",
                               event.status === "canceled" &&
@@ -212,10 +234,12 @@ export function CalendarGrid({
                             )}
                           >
                             <span className="opacity-70">
-                              {formatEventTime(event.date)}
+                              {event.isAllDay
+                                ? "All day"
+                                : formatEventTime(event.date)}
                             </span>{" "}
                             {event.title}
-                          </div>
+                          </button>
                         ))}
                         {dayEvents.length > 5 && (
                           <span className="text-[10px] text-muted-foreground px-1">
@@ -226,7 +250,7 @@ export function CalendarGrid({
                     )}
                   </>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
