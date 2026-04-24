@@ -23,6 +23,7 @@ function createDraftPerson(): IPerson {
     notes: "",
     photos: [],
     groupIds: [],
+    socials: [],
     createdAt: now,
     updatedAt: now,
   };
