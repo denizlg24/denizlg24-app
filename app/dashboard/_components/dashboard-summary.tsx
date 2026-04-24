@@ -8,6 +8,39 @@ import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type { IDashboardStats } from "@/lib/data-types";
 
+interface UpcomingCard {
+  _id: string;
+  title: string;
+  dueDate?: string;
+  columnTitle: string;
+  daysUntilDue: number;
+  overdue: boolean;
+}
+
+interface UpcomingBoardGroup {
+  boardId: string;
+  boardTitle: string;
+  boardColor?: string;
+  cards: UpcomingCard[];
+}
+
+interface UpcomingKanbanResult {
+  boards: UpcomingBoardGroup[];
+  stats: {
+    total: number;
+    overdue: number;
+    dueToday: number;
+    dueThisWeek: number;
+  };
+}
+
+function formatDueLabel(card: UpcomingCard) {
+  if (card.overdue) return "overdue";
+  if (card.daysUntilDue <= 0) return "today";
+  if (card.daysUntilDue === 1) return "tomorrow";
+  return `${card.daysUntilDue}d`;
+}
+
 const SUMMARY_SKELETON_ITEMS = [
   "contacts",
   "today",
@@ -95,6 +128,131 @@ function ResourceDot({
   );
 }
 
+interface AgendaDisplayItem {
+  time: string;
+  title: string;
+  subtitle?: string;
+  color: string;
+}
+
+function ScheduleTasksSwitcher({
+  agendaItems,
+  upcoming,
+}: {
+  agendaItems: AgendaDisplayItem[];
+  upcoming: UpcomingKanbanResult | null;
+}) {
+  const hasSchedule = agendaItems.length > 0;
+  const hasTasks = upcoming !== null && upcoming.stats.total > 0;
+  const [tab, setTab] = useState<"schedule" | "tasks">(
+    hasSchedule ? "schedule" : "tasks",
+  );
+
+  useEffect(() => {
+    if (tab === "schedule" && !hasSchedule && hasTasks) setTab("tasks");
+    if (tab === "tasks" && !hasTasks && hasSchedule) setTab("schedule");
+  }, [hasSchedule, hasTasks, tab]);
+
+  if (!hasSchedule && !hasTasks) return null;
+
+  return (
+    <div className="w-full max-w-md">
+      <div className="mb-3 flex items-center justify-center gap-5 text-[10px] uppercase tracking-widest">
+        <button
+          type="button"
+          onClick={() => setTab("schedule")}
+          disabled={!hasSchedule}
+          className={`pb-1 border-b transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            tab === "schedule"
+              ? "border-foreground text-accent-strong"
+              : "border-transparent text-muted-foreground hover:text-accent-strong"
+          }`}
+        >
+          Schedule
+          {hasSchedule && (
+            <span className="ml-1.5 text-muted-foreground normal-case tracking-normal">
+              {agendaItems.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("tasks")}
+          disabled={!hasTasks}
+          className={`pb-1 border-b transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            tab === "tasks"
+              ? "border-foreground text-accent-strong"
+              : "border-transparent text-muted-foreground hover:text-accent-strong"
+          }`}
+        >
+          Tasks
+          {hasTasks && (
+            <span
+              className={`ml-1.5 normal-case tracking-normal ${
+                upcoming.stats.overdue > 0
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {upcoming.stats.total}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {tab === "schedule" && hasSchedule && (
+        <div className="flex flex-col">
+          {agendaItems.slice(0, 4).map((item) => (
+            <AgendaItem
+              key={`${item.time}-${item.title}`}
+              time={item.time}
+              title={item.title}
+              subtitle={item.subtitle}
+              color={item.color}
+            />
+          ))}
+          {agendaItems.length > 4 && (
+            <p className="text-[10px] text-muted-foreground mt-1 ml-[52px]">
+              +{agendaItems.length - 4} more
+            </p>
+          )}
+        </div>
+      )}
+
+      {tab === "tasks" && hasTasks && (
+        <div className="flex flex-col gap-3">
+          {upcoming.boards.slice(0, 3).map((board) => (
+            <div key={board.boardId} className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+                {board.boardTitle}
+              </span>
+              {board.cards.slice(0, 3).map((card) => (
+                <div
+                  key={card._id}
+                  className="flex items-center gap-3 py-0.5"
+                >
+                  <span
+                    className={`text-xs font-mono w-14 shrink-0 tabular-nums ${
+                      card.overdue
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {formatDueLabel(card)}
+                  </span>
+                  <span className="text-sm text-accent-strong truncate flex-1">
+                    {card.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoadingSkeleton() {
   return (
     <div className="w-full flex flex-col items-center gap-6 animate-in fade-in duration-300">
@@ -117,6 +275,7 @@ function LoadingSkeleton() {
 export function DashboardSummary() {
   const { settings, loading: loadingSettings } = useUserSettings();
   const [stats, setStats] = useState<IDashboardStats | null>(null);
+  const [upcoming, setUpcoming] = useState<UpcomingKanbanResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   const API = useMemo(() => {
@@ -127,12 +286,12 @@ export function DashboardSummary() {
   const fetchStats = useCallback(async () => {
     if (!API) return;
     setLoading(true);
-    const result = await API.GET<IDashboardStats>({
-      endpoint: "dashboard/stats",
-    });
-    if (!("code" in result)) {
-      setStats(result);
-    }
+    const [statsResult, upcomingResult] = await Promise.all([
+      API.GET<IDashboardStats>({ endpoint: "dashboard/stats" }),
+      API.GET<UpcomingKanbanResult>({ endpoint: "kanban/upcoming?days=7" }),
+    ]);
+    if (!("code" in statsResult)) setStats(statsResult);
+    if (!("code" in upcomingResult)) setUpcoming(upcomingResult);
     setLoading(false);
   }, [API]);
 
@@ -186,26 +345,10 @@ export function DashboardSummary() {
         <StatNumber value={stats.triage.actionRequired} label="Action Req" />
       </div>
 
-      {agendaItems.length > 0 && (
-        <div className="w-full max-w-md">
-          <div className="flex flex-col">
-            {agendaItems.slice(0, 4).map((item) => (
-              <AgendaItem
-                key={`${item.time}-${item.title}`}
-                time={item.time}
-                title={item.title}
-                subtitle={item.subtitle}
-                color={item.color}
-              />
-            ))}
-            {agendaItems.length > 4 && (
-              <p className="text-[10px] text-muted-foreground mt-1 ml-[52px]">
-                +{agendaItems.length - 4} more
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      <ScheduleTasksSwitcher
+        agendaItems={agendaItems}
+        upcoming={upcoming}
+      />
 
       <div className="flex flex-col items-center gap-4">
         {stats.resources.length > 0 && (

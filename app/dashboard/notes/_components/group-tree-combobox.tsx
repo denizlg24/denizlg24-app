@@ -1,9 +1,8 @@
 "use client";
 
-import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverAnchor,
@@ -235,16 +234,17 @@ export function GroupTreeCombobox({
       </PopoverAnchor>
 
       <PopoverContent
-        className="w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
+        className="w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
         align="start"
         sideOffset={6}
       >
-        <div className="border-b p-2">
-          <Input
+        <div className="flex items-center gap-2 border-b px-3">
+          <Search className="size-3.5 shrink-0 opacity-50" />
+          <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
-            className="h-8 text-xs"
+            className="flex h-9 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
             onKeyDown={(event) => {
               if (event.key === "Enter" && showCreate) {
                 event.preventDefault();
@@ -256,15 +256,15 @@ export function GroupTreeCombobox({
 
         <ScrollArea className="max-h-72 overflow-x-hidden">
           {groups.length === 0 ? (
-            <div className="px-3 py-6 text-xs text-muted-foreground">
+            <div className="py-6 text-center text-xs text-muted-foreground">
               {emptyMessage}
             </div>
-          ) : rootGroups.length === 0 ? (
-            <div className="px-3 py-6 text-xs text-muted-foreground">
+          ) : rootGroups.length === 0 && !showCreate ? (
+            <div className="py-6 text-center text-xs text-muted-foreground">
               No groups found.
             </div>
           ) : (
-            <div className="min-w-0 p-2">
+            <div className="min-w-0 p-1">
               <div className="flex min-w-0 flex-col gap-0.5 overflow-hidden">
                 {rootGroups.map((group) => renderNode(group, 0))}
               </div>
@@ -272,12 +272,12 @@ export function GroupTreeCombobox({
           )}
 
           {showCreate && (
-            <div className="border-t p-2">
+            <div className="border-t p-1">
               <button
                 type="button"
                 onClick={() => void createGroup()}
                 disabled={creating}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
               >
                 <Plus className="size-3" />
                 {creating ? "Creating..." : `Create "${query.trim()}"`}
@@ -287,7 +287,7 @@ export function GroupTreeCombobox({
         </ScrollArea>
 
         {value.length > 0 && (
-          <div className="border-t p-2">
+          <div className="border-t p-1">
             <Button
               variant="ghost"
               size="sm"

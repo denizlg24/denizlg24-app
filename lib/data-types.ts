@@ -181,6 +181,12 @@ export interface BirthdayParts {
   year?: number | null;
 }
 
+export interface IPersonSocial {
+  platform: string;
+  handle: string;
+  url?: string;
+}
+
 export interface IPerson {
   _id: string;
   name: string;
@@ -189,6 +195,11 @@ export interface IPerson {
   notes: string;
   photos: string[];
   groupIds: string[];
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
+  socials: IPersonSocial[];
   createdAt: string;
   updatedAt: string;
 }

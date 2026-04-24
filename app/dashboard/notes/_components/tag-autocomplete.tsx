@@ -106,7 +106,7 @@ export function TagAutocomplete({
       </PopoverAnchor>
 
       <PopoverContent
-        className="w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
+        className="w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
         align="start"
         sideOffset={6}
       >
@@ -193,7 +193,7 @@ export function TagAutocomplete({
           </CommandList>
         </Command>
         {value.length > 0 && (
-          <div className="border-t p-2">
+          <div className="border-t p-1">
             <Button
               variant="ghost"
               size="sm"

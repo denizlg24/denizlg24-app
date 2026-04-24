@@ -1,12 +1,7 @@
 "use client";
 
 import { open } from "@tauri-apps/plugin-dialog";
-import {
-  CalendarSync,
-  FolderOpen,
-  Loader2,
-  Settings as SettingsIcon,
-} from "lucide-react";
+import { FolderOpen, Loader2, Settings as SettingsIcon } from "lucide-react";
 import {
   type KeyboardEvent,
   useEffect,
@@ -259,50 +254,44 @@ function CalendarSyncSettings({ api }: { api: denizApi | null }) {
     void prefillFromLocale();
   }, [countries, remoteSettings?.holidayCountryCode, selectedCountry]);
 
-  const selectedLabel = useMemo(
-    () =>
-      countries.find((country) => country.countryCode === selectedCountry)
-        ?.name ?? "No country",
-    [countries, selectedCountry],
-  );
-
-  const save = async () => {
+  const commit = async (next: string) => {
     if (!api) return;
+    const previous = selectedCountry;
+    setSelectedCountry(next);
     setSaving(true);
     const result = await api.PATCH<{ settings: ICalendarSettings }>({
       endpoint: "calendar/settings",
       body: {
-        holidayCountryCode: selectedCountry === "none" ? null : selectedCountry,
+        holidayCountryCode: next === "none" ? null : next,
       },
     });
     setSaving(false);
     if ("code" in result) {
       toast.error(result.message);
+      setSelectedCountry(previous);
       return;
     }
     setRemoteSettings(result.settings);
-    toast.success("Calendar sync settings saved");
   };
 
   return (
-    <div className="py-4 w-full">
-      <div className="mb-4 flex items-start gap-2 shrink-0">
-        <CalendarSync className="mt-0.5 size-4 text-muted-foreground" />
-        <div>
-          <Label className="text-sm font-medium shrink-0">Calendar Sync</Label>
-          <p className="text-xs text-muted-foreground">
-            Remote holiday country used by backend calendar generation.
-          </p>
-        </div>
+    <div className="flex items-center justify-between gap-4 py-4">
+      <div className="flex flex-col gap-1 shrink-0">
+        <Label className="text-sm font-medium">Calendar sync</Label>
+        <p className="text-xs text-muted-foreground">
+          Holiday country used by backend calendar generation.
+        </p>
       </div>
-
       {loading ? (
-        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-xs" />
       ) : (
-        <div className="flex flex-wrap items-center gap-2 w-full grow">
-          <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-            <SelectTrigger className="w-full grow">
-              <SelectValue>{selectedLabel}</SelectValue>
+        <div className="flex items-center gap-1.5">
+          {saving && (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          )}
+          <Select value={selectedCountry} onValueChange={commit}>
+            <SelectTrigger className="w-xs">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper" className="max-h-72">
               <SelectItem value="none">No holiday sync</SelectItem>
@@ -316,18 +305,6 @@ function CalendarSyncSettings({ api }: { api: denizApi | null }) {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            className="shrink-0"
-            size="sm"
-            onClick={save}
-            disabled={
-              saving ||
-              selectedCountry === (remoteSettings?.holidayCountryCode ?? "none")
-            }
-          >
-            {saving && <Loader2 className="size-3.5 animate-spin" />}
-            Save
-          </Button>
         </div>
       )}
     </div>
@@ -404,7 +381,7 @@ export default function SettingsPage() {
           </div>
         ))}
 
-        <Separator className="mt-2" />
+        <Separator />
         <CalendarSyncSettings api={api} />
       </div>
     </div>

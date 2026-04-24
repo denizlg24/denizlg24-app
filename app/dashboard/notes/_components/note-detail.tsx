@@ -369,7 +369,7 @@ export function NoteDetail({
                         key={related._id}
                         type="button"
                         onClick={() => onSelectNote(related)}
-                        className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] hover:bg-muted"
+                        className="inline-flex items-center gap-1 rounded-md border bg-muted/20 px-1.5 py-0.5 text-[10px] hover:bg-muted"
                       >
                         {related.favicon ? (
                           <Image

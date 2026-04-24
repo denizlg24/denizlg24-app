@@ -1,18 +1,28 @@
 "use client";
 
 import {
+  AtSign,
   ArrowLeft,
   Calendar as CalendarIcon,
   Check,
   FolderTree,
+  Github,
+  Globe,
+  Home,
   ImagePlus,
+  Instagram,
   Link as LinkIcon,
+  Linkedin,
   Loader2,
+  Mail,
   MapPin,
+  Phone,
   Plus,
   Trash2,
+  Twitter,
   UserRound,
   X,
+  Youtube,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -52,11 +62,76 @@ import type {
   IPerson,
   IPersonEdge,
   IPersonGroup,
+  IPersonSocial,
 } from "@/lib/data-types";
 
 interface RelationDraft {
   personId: string;
   reason?: string;
+}
+
+interface SocialPreset {
+  platform: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  buildUrl?: (handle: string) => string;
+}
+
+const SOCIAL_PRESETS: SocialPreset[] = [
+  {
+    platform: "github",
+    label: "GitHub",
+    icon: Github,
+    buildUrl: (h) => `https://github.com/${h.replace(/^@/, "")}`,
+  },
+  {
+    platform: "linkedin",
+    label: "LinkedIn",
+    icon: Linkedin,
+    buildUrl: (h) => `https://linkedin.com/in/${h.replace(/^@/, "")}`,
+  },
+  {
+    platform: "twitter",
+    label: "X / Twitter",
+    icon: Twitter,
+    buildUrl: (h) => `https://x.com/${h.replace(/^@/, "")}`,
+  },
+  {
+    platform: "instagram",
+    label: "Instagram",
+    icon: Instagram,
+    buildUrl: (h) => `https://instagram.com/${h.replace(/^@/, "")}`,
+  },
+  {
+    platform: "youtube",
+    label: "YouTube",
+    icon: Youtube,
+    buildUrl: (h) =>
+      h.startsWith("@") ? `https://youtube.com/${h}` : `https://youtube.com/@${h}`,
+  },
+  {
+    platform: "mastodon",
+    label: "Mastodon",
+    icon: AtSign,
+  },
+];
+
+function socialPresetFor(platform: string): SocialPreset | undefined {
+  return SOCIAL_PRESETS.find(
+    (preset) => preset.platform === platform.toLowerCase(),
+  );
+}
+
+function socialIcon(platform: string) {
+  const preset = socialPresetFor(platform);
+  return preset?.icon ?? Globe;
+}
+
+function socialUrl(social: IPersonSocial) {
+  if (social.url) return social.url;
+  const preset = socialPresetFor(social.platform);
+  if (preset?.buildUrl) return preset.buildUrl(social.handle);
+  return undefined;
 }
 
 interface Props {
@@ -176,6 +251,13 @@ export function PersonDetail({
   const [relations, setRelations] = useState<RelationDraft[]>(
     relationsFor(person._id, edges),
   );
+  const [email, setEmail] = useState(person.email ?? "");
+  const [phone, setPhone] = useState(person.phone ?? "");
+  const [website, setWebsite] = useState(person.website ?? "");
+  const [address, setAddress] = useState(person.address ?? "");
+  const [socials, setSocials] = useState<IPersonSocial[]>(
+    person.socials ?? [],
+  );
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -186,6 +268,11 @@ export function PersonDetail({
     setPhotos(person.photos);
     setGroupIds(person.groupIds);
     setRelations(relationsFor(person._id, edges));
+    setEmail(person.email ?? "");
+    setPhone(person.phone ?? "");
+    setWebsite(person.website ?? "");
+    setAddress(person.address ?? "");
+    setSocials(person.socials ?? []);
   }, [edges, person]);
 
   const relationOptions = useMemo(
@@ -212,6 +299,66 @@ export function PersonDetail({
       ].sort((left, right) => left.localeCompare(right)),
     [people],
   );
+
+  const isDirty = useMemo(() => {
+    if (isDraft) return true;
+    if (name !== person.name) return true;
+    if (birthdayText !== formatBirthdayText(person.birthday)) return true;
+    if (placeMet !== (person.placeMet ?? "")) return true;
+    if (notes !== person.notes) return true;
+    if (email !== (person.email ?? "")) return true;
+    if (phone !== (person.phone ?? "")) return true;
+    if (website !== (person.website ?? "")) return true;
+    if (address !== (person.address ?? "")) return true;
+    if (photos.length !== person.photos.length) return true;
+    if (photos.some((url, i) => url !== person.photos[i])) return true;
+    if (groupIds.length !== person.groupIds.length) return true;
+    if (groupIds.some((id) => !person.groupIds.includes(id))) return true;
+    const originalSocials = person.socials ?? [];
+    if (socials.length !== originalSocials.length) return true;
+    if (
+      socials.some((social, i) => {
+        const original = originalSocials[i];
+        return (
+          !original ||
+          social.platform !== original.platform ||
+          social.handle !== original.handle ||
+          (social.url ?? "") !== (original.url ?? "")
+        );
+      })
+    )
+      return true;
+    const originalRelations = relationsFor(person._id, edges);
+    if (relations.length !== originalRelations.length) return true;
+    const relationMap = new Map(
+      originalRelations.map((relation) => [relation.personId, relation.reason ?? ""]),
+    );
+    if (
+      relations.some(
+        (relation) =>
+          !relationMap.has(relation.personId) ||
+          relationMap.get(relation.personId) !== (relation.reason ?? ""),
+      )
+    )
+      return true;
+    return false;
+  }, [
+    isDraft,
+    name,
+    birthdayText,
+    placeMet,
+    notes,
+    email,
+    phone,
+    website,
+    address,
+    photos,
+    groupIds,
+    socials,
+    relations,
+    person,
+    edges,
+  ]);
 
   const editorNote = useMemo<INote>(() => {
     const now = new Date().toISOString();
@@ -261,6 +408,17 @@ export function PersonDetail({
       notes: content,
       photos,
       groupIds,
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      website: website.trim() || undefined,
+      address: address.trim() || undefined,
+      socials: socials
+        .filter((social) => social.platform.trim() && social.handle.trim())
+        .map((social) => ({
+          platform: social.platform.trim().toLowerCase(),
+          handle: social.handle.trim(),
+          url: social.url?.trim() || undefined,
+        })),
       relations: relations.map((relation) => ({
         ...relation,
         reason: relation.reason?.trim() || undefined,
@@ -293,18 +451,6 @@ export function PersonDetail({
         </div>
 
         <div className="flex items-center gap-2">
-          {!isDraft && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7"
-              disabled={saving}
-              onClick={() => void save()}
-            >
-              {saving && <Loader2 className="size-3.5 animate-spin" />}
-              Save
-            </Button>
-          )}
           {onDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -341,40 +487,53 @@ export function PersonDetail({
 
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full px-6 py-6">
-          <div className="flex items-end gap-4">
-            {photos[0] && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="group relative size-24 shrink-0 overflow-hidden rounded-full border bg-muted"
-                title="Change profile picture"
-              >
-                <Image
-                  src={photos[0]}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-                <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  Change
+          <div className="flex items-start gap-5">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative size-24 shrink-0 overflow-hidden rounded-full border bg-muted"
+              title={
+                photos[0] ? "Change profile picture" : "Add profile picture"
+              }
+            >
+              {photos[0] ? (
+                <>
+                  <Image
+                    src={photos[0]}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    Change
+                  </span>
+                </>
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                  <ImagePlus className="size-6" />
                 </span>
-              </button>
-            )}
-            <Input
-              autoFocus={isDraft}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="h-auto! border-none bg-transparent px-0 py-1 text-2xl font-semibold shadow-none focus-visible:ring-0"
-              placeholder="Untitled person"
-            />
+              )}
+            </button>
+            <div className="min-w-0 flex-1">
+              <Input
+                autoFocus={isDraft}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="h-auto! border-none bg-transparent px-0 py-1 text-2xl font-semibold shadow-none focus-visible:ring-0"
+                placeholder="Untitled person"
+              />
+              <ContactIconBar
+                email={email}
+                phone={phone}
+                website={website}
+                socials={socials}
+              />
+            </div>
           </div>
 
-          <div className="mt-6">
-            <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Properties
-            </h2>
-            <div className="divide-y border-y text-xs">
+          <div className="mt-8 flex flex-col gap-6">
+            <PropertySection label="Identity">
               <PropertyRow
                 icon={<UserRound className="size-3" />}
                 label="photo"
@@ -447,7 +606,65 @@ export function PersonDetail({
                   onChange={setPlaceMet}
                 />
               </PropertyRow>
+            </PropertySection>
 
+            <PropertySection label="Contact">
+              <PropertyRow
+                icon={<Mail className="size-3" />}
+                label="email"
+              >
+                <TextProperty
+                  value={email}
+                  onChange={setEmail}
+                  placeholder="name@example.com"
+                  type="email"
+                />
+              </PropertyRow>
+
+              <PropertyRow
+                icon={<Phone className="size-3" />}
+                label="phone"
+              >
+                <TextProperty
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder="+351 ..."
+                  type="tel"
+                />
+              </PropertyRow>
+
+              <PropertyRow
+                icon={<Globe className="size-3" />}
+                label="website"
+              >
+                <TextProperty
+                  value={website}
+                  onChange={setWebsite}
+                  placeholder="https://..."
+                  type="url"
+                />
+              </PropertyRow>
+
+              <PropertyRow
+                icon={<Home className="size-3" />}
+                label="address"
+              >
+                <TextProperty
+                  value={address}
+                  onChange={setAddress}
+                  placeholder="City, country"
+                />
+              </PropertyRow>
+
+              <PropertyRow
+                icon={<AtSign className="size-3" />}
+                label="socials"
+              >
+                <SocialsProperty value={socials} onChange={setSocials} />
+              </PropertyRow>
+            </PropertySection>
+
+            <PropertySection label="Connections">
               <PropertyRow
                 icon={<FolderTree className="size-3" />}
                 label="groups"
@@ -462,31 +679,20 @@ export function PersonDetail({
                 />
               </PropertyRow>
 
-              {!isDraft && (
-                <PropertyRow
-                  icon={<CalendarIcon className="size-3" />}
-                  label="created_on"
-                >
-                  <span className="text-muted-foreground">
-                    {formatDate(person.createdAt)}
-                  </span>
-                </PropertyRow>
-              )}
-
               <PropertyRow
                 icon={<LinkIcon className="size-3" />}
                 label="relations"
               >
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1">
                   {relations.length === 0 && (
                     <span className="text-[10px] text-muted-foreground">
-                      No relations yet
+                      None
                     </span>
                   )}
                   {relations.map((relation) => (
                     <span
                       key={relation.personId}
-                      className="group inline-flex items-center gap-1 rounded-full border bg-muted/20 px-2 py-1 text-[10px]"
+                      className="group inline-flex items-center gap-1 rounded-md border bg-muted/20 px-1.5 py-0.5 text-[10px]"
                     >
                       <span className="font-medium">
                         {peopleById.get(relation.personId)?.name ?? "Unknown"}
@@ -533,7 +739,20 @@ export function PersonDetail({
                   />
                 </div>
               </PropertyRow>
-            </div>
+            </PropertySection>
+
+            {!isDraft && (
+              <PropertySection label="Meta">
+                <PropertyRow
+                  icon={<CalendarIcon className="size-3" />}
+                  label="created_on"
+                >
+                  <span className="text-muted-foreground">
+                    {formatDate(person.createdAt)}
+                  </span>
+                </PropertyRow>
+              </PropertySection>
+            )}
           </div>
 
           <div className="mt-8 flex min-h-[60vh] flex-col">
@@ -543,7 +762,7 @@ export function PersonDetail({
               onContentChange={setNotes}
               onSaveContent={save}
               saveLabel={isDraft ? "Create person" : "Save"}
-              saveDisabled={saving || name.trim().length === 0}
+              saveDisabled={saving || name.trim().length === 0 || !isDirty}
               disableAiEnhance
               startInEditMode={isDraft}
               autoFocusEditor={isDraft}
@@ -571,6 +790,240 @@ function PropertyRow({
         <span className="font-mono text-[11px]">{label}</span>
       </div>
       <div className="min-w-0 text-xs">{children}</div>
+    </div>
+  );
+}
+
+function PropertySection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        {label}
+      </h3>
+      <div className="divide-y border-y text-xs">{children}</div>
+    </section>
+  );
+}
+
+function TextProperty({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string;
+  type?: "text" | "email" | "tel" | "url";
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      className="h-5 w-full border-none bg-transparent px-1 text-xs outline-none placeholder:text-muted-foreground/60"
+    />
+  );
+}
+
+function ContactIconBar({
+  email,
+  phone,
+  website,
+  socials,
+}: {
+  email: string;
+  phone: string;
+  website: string;
+  socials: IPersonSocial[];
+}) {
+  const items: Array<{
+    key: string;
+    icon: React.ComponentType<{ className?: string }>;
+    href?: string;
+    title: string;
+  }> = [];
+  if (email.trim())
+    items.push({ key: "email", icon: Mail, href: `mailto:${email}`, title: email });
+  if (phone.trim())
+    items.push({ key: "phone", icon: Phone, href: `tel:${phone}`, title: phone });
+  if (website.trim())
+    items.push({
+      key: "website",
+      icon: Globe,
+      href: website.startsWith("http") ? website : `https://${website}`,
+      title: website,
+    });
+  for (const social of socials) {
+    if (!social.handle.trim()) continue;
+    items.push({
+      key: `social:${social.platform}:${social.handle}`,
+      icon: socialIcon(social.platform),
+      href: socialUrl(social),
+      title: `${social.platform}: ${social.handle}`,
+    });
+  }
+
+  if (items.length === 0) {
+    return (
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Add contact details below.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const content = (
+          <span
+            className="inline-flex size-7 items-center justify-center rounded-full border text-muted-foreground hover:border-foreground hover:text-foreground"
+            title={item.title}
+          >
+            <Icon className="size-3.5" />
+          </span>
+        );
+        return item.href ? (
+          <a
+            key={item.key}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {content}
+          </a>
+        ) : (
+          <span key={item.key}>{content}</span>
+        );
+      })}
+    </div>
+  );
+}
+
+function SocialsProperty({
+  value,
+  onChange,
+}: {
+  value: IPersonSocial[];
+  onChange: (next: IPersonSocial[]) => void;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [customPlatform, setCustomPlatform] = useState("");
+
+  const addSocial = (platform: string) => {
+    if (!platform.trim()) return;
+    onChange([
+      ...value,
+      { platform: platform.trim().toLowerCase(), handle: "" },
+    ]);
+    setPickerOpen(false);
+    setCustomPlatform("");
+  };
+
+  const updateSocial = (index: number, patch: Partial<IPersonSocial>) => {
+    onChange(value.map((social, i) => (i === index ? { ...social, ...patch } : social)));
+  };
+
+  const removeSocial = (index: number) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {value.map((social, index) => {
+        const Icon = socialIcon(social.platform);
+        return (
+          <span
+            key={`${social.platform}-${index}`}
+            className="group inline-flex items-center gap-1 rounded-md border bg-muted/20 px-1.5 py-0.5 text-[10px]"
+          >
+            <Icon className="size-3 text-muted-foreground" />
+            <Input
+              value={social.handle}
+              onChange={(event) =>
+                updateSocial(index, { handle: event.target.value })
+              }
+              placeholder={
+                socialPresetFor(social.platform)?.label ?? social.platform
+              }
+              className="h-4 w-28 border-none bg-transparent px-1 text-[10px] shadow-none focus-visible:ring-0"
+            />
+            <button
+              type="button"
+              onClick={() => removeSocial(index)}
+              className="text-muted-foreground opacity-60 hover:opacity-100"
+              aria-label="Remove social"
+            >
+              <X className="size-2.5" />
+            </button>
+          </span>
+        );
+      })}
+
+      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-dashed px-1.5 text-[10px] text-muted-foreground hover:border-solid hover:text-foreground"
+          >
+            <Plus className="size-2.5" />
+            add
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-56 p-1"
+          align="start"
+          sideOffset={6}
+        >
+          <div className="flex flex-col">
+            {SOCIAL_PRESETS.map((preset) => {
+              const Icon = preset.icon;
+              return (
+                <button
+                  key={preset.platform}
+                  type="button"
+                  onClick={() => addSocial(preset.platform)}
+                  className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Icon className="size-3.5 text-muted-foreground" />
+                  {preset.label}
+                </button>
+              );
+            })}
+            <div className="mt-1 flex items-center gap-1 border-t pt-1">
+              <Input
+                value={customPlatform}
+                onChange={(event) => setCustomPlatform(event.target.value)}
+                placeholder="custom"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && customPlatform.trim()) {
+                    event.preventDefault();
+                    addSocial(customPlatform);
+                  }
+                }}
+                className="h-7 text-xs"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 shrink-0 px-2"
+                onClick={() => addSocial(customPlatform)}
+                disabled={!customPlatform.trim()}
+              >
+                <Plus className="size-3" />
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -734,13 +1187,17 @@ function RelationPicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[10px] text-muted-foreground hover:border-solid hover:text-foreground"
+          className="inline-flex h-5 shrink-0 items-center gap-1 rounded border border-dashed px-1.5 text-[10px] text-muted-foreground hover:border-solid hover:text-foreground"
         >
           <Plus className="size-2.5" />
           related person
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
+      <PopoverContent
+        className="w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden p-0"
+        align="start"
+        sideOffset={6}
+      >
         <Command>
           <CommandInput placeholder="Find person…" />
           <CommandList>
