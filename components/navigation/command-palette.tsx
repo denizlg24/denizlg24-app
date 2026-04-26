@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { HomeIcon, SearchIcon } from "lucide-react";
 import { Command as CommandPrimitive } from "cmdk";
+import { HomeIcon, SearchIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Dialog as DialogPrimitive } from "radix-ui";
+import { useEffect, useRef, useState } from "react";
+import {
+  DASHBOARD_PREFIX,
+  GROUPS,
+  type NavGroup,
+} from "@/components/navigation/navigation-menu";
 import {
   Command,
   CommandEmpty,
@@ -12,11 +17,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  GROUPS,
-  DASHBOARD_PREFIX,
-  type NavGroup,
-} from "@/components/navigation/navigation-menu";
 
 type CommandEntry = {
   label: string;

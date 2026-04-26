@@ -1,15 +1,15 @@
 "use client";
 
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import {
   type ColumnDef,
-  type SortingState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
 import {
   ArrowDown,
   ArrowUp,
@@ -208,7 +208,10 @@ export default function SpreadsheetsPage() {
         title: createTitle.trim(),
         description: createDescription.trim() || undefined,
         tags: createTags
-          ? createTags.split(",").map((t) => t.trim()).filter(Boolean)
+          ? createTags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
       },
     });
@@ -257,7 +260,9 @@ export default function SpreadsheetsPage() {
       }
       toast.success("Spreadsheet imported");
       await fetchSheets();
-      router.push(`/dashboard/spreadsheets/editor?id=${result.spreadsheet._id}`);
+      router.push(
+        `/dashboard/spreadsheets/editor?id=${result.spreadsheet._id}`,
+      );
     } catch (err) {
       setImporting(false);
       toast.error((err as Error).message ?? "Import failed");
@@ -400,7 +405,7 @@ export default function SpreadsheetsPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [api],
+    [handleExport],
   );
 
   const [sorting, setSorting] = useState<SortingState>([
@@ -512,7 +517,10 @@ export default function SpreadsheetsPage() {
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="text-xs">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -591,7 +599,11 @@ export default function SpreadsheetsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCreateOpen(false)}
+            >
               Cancel
             </Button>
             <Button

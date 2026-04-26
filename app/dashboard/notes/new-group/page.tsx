@@ -34,13 +34,17 @@ export default function NewGroupPage() {
   useEffect(() => {
     if (!api) return;
 
-    api.GET<{ groups: INoteGroup[] }>({ endpoint: "note-groups" }).then((result) => {
-      if ("code" in result) return;
+    api
+      .GET<{ groups: INoteGroup[] }>({ endpoint: "note-groups" })
+      .then((result) => {
+        if ("code" in result) return;
 
-      setGroups(
-        [...result.groups].sort((left, right) => left.name.localeCompare(right.name)),
-      );
-    });
+        setGroups(
+          [...result.groups].sort((left, right) =>
+            left.name.localeCompare(right.name),
+          ),
+        );
+      });
   }, [api]);
 
   const submit = async () => {
@@ -90,7 +94,12 @@ export default function NewGroupPage() {
           <h1 className="text-sm font-medium">New group</h1>
         </div>
 
-        <Button size="sm" className="h-7" onClick={submit} disabled={submitting}>
+        <Button
+          size="sm"
+          className="h-7"
+          onClick={submit}
+          disabled={submitting}
+        >
           {submitting && <Loader2 className="size-3.5 animate-spin" />}
           Create
         </Button>

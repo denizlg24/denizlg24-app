@@ -54,7 +54,6 @@ export const TodoListTemplate = ({
                   setEditingTitle(false);
                 }
               }}
-              autoFocus
             />
           ) : (
             <p
@@ -122,7 +121,7 @@ export const TodoListTemplate = ({
             setNewTaskInput(e.target.value);
           }}
           onKeyDown={(e) => {
-            if (e.key == "Enter") {
+            if (e.key === "Enter") {
               const newItem: TodoItem = {
                 id: Date.now().toString(),
                 text: newTaskInput,

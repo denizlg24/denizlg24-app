@@ -77,11 +77,7 @@ function formatTime(totalSeconds: number) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function syncBackgroundTask(
-  mode: TimerMode,
-  seconds: number,
-  active: boolean,
-) {
+function syncBackgroundTask(mode: TimerMode, seconds: number, active: boolean) {
   const bg = useBackgroundTasksStore.getState();
   if (active || bg.tasks.pomodoro) {
     const task = {

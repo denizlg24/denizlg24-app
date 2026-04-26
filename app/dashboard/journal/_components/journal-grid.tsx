@@ -54,9 +54,7 @@ export function JournalGrid({
       (j) => format(new Date(j.date), "yyyy-MM-dd") === key,
     );
     if (!journal) return false;
-    return (
-      journal.content.trim().length > 0
-    );
+    return journal.content.trim().length > 0;
   };
 
   const isCurrentMonth = (date: Date) =>

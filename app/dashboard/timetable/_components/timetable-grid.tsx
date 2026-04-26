@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import type { ITimetableEntry, TimetableColor } from "@/lib/data-types";
+import { cn } from "@/lib/utils";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -171,10 +171,13 @@ export function TimetableGrid({ entries, onEntryClick }: TimetableGridProps) {
             className="relative border-r last:border-r-0"
             style={{ height: hours.length * hourHeight }}
           >
-            {hours.map((hour,index) => (
+            {hours.map((hour, index) => (
               <div
                 key={hour}
-                className={cn("absolute w-full border-b pointer-events-none", index === hours.length - 1 && "border-b-0")}
+                className={cn(
+                  "absolute w-full border-b pointer-events-none",
+                  index === hours.length - 1 && "border-b-0",
+                )}
                 style={{
                   top: (hour - minHour) * hourHeight,
                   height: hourHeight,

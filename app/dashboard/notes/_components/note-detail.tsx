@@ -126,7 +126,7 @@ export function NoteDetail({
   useEffect(() => {
     setTitle(note.title);
     setInitialTitle(note.title);
-  }, [note._id, note.title]);
+  }, [note.title]);
 
   const saveTitle = useCallback(
     async (nextTitle: string) => {
@@ -195,8 +195,8 @@ export function NoteDetail({
             {isDraft
               ? "Paste a link to import it, or write a note and create it"
               : note.url
-              ? note.siteName || safeHostname(note.url)
-              : "Markdown note"}
+                ? note.siteName || safeHostname(note.url)
+                : "Markdown note"}
           </span>
         </div>
         {!isDraft && (
@@ -309,20 +309,14 @@ export function NoteDetail({
                 </PropertyRow>
               )}
 
-              <PropertyRow
-                icon={<Shapes className="size-3" />}
-                label="class"
-              >
+              <PropertyRow icon={<Shapes className="size-3" />} label="class">
                 <ClassProperty
                   value={note.class || ""}
                   onCommit={(next) => void onPatch({ class: next })}
                 />
               </PropertyRow>
 
-              <PropertyRow
-                icon={<TagIcon className="size-3" />}
-                label="tags"
-              >
+              <PropertyRow icon={<TagIcon className="size-3" />} label="tags">
                 <TagAutocomplete
                   value={note.tags}
                   suggestions={suggestions}
@@ -342,7 +336,10 @@ export function NoteDetail({
                 />
               </PropertyRow>
 
-              <PropertyRow icon={<FolderTree className="size-3" />} label="groups">
+              <PropertyRow
+                icon={<FolderTree className="size-3" />}
+                label="groups"
+              >
                 <GroupTreeCombobox
                   groups={groups}
                   value={note.groupIds}
@@ -403,7 +400,10 @@ export function NoteDetail({
                 </PropertyRow>
               )}
 
-              <PropertyRow icon={<FileText className="size-3" />} label="status">
+              <PropertyRow
+                icon={<FileText className="size-3" />}
+                label="status"
+              >
                 <Select
                   value={note.status}
                   onValueChange={(value) =>
@@ -421,7 +421,10 @@ export function NoteDetail({
               </PropertyRow>
 
               {noteGroups.length > 0 && (
-                <PropertyRow icon={<FileText className="size-3" />} label="summary">
+                <PropertyRow
+                  icon={<FileText className="size-3" />}
+                  label="summary"
+                >
                   <div className="flex flex-wrap gap-1">
                     {noteGroups.map((group) => (
                       <Badge

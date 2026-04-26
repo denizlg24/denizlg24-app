@@ -2,13 +2,13 @@
 
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { cn } from "@/lib/utils";
 import { StyledLink } from "@/components/ui/styled-link";
+import { cn } from "@/lib/utils";
 import { Checkbox } from "../ui/checkbox";
 
 const staticComponents = {
@@ -165,6 +165,15 @@ const staticComponents = {
   ),
 
   em: ({ node, ...props }: any) => <em className="italic" {...props} />,
+
+  parameter: ({ node, children, ...props }: any) => (
+    <code
+      className="bg-muted/50 text-foreground px-[6px] py-[3px] rounded-[3px] text-[14px] sm:text-[15px] md:text-[15px] font-mono border border-border/40"
+      {...props}
+    >
+      {children}
+    </code>
+  ),
 };
 
 interface MarkdownRendererProps {
@@ -212,12 +221,7 @@ export function MarkdownRenderer({
     input: ({ node, type, checked, ...props }: any) => {
       if (type !== "checkbox") return <input type={type} {...props} />;
 
-      return (
-        <Checkbox
-          checked={!!checked}
-          className="mt-0.5 shrink-0"
-        />
-      );
+      return <Checkbox checked={!!checked} className="mt-0.5 shrink-0" />;
     },
   };
 

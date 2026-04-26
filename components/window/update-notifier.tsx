@@ -1,12 +1,12 @@
 "use client";
 
+import { ArrowDownToLine, X } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowDownToLine, X } from "lucide-react";
-import { fetchLatestRelease, isNewerVersion } from "@/lib/update-checker";
+import { Card, CardContent } from "@/components/ui/card";
 import type { GitHubRelease } from "@/lib/update-checker";
+import { fetchLatestRelease, isNewerVersion } from "@/lib/update-checker";
 
 function UpdateToastContent({
   release,

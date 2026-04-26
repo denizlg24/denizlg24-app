@@ -118,10 +118,26 @@ export function ContactDetailSheet({
     toast.success(`${label} copied`);
   };
 
-  const allActions: { status: ContactStatus; label: string; icon: React.ReactNode }[] = [
-    { status: "read" as const, label: "Mark as Read", icon: <BookOpen className="size-3.5" /> },
-    { status: "responded" as const, label: "Mark as Responded", icon: <MessageSquare className="size-3.5" /> },
-    { status: "archived" as const, label: "Archive", icon: <Archive className="size-3.5" /> },
+  const allActions: {
+    status: ContactStatus;
+    label: string;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      status: "read" as const,
+      label: "Mark as Read",
+      icon: <BookOpen className="size-3.5" />,
+    },
+    {
+      status: "responded" as const,
+      label: "Mark as Responded",
+      icon: <MessageSquare className="size-3.5" />,
+    },
+    {
+      status: "archived" as const,
+      label: "Archive",
+      icon: <Archive className="size-3.5" />,
+    },
   ];
   const statusActions = allActions.filter((a) => a.status !== contact.status);
 
@@ -131,9 +147,7 @@ export function ContactDetailSheet({
         <SheetContent className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <div className="flex items-center gap-2">
-              <SheetTitle className="text-sm">
-                {contact.ticketId}
-              </SheetTitle>
+              <SheetTitle className="text-sm">{contact.ticketId}</SheetTitle>
               <Badge variant={statusConfig.variant} className="text-[10px]">
                 {statusConfig.label}
               </Badge>

@@ -17,7 +17,6 @@ export function useWhiteboardHistory(initialElements: IWhiteboardElement[]) {
   const canUndo = undoStack.current.length > 0;
   const canRedo = redoStack.current.length > 0;
 
- 
   const pushAction = useCallback((entry: HistoryEntry) => {
     undoStack.current.push(entry);
     if (undoStack.current.length > MAX_HISTORY) {
@@ -61,7 +60,6 @@ export function useWhiteboardHistory(initialElements: IWhiteboardElement[]) {
     [pushAction],
   );
 
- 
   const replaceAll = useCallback((els: IWhiteboardElement[]) => {
     setElements(els);
     undoStack.current = [];

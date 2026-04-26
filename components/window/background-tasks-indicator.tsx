@@ -1,7 +1,7 @@
 "use client";
 
-import { useBackgroundTasksStore } from "@/stores/background-tasks";
 import { useRouter } from "next/navigation";
+import { useBackgroundTasksStore } from "@/stores/background-tasks";
 
 export function BackgroundTasksIndicator() {
   const tasks = useBackgroundTasksStore((s) => s.tasks);

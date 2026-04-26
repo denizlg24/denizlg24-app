@@ -108,7 +108,13 @@ export function EmailList({
       fetchEmails(1, "", false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, refreshTrigger]);
+  }, [
+    accountId,
+    refreshTrigger,
+    emailListCache.current.get,
+    emailListCache.current.has,
+    fetchEmails,
+  ]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -116,7 +122,7 @@ export function EmailList({
     }, REFETCH_INTERVAL);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSearch, accountId, api]);
+  }, [activeSearch, fetchEmails]);
 
   const handleLoadMore = () => {
     setLoadingMore(true);

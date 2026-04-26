@@ -582,7 +582,7 @@ export function useWhiteboardCanvas(
   );
 
   const onPointerMove = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>, tool: WhiteboardTool) => {
+    (e: React.PointerEvent<SVGSVGElement>, _tool: WhiteboardTool) => {
       const wp = toWorld(e);
       lastWorldPos.current = wp;
 
@@ -1042,7 +1042,7 @@ export function useWhiteboardCanvas(
       preferY: number,
     ): { x: number; y: number } => {
       const PADDING = 20;
-      const candidate = { x: preferX, y: preferY, w: targetW, h: targetH };
+      const _candidate = { x: preferX, y: preferY, w: targetW, h: targetH };
 
       const existingBounds = elements.map((el) => getElementBounds(el));
 

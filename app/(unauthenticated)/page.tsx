@@ -7,7 +7,7 @@ export default function UnauthenticatedPage() {
       <p className="text-center text-muted-foreground">
         Please enter your API key in the settings to get started.
       </p>
-      <ApiKeyInput/>
+      <ApiKeyInput />
     </div>
   );
 }

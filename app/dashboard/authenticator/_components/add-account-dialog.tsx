@@ -77,7 +77,9 @@ export function AddAccountDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Account" : "Add Account"}</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Edit Account" : "Add Account"}
+          </DialogTitle>
           <DialogDescription>
             {isEditing
               ? "Update the account details."
@@ -123,7 +125,9 @@ export function AddAccountDialog({
                 id="secret"
                 placeholder="JBSWY3DPEHPK3PXP"
                 value={secret}
-                onChange={(e) => setSecret(e.target.value.toUpperCase().replace(/\s/g, ""))}
+                onChange={(e) =>
+                  setSecret(e.target.value.toUpperCase().replace(/\s/g, ""))
+                }
                 className="font-mono tracking-wider overflow-hidden text-ellipsis"
               />
             </div>

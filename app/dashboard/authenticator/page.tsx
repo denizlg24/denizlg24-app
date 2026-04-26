@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Download,
-  KeyRound,
-  Loader2,
-  Plus,
-  Search,
-} from "lucide-react";
+import { Download, KeyRound, Loader2, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -125,7 +119,11 @@ export default function AuthenticatorPage() {
       account: IAuthenticatorAccount;
     }>({
       endpoint: `authenticator/${editingAccount._id}`,
-      body: { label: data.label, issuer: data.issuer, accountName: data.accountName },
+      body: {
+        label: data.label,
+        issuer: data.issuer,
+        accountName: data.accountName,
+      },
     });
     if ("code" in result) {
       toast.error("Failed to update account");

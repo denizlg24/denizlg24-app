@@ -227,10 +227,7 @@ function ScheduleTasksSwitcher({
                 {board.boardTitle}
               </span>
               {board.cards.slice(0, 3).map((card) => (
-                <div
-                  key={card._id}
-                  className="flex items-center gap-3 py-0.5"
-                >
+                <div key={card._id} className="flex items-center gap-3 py-0.5">
                   <span
                     className={`text-xs font-mono w-14 shrink-0 tabular-nums ${
                       card.overdue
@@ -345,10 +342,7 @@ export function DashboardSummary() {
         <StatNumber value={stats.triage.actionRequired} label="Action Req" />
       </div>
 
-      <ScheduleTasksSwitcher
-        agendaItems={agendaItems}
-        upcoming={upcoming}
-      />
+      <ScheduleTasksSwitcher agendaItems={agendaItems} upcoming={upcoming} />
 
       <div className="flex flex-col items-center gap-4">
         {stats.resources.length > 0 && (

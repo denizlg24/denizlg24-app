@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  ArrowUp,
+  FileText,
+  Image,
+  Loader2,
+  Paperclip,
+  Settings,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/ui/model-selector";
 import {
   Popover,
@@ -7,12 +18,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ArrowUp, FileText, Image, Loader2, Paperclip, Settings, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { IChatAttachment } from "@/lib/data-types";
 
-const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,application/pdf";
+const ACCEPTED_TYPES =
+  "image/jpeg,image/png,image/gif,image/webp,application/pdf";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 function fileToAttachment(file: File): IChatAttachment | null {
@@ -100,13 +109,16 @@ export function ChatInput({
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    const singleLineHeight = parseFloat(getComputedStyle(ta).lineHeight) + parseFloat(getComputedStyle(ta).paddingTop) + parseFloat(getComputedStyle(ta).paddingBottom);
+    const singleLineHeight =
+      parseFloat(getComputedStyle(ta).lineHeight) +
+      parseFloat(getComputedStyle(ta).paddingTop) +
+      parseFloat(getComputedStyle(ta).paddingBottom);
     const clamped = Math.min(ta.scrollHeight, docked ? 120 : 200);
     ta.style.height = `${clamped}px`;
     setMultiLine(ta.scrollHeight > singleLineHeight + 2);
   }, [docked]);
 
-  useEffect(resize, [value, resize]);
+  useEffect(resize, []);
 
   useEffect(() => {
     if (!docked) textareaRef.current?.focus();
@@ -162,7 +174,9 @@ export function ChatInput({
 
   return (
     <div
-      className={docked ? "w-full max-w-3xl mx-auto px-4 pb-4" : "w-full max-w-2xl"}
+      className={
+        docked ? "w-full max-w-3xl mx-auto px-4 pb-4" : "w-full max-w-2xl"
+      }
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -175,10 +189,12 @@ export function ChatInput({
         onChange={handleFileChange}
         className="hidden"
       />
-      <div className={`relative border bg-popover shadow-lg flex flex-col ${hasAttachments || multiLine ? "rounded-2xl" : "rounded-full"} ${dragging ? "ring-2 ring-foreground/20" : ""}`}>
+      <div
+        className={`relative border bg-popover shadow-lg flex flex-col ${hasAttachments || multiLine ? "rounded-2xl" : "rounded-full"} ${dragging ? "ring-2 ring-foreground/20" : ""}`}
+      >
         {hasAttachments && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-            {attachments!.map((att) => (
+            {attachments?.map((att) => (
               <div
                 key={att.id}
                 className="group relative flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 max-w-36"
@@ -192,7 +208,9 @@ export function ChatInput({
                 ) : (
                   <FileText className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
                 )}
-                <span className="text-xs text-muted-foreground truncate">{att.name}</span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {att.name}
+                </span>
                 <button
                   onClick={() => removeAttachment(att.id)}
                   className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-foreground text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -215,7 +233,10 @@ export function ChatInput({
                 <ModelSelector model={model} onModelChange={onModelChange} />
                 {onToolsEnabledChange && (
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="tools-toggle" className="text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="tools-toggle"
+                      className="text-sm text-muted-foreground"
+                    >
                       Tools
                     </Label>
                     <Switch
@@ -227,7 +248,10 @@ export function ChatInput({
                 )}
                 {onWebSearchEnabledChange && (
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="web-search-toggle" className="text-sm text-muted-foreground">
+                    <Label
+                      htmlFor="web-search-toggle"
+                      className="text-sm text-muted-foreground"
+                    >
                       Web search
                     </Label>
                     <Switch

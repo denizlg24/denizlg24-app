@@ -131,9 +131,7 @@ export function FindReplaceBar({
 
   useEffect(() => {
     const clampedIndex =
-      matches.length > 0
-        ? Math.min(currentIndex, matches.length - 1)
-        : 0;
+      matches.length > 0 ? Math.min(currentIndex, matches.length - 1) : 0;
     onMatchesChange?.(matches, clampedIndex);
   }, [matches, currentIndex, onMatchesChange]);
 
@@ -147,7 +145,8 @@ export function FindReplaceBar({
       textarea.blur();
       findInputRef.current?.focus();
 
-      const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
+      const lineHeight =
+        parseInt(getComputedStyle(textarea).lineHeight, 10) || 20;
       const textBefore = content.slice(0, match.start);
       const lineNumber = textBefore.split("\n").length;
       const scrollTarget = (lineNumber - 3) * lineHeight;
@@ -186,8 +185,7 @@ export function FindReplaceBar({
         const re = new RegExp(query, caseSensitive ? "" : "i");
         const matched = content.slice(match.start, match.end);
         replaceWith = matched.replace(re, replacement);
-      } catch {
-      }
+      } catch {}
     }
 
     const newContent =
@@ -361,7 +359,9 @@ export function FindReplaceBar({
                 <ArrowUp />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Previous (Shift+Enter)</TooltipContent>
+            <TooltipContent side="bottom">
+              Previous (Shift+Enter)
+            </TooltipContent>
           </Tooltip>
 
           <Tooltip>

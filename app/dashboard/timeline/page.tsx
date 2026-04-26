@@ -70,7 +70,10 @@ const CATEGORY_LABELS: Record<ITimelineItem["category"], string> = {
   personal: "Personal",
 };
 
-const CATEGORY_VARIANTS: Record<ITimelineItem["category"], "default" | "secondary" | "outline"> = {
+const CATEGORY_VARIANTS: Record<
+  ITimelineItem["category"],
+  "default" | "secondary" | "outline"
+> = {
   work: "default",
   education: "secondary",
   personal: "outline",
@@ -78,7 +81,10 @@ const CATEGORY_VARIANTS: Record<ITimelineItem["category"], "default" | "secondar
 
 function formatDateRange(from: string, to?: string): string {
   const fmt = (d: string) =>
-    new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    new Date(d).toLocaleDateString("en-US", {
+      month: "short",
+      year: "numeric",
+    });
   return to ? `${fmt(from)} — ${fmt(to)}` : `${fmt(from)} — Present`;
 }
 
@@ -138,7 +144,9 @@ export default function TimelinePage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const fetchItems = useCallback(async () => {
@@ -185,7 +193,8 @@ export default function TimelinePage() {
     const overItem = items.find((i) => i._id === over.id);
     if (!activeItem || !overItem) return;
 
-    if (categoryFilter !== "all" && activeItem.category !== overItem.category) return;
+    if (categoryFilter !== "all" && activeItem.category !== overItem.category)
+      return;
 
     setItems((prev) => {
       const oldIndex = prev.findIndex((i) => i._id === active.id);
@@ -220,11 +229,14 @@ export default function TimelinePage() {
   };
 
   const handleToggleActive = async (item: ITimelineItem) => {
+    if (!api) return;
     setItems((prev) =>
-      prev.map((i) => (i._id === item._id ? { ...i, isActive: !i.isActive } : i)),
+      prev.map((i) =>
+        i._id === item._id ? { ...i, isActive: !i.isActive } : i,
+      ),
     );
 
-    const result = await api!.PATCH<{ timelineItem: ITimelineItem }>({
+    const result = await api.PATCH<{ timelineItem: ITimelineItem }>({
       endpoint: `timeline/${item._id}`,
       body: { toggleActive: true },
     });
@@ -232,7 +244,9 @@ export default function TimelinePage() {
     if ("code" in result) {
       toast.error("Failed to update");
       setItems((prev) =>
-        prev.map((i) => (i._id === item._id ? { ...i, isActive: item.isActive } : i)),
+        prev.map((i) =>
+          i._id === item._id ? { ...i, isActive: item.isActive } : i,
+        ),
       );
     }
   };
@@ -249,7 +263,9 @@ export default function TimelinePage() {
       toast.error("Failed to delete");
     } else {
       setItems((prev) => prev.filter((i) => i._id !== deleteTarget._id));
-      setOriginalOrder((prev) => prev.filter((i) => i._id !== deleteTarget._id));
+      setOriginalOrder((prev) =>
+        prev.filter((i) => i._id !== deleteTarget._id),
+      );
       toast.success("Timeline item deleted");
     }
     setDeleting(false);
@@ -258,7 +274,9 @@ export default function TimelinePage() {
 
   const handleSaved = (updated: ITimelineItem) => {
     setItems((prev) => prev.map((i) => (i._id === updated._id ? updated : i)));
-    setOriginalOrder((prev) => prev.map((i) => (i._id === updated._id ? updated : i)));
+    setOriginalOrder((prev) =>
+      prev.map((i) => (i._id === updated._id ? updated : i)),
+    );
   };
 
   if (loadingSettings || loading) {
@@ -303,7 +321,11 @@ export default function TimelinePage() {
               onClick={handleSaveOrder}
               disabled={savingOrder}
             >
-              {savingOrder ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              {savingOrder ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
               Save Order
             </Button>
           </>
@@ -339,23 +361,34 @@ export default function TimelinePage() {
 
         <Separator />
 
-        <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
+        <Tabs
+          value={categoryFilter}
+          onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}
+        >
           <TabsList variant="line">
             <TabsTrigger value="all">
               All
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.total}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.total}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="work">
               Work
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.work}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.work}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="education">
               Education
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.education}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.education}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="personal">
               Personal
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.personal}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.personal}
+              </span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -371,7 +404,10 @@ export default function TimelinePage() {
             modifiers={[restrictToVerticalAxis]}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={filteredItems.map((i) => i._id)} strategy={verticalListSortingStrategy}>
+            <SortableContext
+              items={filteredItems.map((i) => i._id)}
+              strategy={verticalListSortingStrategy}
+            >
               <div className="flex flex-col">
                 {filteredItems.map((item) => (
                   <SortableTimelineRow
@@ -399,17 +435,25 @@ export default function TimelinePage() {
         onSaved={handleSaved}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete timeline item?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete &ldquo;{deleteTarget?.title}&rdquo;. This action cannot be undone.
+              This will permanently delete &ldquo;{deleteTarget?.title}&rdquo;.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
               {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -430,7 +474,14 @@ function SortableTimelineRow({
   onToggleActive: () => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: item._id,
   });
 
@@ -497,7 +548,9 @@ function TimelineRow({
 
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium truncate block">{item.title}</span>
-        <span className="text-xs text-muted-foreground truncate block">{item.subtitle}</span>
+        <span className="text-xs text-muted-foreground truncate block">
+          {item.subtitle}
+        </span>
         <span className="text-[10px] text-muted-foreground tabular-nums">
           {formatDateRange(item.dateFrom, item.dateTo)}
         </span>
@@ -509,12 +562,17 @@ function TimelineRow({
         </span>
       )}
 
-      <Badge variant={CATEGORY_VARIANTS[item.category]} className="text-[10px] shrink-0">
+      <Badge
+        variant={CATEGORY_VARIANTS[item.category]}
+        className="text-[10px] shrink-0"
+      >
         {CATEGORY_LABELS[item.category]}
       </Badge>
 
       {!item.isActive && (
-        <Badge variant="outline" className="text-[10px] shrink-0">Hidden</Badge>
+        <Badge variant="outline" className="text-[10px] shrink-0">
+          Hidden
+        </Badge>
       )}
 
       <DropdownMenu>
@@ -529,11 +587,21 @@ function TimelineRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
             <Pencil className="size-3.5" />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleActive(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleActive();
+            }}
+          >
             {item.isActive ? (
               <>
                 <EyeOff className="size-3.5" />
@@ -549,7 +617,10 @@ function TimelineRow({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
           >
             <Trash2 className="size-3.5" />
             Delete
@@ -560,11 +631,21 @@ function TimelineRow({
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function Stat({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold tabular-nums tracking-tight ${highlight ? "text-primary" : ""}`}>
+      <p
+        className={`text-lg font-semibold tabular-nums tracking-tight ${highlight ? "text-primary" : ""}`}
+      >
         {value}
       </p>
     </div>

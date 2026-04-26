@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  Copy,
-  ImagePlus,
-  Loader2,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Copy, ImagePlus, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { IBlog } from "@/lib/data-types";
 
@@ -30,7 +23,13 @@ interface BlogFormProps {
   onCancel?: () => void;
 }
 
-export function BlogForm({ mode, blog, api, onSuccess, onCancel }: BlogFormProps) {
+export function BlogForm({
+  mode,
+  blog,
+  api,
+  onSuccess,
+  onCancel,
+}: BlogFormProps) {
   const [title, setTitle] = useState(blog?.title ?? "");
   const [excerpt, setExcerpt] = useState(blog?.excerpt ?? "");
   const [content, setContent] = useState(blog?.content ?? "");
@@ -205,7 +204,11 @@ export function BlogForm({ mode, blog, api, onSuccess, onCancel }: BlogFormProps
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs gap-1 pr-1">
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="text-xs gap-1 pr-1"
+              >
                 {tag}
                 <button
                   type="button"
@@ -248,12 +251,11 @@ export function BlogForm({ mode, blog, api, onSuccess, onCancel }: BlogFormProps
         {media.length > 0 && (
           <div className="grid grid-cols-2 gap-2 mt-2">
             {media.map((url) => (
-              <div key={url} className="relative group rounded-md overflow-hidden border">
-                <img
-                  src={url}
-                  alt=""
-                  className="w-full h-24 object-cover"
-                />
+              <div
+                key={url}
+                className="relative group rounded-md overflow-hidden border"
+              >
+                <img src={url} alt="" className="w-full h-24 object-cover" />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button
                     type="button"

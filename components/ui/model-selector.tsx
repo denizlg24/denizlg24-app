@@ -1,7 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Label } from "./label";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,6 @@ import {
   SelectValue,
 } from "./select";
 import { Switch } from "./switch";
-import { Label } from "./label";
 
 export const ModelSelector = ({
   model,

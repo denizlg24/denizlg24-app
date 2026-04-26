@@ -17,13 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { INote, INoteGroup } from "@/lib/data-types";
 import { GroupTreeCombobox } from "./group-tree-combobox";
@@ -76,7 +69,7 @@ export function GroupDetail({
   useEffect(() => {
     setName(group.name);
     setDescription(group.description || "");
-  }, [group._id, group.name, group.description]);
+  }, [group.name, group.description]);
 
   const parentOptions = useMemo(() => {
     const forbidden = descendantIds(group._id, groups);

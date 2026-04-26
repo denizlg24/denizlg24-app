@@ -217,7 +217,9 @@ export function ImportDialog({
           <TabsContent value="text" className="mt-4 w-full">
             <div className="flex flex-col gap-2">
               <Textarea
-                placeholder={"otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub\notpauth://totp/GitLab:user@example.com?secret=..."}
+                placeholder={
+                  "otpauth://totp/GitHub:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=GitHub\notpauth://totp/GitLab:user@example.com?secret=..."
+                }
                 rows={6}
                 value={uriText}
                 onChange={(e) => setUriText(e.target.value)}

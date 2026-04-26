@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  AtSign,
   ArrowLeft,
+  AtSign,
   Calendar as CalendarIcon,
   Check,
   FolderTree,
@@ -11,8 +11,8 @@ import {
   Home,
   ImagePlus,
   Instagram,
-  Link as LinkIcon,
   Linkedin,
+  Link as LinkIcon,
   Loader2,
   Mail,
   MapPin,
@@ -107,7 +107,9 @@ const SOCIAL_PRESETS: SocialPreset[] = [
     label: "YouTube",
     icon: Youtube,
     buildUrl: (h) =>
-      h.startsWith("@") ? `https://youtube.com/${h}` : `https://youtube.com/@${h}`,
+      h.startsWith("@")
+        ? `https://youtube.com/${h}`
+        : `https://youtube.com/@${h}`,
   },
   {
     platform: "mastodon",
@@ -255,9 +257,7 @@ export function PersonDetail({
   const [phone, setPhone] = useState(person.phone ?? "");
   const [website, setWebsite] = useState(person.website ?? "");
   const [address, setAddress] = useState(person.address ?? "");
-  const [socials, setSocials] = useState<IPersonSocial[]>(
-    person.socials ?? [],
-  );
+  const [socials, setSocials] = useState<IPersonSocial[]>(person.socials ?? []);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -331,7 +331,10 @@ export function PersonDetail({
     const originalRelations = relationsFor(person._id, edges);
     if (relations.length !== originalRelations.length) return true;
     const relationMap = new Map(
-      originalRelations.map((relation) => [relation.personId, relation.reason ?? ""]),
+      originalRelations.map((relation) => [
+        relation.personId,
+        relation.reason ?? "",
+      ]),
     );
     if (
       relations.some(
@@ -609,10 +612,7 @@ export function PersonDetail({
             </PropertySection>
 
             <PropertySection label="Contact">
-              <PropertyRow
-                icon={<Mail className="size-3" />}
-                label="email"
-              >
+              <PropertyRow icon={<Mail className="size-3" />} label="email">
                 <TextProperty
                   value={email}
                   onChange={setEmail}
@@ -621,10 +621,7 @@ export function PersonDetail({
                 />
               </PropertyRow>
 
-              <PropertyRow
-                icon={<Phone className="size-3" />}
-                label="phone"
-              >
+              <PropertyRow icon={<Phone className="size-3" />} label="phone">
                 <TextProperty
                   value={phone}
                   onChange={setPhone}
@@ -633,10 +630,7 @@ export function PersonDetail({
                 />
               </PropertyRow>
 
-              <PropertyRow
-                icon={<Globe className="size-3" />}
-                label="website"
-              >
+              <PropertyRow icon={<Globe className="size-3" />} label="website">
                 <TextProperty
                   value={website}
                   onChange={setWebsite}
@@ -645,10 +639,7 @@ export function PersonDetail({
                 />
               </PropertyRow>
 
-              <PropertyRow
-                icon={<Home className="size-3" />}
-                label="address"
-              >
+              <PropertyRow icon={<Home className="size-3" />} label="address">
                 <TextProperty
                   value={address}
                   onChange={setAddress}
@@ -656,10 +647,7 @@ export function PersonDetail({
                 />
               </PropertyRow>
 
-              <PropertyRow
-                icon={<AtSign className="size-3" />}
-                label="socials"
-              >
+              <PropertyRow icon={<AtSign className="size-3" />} label="socials">
                 <SocialsProperty value={socials} onChange={setSocials} />
               </PropertyRow>
             </PropertySection>
@@ -851,9 +839,19 @@ function ContactIconBar({
     title: string;
   }> = [];
   if (email.trim())
-    items.push({ key: "email", icon: Mail, href: `mailto:${email}`, title: email });
+    items.push({
+      key: "email",
+      icon: Mail,
+      href: `mailto:${email}`,
+      title: email,
+    });
   if (phone.trim())
-    items.push({ key: "phone", icon: Phone, href: `tel:${phone}`, title: phone });
+    items.push({
+      key: "phone",
+      icon: Phone,
+      href: `tel:${phone}`,
+      title: phone,
+    });
   if (website.trim())
     items.push({
       key: "website",
@@ -929,7 +927,11 @@ function SocialsProperty({
   };
 
   const updateSocial = (index: number, patch: Partial<IPersonSocial>) => {
-    onChange(value.map((social, i) => (i === index ? { ...social, ...patch } : social)));
+    onChange(
+      value.map((social, i) =>
+        i === index ? { ...social, ...patch } : social,
+      ),
+    );
   };
 
   const removeSocial = (index: number) => {
@@ -978,11 +980,7 @@ function SocialsProperty({
             add
           </button>
         </PopoverTrigger>
-        <PopoverContent
-          className="w-56 p-1"
-          align="start"
-          sideOffset={6}
-        >
+        <PopoverContent className="w-56 p-1" align="start" sideOffset={6}>
           <div className="flex flex-col">
             {SOCIAL_PRESETS.map((preset) => {
               const Icon = preset.icon;

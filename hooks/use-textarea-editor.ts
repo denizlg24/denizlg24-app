@@ -12,7 +12,7 @@ const CLOSING_PAIRS: Record<string, string> = {
   "'": "'",
 };
 
-const ASYMMETRIC_CLOSINGS = new Set([")", "]", "}"]);
+const _ASYMMETRIC_CLOSINGS = new Set([")", "]", "}"]);
 
 const LIST_MARKER_RE = /^(\s*)([-*+])\s/;
 const ORDERED_LIST_RE = /^(\s*)(\d+)\.\s/;
@@ -129,7 +129,7 @@ function deduplicateSelections(selections: MultiSelection[]): MultiSelection[] {
 
 export function useTextareaEditor(
   textareaRef: React.RefObject<HTMLTextAreaElement | null>,
-  content: string,
+  _content: string,
   setContent: (value: string) => void,
 ): {
   onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement>;
@@ -177,7 +177,7 @@ export function useTextareaEditor(
             setMultiSelections((prev) => [...prev, added]);
             requestAnimationFrame(() => {
               const lineHeight =
-                parseInt(getComputedStyle(textarea).lineHeight) || 20;
+                parseInt(getComputedStyle(textarea).lineHeight, 10) || 20;
               const textBefore = text.slice(0, added.start);
               const lineNumber = textBefore.split("\n").length;
               textarea.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight);
@@ -439,14 +439,13 @@ export function useTextareaEditor(
         e.preventDefault();
         if (hasSelection) {
           const selected = text.slice(selStart, selEnd);
-          const newText =
-            text.slice(0, selStart) + `**${selected}**` + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}**${selected}**${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 2, selEnd + 2),
           );
         } else {
-          const newText = text.slice(0, selStart) + "****" + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}****${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 2),
@@ -459,14 +458,13 @@ export function useTextareaEditor(
         e.preventDefault();
         if (hasSelection) {
           const selected = text.slice(selStart, selEnd);
-          const newText =
-            text.slice(0, selStart) + `*${selected}*` + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}*${selected}*${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 1, selEnd + 1),
           );
         } else {
-          const newText = text.slice(0, selStart) + "**" + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}**${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 1),
@@ -479,14 +477,13 @@ export function useTextareaEditor(
         e.preventDefault();
         if (hasSelection) {
           const selected = text.slice(selStart, selEnd);
-          const newText =
-            text.slice(0, selStart) + `\`${selected}\`` + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}\`${selected}\`${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 1, selEnd + 1),
           );
         } else {
-          const newText = text.slice(0, selStart) + "``" + text.slice(selEnd);
+          const newText = `${text.slice(0, selStart)}\`\`${text.slice(selEnd)}`;
           setContent(newText);
           requestAnimationFrame(() =>
             applyEdit(textarea, newText, selStart + 1),
@@ -738,7 +735,7 @@ export function useTextareaEditor(
         return;
       }
     },
-    [content, setContent, textareaRef, multiSelections],
+    [setContent, textareaRef, multiSelections],
   );
 
   return { onKeyDown, multiSelections, clearMultiSelections };

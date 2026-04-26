@@ -65,7 +65,8 @@ export default function NewNotePage() {
 
         if (typeof body.title === "string") next.title = body.title;
         if (typeof body.content === "string") next.content = body.content;
-        if (typeof body.description === "string") next.description = body.description;
+        if (typeof body.description === "string")
+          next.description = body.description;
         if (typeof body.class === "string") {
           next.class = body.class.trim().length > 0 ? body.class : undefined;
         }

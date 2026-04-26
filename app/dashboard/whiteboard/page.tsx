@@ -60,7 +60,7 @@ export default function Page() {
       }
       setWhiteboards(result.whiteboards);
       setLoading(false);
-    } catch (error) {
+    } catch (_error) {
       setLoading(false);
     }
   };
@@ -143,7 +143,7 @@ export default function Page() {
   useEffect(() => {
     if (!API || !loading) return;
     fetchWhiteboards();
-  }, [API, loading]);
+  }, [API, loading, fetchWhiteboards]);
 
   if (activeId) {
     return <WhiteboardEditor id={activeId} onBack={handleBack} />;
@@ -161,22 +161,19 @@ export default function Page() {
       </div>
       <div className="flex-1 overflow-auto p-6">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {loading && (
-            <>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl border bg-card overflow-hidden animate-pulse"
-                >
-                  <div className="h-32 bg-muted/40" />
-                  <div className="p-3 flex flex-col gap-2">
-                    <div className="h-4 w-3/4 bg-muted rounded" />
-                    <div className="h-3 w-1/2 bg-muted rounded" />
-                  </div>
+          {loading &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border bg-card overflow-hidden animate-pulse"
+              >
+                <div className="h-32 bg-muted/40" />
+                <div className="p-3 flex flex-col gap-2">
+                  <div className="h-4 w-3/4 bg-muted rounded" />
+                  <div className="h-3 w-1/2 bg-muted rounded" />
                 </div>
-              ))}
-            </>
-          )}
+              </div>
+            ))}
           {!loading &&
             API &&
             whiteboards.map((board) => (

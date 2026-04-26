@@ -7,7 +7,6 @@ import {
   Loader2,
   NotebookText,
   Plus,
-  Trash2,
   X,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -66,13 +65,18 @@ export function TimelineForm({
   const [topics, setTopics] = useState<string[]>(item?.topics ?? []);
   const [links, setLinks] = useState<
     { label: string; url: string; icon: "external" | "github" | "notepad" }[]
-  >(item?.links?.map((l) => ({ label: l.label, url: l.url, icon: l.icon })) ?? []);
+  >(
+    item?.links?.map((l) => ({ label: l.label, url: l.url, icon: l.icon })) ??
+      [],
+  );
   const [isActive, setIsActive] = useState(item?.isActive ?? true);
 
   const [topicInput, setTopicInput] = useState("");
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
-  const [newLinkIcon, setNewLinkIcon] = useState<"external" | "github" | "notepad">("external");
+  const [newLinkIcon, setNewLinkIcon] = useState<
+    "external" | "github" | "notepad"
+  >("external");
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -126,7 +130,10 @@ export function TimelineForm({
 
   const handleAddLink = () => {
     if (!newLinkLabel.trim() || !newLinkUrl.trim()) return;
-    setLinks([...links, { label: newLinkLabel.trim(), url: newLinkUrl.trim(), icon: newLinkIcon }]);
+    setLinks([
+      ...links,
+      { label: newLinkLabel.trim(), url: newLinkUrl.trim(), icon: newLinkIcon },
+    ]);
     setNewLinkLabel("");
     setNewLinkUrl("");
     setNewLinkIcon("external");
@@ -160,7 +167,10 @@ export function TimelineForm({
     };
 
     if (mode === "create") {
-      const result = await api.POST<{ message: string; timelineItem: ITimelineItem }>({
+      const result = await api.POST<{
+        message: string;
+        timelineItem: ITimelineItem;
+      }>({
         endpoint: "timeline",
         body,
       });
@@ -248,7 +258,11 @@ export function TimelineForm({
             ) : (
               <ImagePlus className="size-3.5" />
             )}
-            {uploadingLogo ? "Uploading..." : logoUrl ? "Change Logo" : "Upload Logo"}
+            {uploadingLogo
+              ? "Uploading..."
+              : logoUrl
+                ? "Change Logo"
+                : "Upload Logo"}
           </Button>
         </div>
       </div>
@@ -278,7 +292,12 @@ export function TimelineForm({
 
       <div className="flex flex-col gap-1.5">
         <Label className="text-xs">Category</Label>
-        <Select value={category} onValueChange={(v: "work" | "education" | "personal") => setCategory(v)}>
+        <Select
+          value={category}
+          onValueChange={(v: "work" | "education" | "personal") =>
+            setCategory(v)
+          }
+        >
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
@@ -317,7 +336,11 @@ export function TimelineForm({
         {topics.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {topics.map((topic) => (
-              <Badge key={topic} variant="secondary" className="text-xs gap-1 pr-1">
+              <Badge
+                key={topic}
+                variant="secondary"
+                className="text-xs gap-1 pr-1"
+              >
                 {topic}
                 <button
                   type="button"
@@ -338,12 +361,19 @@ export function TimelineForm({
         <Label className="text-xs">Links</Label>
         <div className="flex flex-col gap-2">
           {links.map((link, i) => {
-            const IconComp = LINK_ICONS.find((li) => li.value === link.icon)?.icon ?? ExternalLink;
+            const IconComp =
+              LINK_ICONS.find((li) => li.value === link.icon)?.icon ??
+              ExternalLink;
             return (
-              <div key={i} className="flex items-center gap-2 text-xs border rounded-md px-2.5 py-1.5">
+              <div
+                key={i}
+                className="flex items-center gap-2 text-xs border rounded-md px-2.5 py-1.5"
+              >
                 <IconComp className="size-3.5 text-muted-foreground shrink-0" />
                 <span className="font-medium truncate">{link.label}</span>
-                <span className="text-muted-foreground truncate flex-1">{link.url}</span>
+                <span className="text-muted-foreground truncate flex-1">
+                  {link.url}
+                </span>
                 <button
                   type="button"
                   onClick={() => setLinks(links.filter((_, idx) => idx !== i))}
@@ -378,7 +408,12 @@ export function TimelineForm({
               }}
             />
           </div>
-          <Select value={newLinkIcon} onValueChange={(v: "external" | "github" | "notepad") => setNewLinkIcon(v)}>
+          <Select
+            value={newLinkIcon}
+            onValueChange={(v: "external" | "github" | "notepad") =>
+              setNewLinkIcon(v)
+            }
+          >
             <SelectTrigger className="h-8 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>

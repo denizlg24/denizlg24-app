@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,7 +29,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import type { denizApi } from "@/lib/api-wrapper";
 import type { IProject } from "@/lib/data-types";
 
@@ -61,14 +61,22 @@ export function ProjectForm({
   const [tags, setTags] = useState<string[]>(project?.tags ?? []);
   const [links, setLinks] = useState<
     { label: string; url: string; icon: "external" | "github" | "notepad" }[]
-  >(project?.links?.map((l) => ({ label: l.label, url: l.url, icon: l.icon })) ?? []);
+  >(
+    project?.links?.map((l) => ({
+      label: l.label,
+      url: l.url,
+      icon: l.icon,
+    })) ?? [],
+  );
   const [isActive, setIsActive] = useState(project?.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(project?.isFeatured ?? false);
 
   const [tagInput, setTagInput] = useState("");
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
-  const [newLinkIcon, setNewLinkIcon] = useState<"external" | "github" | "notepad">("external");
+  const [newLinkIcon, setNewLinkIcon] = useState<
+    "external" | "github" | "notepad"
+  >("external");
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -126,7 +134,10 @@ export function ProjectForm({
 
   const handleAddLink = () => {
     if (!newLinkLabel.trim() || !newLinkUrl.trim()) return;
-    setLinks([...links, { label: newLinkLabel.trim(), url: newLinkUrl.trim(), icon: newLinkIcon }]);
+    setLinks([
+      ...links,
+      { label: newLinkLabel.trim(), url: newLinkUrl.trim(), icon: newLinkIcon },
+    ]);
     setNewLinkLabel("");
     setNewLinkUrl("");
     setNewLinkIcon("external");
@@ -229,7 +240,11 @@ export function ProjectForm({
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-1">
             {tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs gap-1 pr-1">
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="text-xs gap-1 pr-1"
+              >
                 {tag}
                 <button
                   type="button"
@@ -250,12 +265,19 @@ export function ProjectForm({
         <Label className="text-xs">Links</Label>
         <div className="flex flex-col gap-2">
           {links.map((link, i) => {
-            const IconComp = LINK_ICONS.find((li) => li.value === link.icon)?.icon ?? ExternalLink;
+            const IconComp =
+              LINK_ICONS.find((li) => li.value === link.icon)?.icon ??
+              ExternalLink;
             return (
-              <div key={i} className="flex items-center gap-2 text-xs border rounded-md px-2.5 py-1.5">
+              <div
+                key={i}
+                className="flex items-center gap-2 text-xs border rounded-md px-2.5 py-1.5"
+              >
                 <IconComp className="size-3.5 text-muted-foreground shrink-0" />
                 <span className="font-medium truncate">{link.label}</span>
-                <span className="text-muted-foreground truncate flex-1">{link.url}</span>
+                <span className="text-muted-foreground truncate flex-1">
+                  {link.url}
+                </span>
                 <button
                   type="button"
                   onClick={() => setLinks(links.filter((_, idx) => idx !== i))}
@@ -290,7 +312,12 @@ export function ProjectForm({
               }}
             />
           </div>
-          <Select value={newLinkIcon} onValueChange={(v: "external" | "github" | "notepad") => setNewLinkIcon(v)}>
+          <Select
+            value={newLinkIcon}
+            onValueChange={(v: "external" | "github" | "notepad") =>
+              setNewLinkIcon(v)
+            }
+          >
             <SelectTrigger className="h-8 w-28 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -328,7 +355,13 @@ export function ProjectForm({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleUpload(file, setUploadingImage, (url) => setImages([...images, url]), imageInputRef);
+            if (file)
+              handleUpload(
+                file,
+                setUploadingImage,
+                (url) => setImages([...images, url]),
+                imageInputRef,
+              );
           }}
         />
         <Button
@@ -348,7 +381,10 @@ export function ProjectForm({
         {images.length > 0 && (
           <div className="grid grid-cols-3 gap-2 mt-2">
             {images.map((url, i) => (
-              <div key={url} className="relative group rounded-md overflow-hidden border">
+              <div
+                key={url}
+                className="relative group rounded-md overflow-hidden border"
+              >
                 <img src={url} alt="" className="w-full h-20 object-cover" />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button
@@ -363,7 +399,9 @@ export function ProjectForm({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setImages(images.filter((_, idx) => idx !== i))}
+                    onClick={() =>
+                      setImages(images.filter((_, idx) => idx !== i))
+                    }
                     className="p-1.5 rounded-md bg-background/80 hover:bg-background text-destructive"
                   >
                     <Trash2 className="size-3.5" />
@@ -386,7 +424,13 @@ export function ProjectForm({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleUpload(file, setUploadingMedia, (url) => setMedia([...media, url]), mediaInputRef);
+            if (file)
+              handleUpload(
+                file,
+                setUploadingMedia,
+                (url) => setMedia([...media, url]),
+                mediaInputRef,
+              );
           }}
         />
         <Button
@@ -406,7 +450,10 @@ export function ProjectForm({
         {media.length > 0 && (
           <div className="grid grid-cols-2 gap-2 mt-2">
             {media.map((url) => (
-              <div key={url} className="relative group rounded-md overflow-hidden border">
+              <div
+                key={url}
+                className="relative group rounded-md overflow-hidden border"
+              >
                 <img src={url} alt="" className="w-full h-24 object-cover" />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <button

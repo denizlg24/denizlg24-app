@@ -1,7 +1,12 @@
 "use client";
 
 import type { IWhiteboardElement } from "@/lib/data-types";
-import type { DrawingData, ImageData, ShapeData, TextData } from "@/lib/whiteboard-types";
+import type {
+  DrawingData,
+  ImageData,
+  ShapeData,
+  TextData,
+} from "@/lib/whiteboard-types";
 
 function PenElement({ element }: { element: IWhiteboardElement }) {
   const d = element.data as unknown as DrawingData;

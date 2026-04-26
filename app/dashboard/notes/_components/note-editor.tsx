@@ -15,9 +15,15 @@ import {
   Loader2,
   Save,
   Sparkles,
-  X,
 } from "lucide-react";
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type React from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { MarkdownPdfDocument } from "@/components/markdown/markdown-pdf-renderer";
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
@@ -104,11 +110,11 @@ export const NoteEditor = ({
   useEffect(() => {
     setInitialContent(note.content || "");
     setContent(note.content || "");
-  }, [note._id, note.content]);
+  }, [note.content]);
 
   useEffect(() => {
     setTogglePreview(!startInEditMode);
-  }, [note._id, startInEditMode]);
+  }, [startInEditMode]);
 
   const setEditorContent = useCallback(
     (nextContent: string) => {
@@ -118,23 +124,20 @@ export const NoteEditor = ({
     [onContentChange],
   );
 
-  const openFind = useCallback(
-    (withReplace: boolean) => {
-      const textarea = contentTextareaRef.current;
-      let initial = "";
-      if (textarea) {
-        const sel = textarea.value.slice(
-          textarea.selectionStart,
-          textarea.selectionEnd,
-        );
-        if (sel && !sel.includes("\n")) initial = sel;
-      }
-      setFindInitialQuery(initial);
-      setFindReplaceShowReplace(withReplace);
-      setFindReplaceOpen(true);
-    },
-    [],
-  );
+  const openFind = useCallback((withReplace: boolean) => {
+    const textarea = contentTextareaRef.current;
+    let initial = "";
+    if (textarea) {
+      const sel = textarea.value.slice(
+        textarea.selectionStart,
+        textarea.selectionEnd,
+      );
+      if (sel && !sel.includes("\n")) initial = sel;
+    }
+    setFindInitialQuery(initial);
+    setFindReplaceShowReplace(withReplace);
+    setFindReplaceOpen(true);
+  }, []);
 
   const handleMatchesChange = useCallback(
     (matches: MatchResult[], currentIndex: number) => {
@@ -145,14 +148,13 @@ export const NoteEditor = ({
   );
 
   const showOverlay =
-    (findReplaceOpen && findMatches.length > 0) ||
-    multiSelections.length > 0;
+    (findReplaceOpen && findMatches.length > 0) || multiSelections.length > 0;
 
   useLayoutEffect(() => {
     if (showOverlay && overlayRef.current && contentTextareaRef.current) {
       overlayRef.current.scrollTop = contentTextareaRef.current.scrollTop;
     }
-  }, [showOverlay, findMatches, findCurrentIndex, multiSelections]);
+  }, [showOverlay]);
 
   useEffect(() => {
     if (!showOverlay || multiSelections.length === 0) return;
@@ -368,8 +370,8 @@ export const NoteEditor = ({
                   <DialogTitle>Enhance Note with AI</DialogTitle>
 
                   <DialogDescription>
-                    Use AI to enhance your note by making it more detailed, clear,
-                    and well-structured.
+                    Use AI to enhance your note by making it more detailed,
+                    clear, and well-structured.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4">
@@ -514,9 +516,7 @@ export const NoteEditor = ({
             title={saveLabel}
           >
             {loading ? (
-              <>
-                <Loader2 className="animate-spin" />
-              </>
+              <Loader2 className="animate-spin" />
             ) : (
               <>
                 <Save />
@@ -574,8 +574,7 @@ export const NoteEditor = ({
                       regions.push({
                         start: m.start,
                         end: m.end,
-                        type:
-                          i === findCurrentIndex ? "findCurrent" : "find",
+                        type: i === findCurrentIndex ? "findCurrent" : "find",
                       });
                     });
                   } else {
@@ -588,9 +587,7 @@ export const NoteEditor = ({
                     });
                   }
 
-                  const sorted = [...regions].sort(
-                    (a, b) => a.start - b.start,
-                  );
+                  const sorted = [...regions].sort((a, b) => a.start - b.start);
                   const parts: React.ReactNode[] = [];
                   let lastEnd = 0;
 
@@ -632,8 +629,7 @@ export const NoteEditor = ({
                           key={`m-${i}`}
                           className={`${bgClass} text-transparent rounded-sm`}
                         >
-                          {content.slice(region.start, region.end) ||
-                            "\u200B"}
+                          {content.slice(region.start, region.end) || "\u200B"}
                         </mark>,
                       );
                     }

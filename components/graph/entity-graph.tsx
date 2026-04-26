@@ -26,7 +26,10 @@ export interface EntityGraphEdge {
   strength: number;
 }
 
-interface Props<TItem extends { _id: string }, TGroup extends EntityGraphGroup> {
+interface Props<
+  TItem extends { _id: string },
+  TGroup extends EntityGraphGroup,
+> {
   items: TItem[];
   groups: TGroup[];
   edges: EntityGraphEdge[];

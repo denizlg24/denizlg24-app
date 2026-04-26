@@ -3,7 +3,6 @@
 import type { IWhiteboardElement } from "@/lib/data-types";
 import type { DrawingData, ShapeData, TextData } from "@/lib/whiteboard-types";
 
-
 function getElementBounds(el: IWhiteboardElement): {
   x: number;
   y: number;
@@ -92,8 +91,6 @@ function computeContentBounds(elements: IWhiteboardElement[]): {
   if (minX === Number.POSITIVE_INFINITY) return null;
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
-
-
 
 function PenPreview({ element }: { element: IWhiteboardElement }) {
   const d = element.data as unknown as DrawingData;
@@ -214,8 +211,6 @@ function PreviewElement({ element }: { element: IWhiteboardElement }) {
   return null;
 }
 
-
-
 interface WhiteboardPreviewProps {
   elements: IWhiteboardElement[] | null;
   className?: string;
@@ -225,7 +220,6 @@ export function WhiteboardPreview({
   elements,
   className,
 }: WhiteboardPreviewProps) {
-  
   if (elements === null) {
     return (
       <div
@@ -254,7 +248,6 @@ export function WhiteboardPreview({
     );
   }
 
-  
   const pad = Math.max(bounds.w, bounds.h) * 0.08;
   const vx = bounds.x - pad;
   const vy = bounds.y - pad;

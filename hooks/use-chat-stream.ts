@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import type { denizApi } from "@/lib/api-wrapper";
 import type {
-  IChatToolCall,
-  IChatPendingAction,
   IChatContentSegment,
+  IChatPendingAction,
+  IChatToolCall,
 } from "@/lib/data-types";
 
 export interface StreamResult {
@@ -215,7 +215,9 @@ export function useChatStream(API: denizApi | null) {
                   return;
                 } else if (event.type === "error") {
                   setIsStreaming(false);
-                  resolve({ error: event.error ?? "An unknown error occurred" });
+                  resolve({
+                    error: event.error ?? "An unknown error occurred",
+                  });
                   return;
                 }
               } catch {}
@@ -235,7 +237,10 @@ export function useChatStream(API: denizApi | null) {
           );
         } catch (e) {
           setIsStreaming(false);
-          resolve({ error: e instanceof Error ? e.message : "An unexpected error occurred" });
+          resolve({
+            error:
+              e instanceof Error ? e.message : "An unexpected error occurred",
+          });
         }
       });
     },

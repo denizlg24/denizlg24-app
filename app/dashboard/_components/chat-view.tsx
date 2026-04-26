@@ -425,13 +425,13 @@ export function ChatView() {
     };
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [isActive]);
+  }, []);
 
   useEffect(() => {
     if (!userScrolledUp.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [streamSegments, messages]);
+  }, []);
 
   const loadConversation = async (meta: IConversationMeta) => {
     if (!API) return;
@@ -605,7 +605,7 @@ export function ChatView() {
     if (!currentConversationId) {
       const msgTitle =
         messageContent.length > 50
-          ? messageContent.slice(0, 50) + "..."
+          ? `${messageContent.slice(0, 50)}...`
           : messageContent || "Image conversation";
       setTitle(msgTitle);
 

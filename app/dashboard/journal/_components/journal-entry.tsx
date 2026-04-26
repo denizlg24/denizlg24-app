@@ -12,7 +12,6 @@ import {
   MapPin,
   PenTool,
   Save,
-  StickyNote,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";

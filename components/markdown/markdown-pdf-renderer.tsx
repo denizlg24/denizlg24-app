@@ -1,17 +1,17 @@
 import {
   Document,
+  Font,
+  Link,
   Page,
+  StyleSheet,
   Text,
   View,
-  Link,
-  Font,
-  StyleSheet,
 } from "@react-pdf/renderer";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
+import type { ReactNode } from "react";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import type { ReactNode } from "react";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 
 Font.registerEmojiSource({
   format: "png",
@@ -276,7 +276,6 @@ const headingStyles: Record<number, (typeof styles)["h1"]> = {
   6: styles.h6,
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: MDAST nodes are loosely typed
 type MdNode = any;
 
 function renderInline(node: MdNode, key: number): ReactNode {
@@ -362,9 +361,7 @@ function renderListItem(
           if (child.type === "paragraph") {
             return (
               <Text key={i} style={{ fontSize: 11, lineHeight: 1.6 }}>
-                {isTaskItem && (
-                  <Text style={styles.checkbox}>{checkbox}</Text>
-                )}
+                {isTaskItem && <Text style={styles.checkbox}>{checkbox}</Text>}
                 {child.children.map((c: MdNode, j: number) =>
                   renderInline(c, j),
                 )}
@@ -400,9 +397,7 @@ function renderTable(node: MdNode, key: number): ReactNode {
         {headerRow.children.map((cell: MdNode, i: number) => (
           <View key={i} style={styles.tableHeaderCell}>
             <Text style={styles.tableHeaderText}>
-              {cell.children.map((c: MdNode, j: number) =>
-                renderInline(c, j),
-              )}
+              {cell.children.map((c: MdNode, j: number) => renderInline(c, j))}
             </Text>
           </View>
         ))}

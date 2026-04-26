@@ -2,6 +2,16 @@
 
 import { MoreHorizontal, Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,6 +61,8 @@ interface KanbanColumnProps {
     },
   ) => void;
   onDeleteColumn: (columnId: string) => void;
+  onClearColumn: (columnId: string) => void;
+  onToggleCardDone: (card: IKanbanCard) => void;
 }
 
 export function KanbanColumn({
@@ -64,6 +76,8 @@ export function KanbanColumn({
   onAddCard,
   onUpdateColumn,
   onDeleteColumn,
+  onClearColumn,
+  onToggleCardDone,
 }: KanbanColumnProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(column.title);
@@ -71,6 +85,7 @@ export function KanbanColumn({
   const [newCardTitle, setNewCardTitle] = useState("");
   const [isColumnDragOver, setIsColumnDragOver] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [editColor, setEditColor] = useState(column.color ?? COLUMN_COLORS[0]);
   const [editIcon, setEditIcon] = useState(column.icon ?? "circle");
   const [editWipLimit, setEditWipLimit] = useState(
@@ -207,6 +222,7 @@ export function KanbanColumn({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
+                type="button"
                 className="size-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-colors shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -231,6 +247,14 @@ export function KanbanColumn({
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
+                disabled={column.cards.length === 0}
+                onClick={() => setClearDialogOpen(true)}
+              >
+                <Trash2 className="size-3.5 mr-2" />
+                Clear cards
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
                 onClick={() => onDeleteColumn(column._id)}
               >
                 <Trash2 className="size-3.5 mr-2" />
@@ -240,6 +264,7 @@ export function KanbanColumn({
           </DropdownMenu>
 
           <button
+            type="button"
             className="size-6 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background hover:border-foreground/20 transition-colors shrink-0"
             onClick={(e) => {
               e.stopPropagation();
@@ -269,6 +294,7 @@ export function KanbanColumn({
               />
               <div className="flex gap-2">
                 <button
+                  type="button"
                   className="flex-1 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                   onClick={handleAddCard}
                   disabled={!newCardTitle.trim()}
@@ -276,6 +302,7 @@ export function KanbanColumn({
                   Add card
                 </button>
                 <button
+                  type="button"
                   className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-background transition-colors"
                   onClick={() => {
                     setAddingCard(false);
@@ -300,6 +327,7 @@ export function KanbanColumn({
               }
               onDrop={() => onDrop(column._id)}
               onClick={() => onCardClick(card)}
+              onToggleDone={() => onToggleCardDone(card)}
             />
           ))}
 
@@ -364,6 +392,26 @@ export function KanbanColumn({
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear this column?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all cards from "{column.title}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => onClearColumn(column._id)}
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

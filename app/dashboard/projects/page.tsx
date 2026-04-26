@@ -122,7 +122,9 @@ export default function ProjectsPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const fetchProjects = useCallback(async () => {
@@ -147,7 +149,12 @@ export default function ProjectsPage() {
   const stats = useMemo(() => {
     const active = projects.filter((p) => p.isActive).length;
     const featured = projects.filter((p) => p.isFeatured).length;
-    return { total: projects.length, active, hidden: projects.length - active, featured };
+    return {
+      total: projects.length,
+      active,
+      hidden: projects.length - active,
+      featured,
+    };
   }, [projects]);
 
   const filteredProjects = useMemo(() => {
@@ -198,11 +205,14 @@ export default function ProjectsPage() {
   };
 
   const handleToggleActive = async (project: IProject) => {
+    if (!api) return;
     setProjects((prev) =>
-      prev.map((p) => (p._id === project._id ? { ...p, isActive: !p.isActive } : p)),
+      prev.map((p) =>
+        p._id === project._id ? { ...p, isActive: !p.isActive } : p,
+      ),
     );
 
-    const result = await api!.PATCH<{ project: IProject }>({
+    const result = await api.PATCH<{ project: IProject }>({
       endpoint: `projects/${project._id}`,
       body: { toggleActive: true },
     });
@@ -210,17 +220,22 @@ export default function ProjectsPage() {
     if ("code" in result) {
       toast.error("Failed to update");
       setProjects((prev) =>
-        prev.map((p) => (p._id === project._id ? { ...p, isActive: project.isActive } : p)),
+        prev.map((p) =>
+          p._id === project._id ? { ...p, isActive: project.isActive } : p,
+        ),
       );
     }
   };
 
   const handleToggleFeatured = async (project: IProject) => {
+    if (!api) return;
     setProjects((prev) =>
-      prev.map((p) => (p._id === project._id ? { ...p, isFeatured: !p.isFeatured } : p)),
+      prev.map((p) =>
+        p._id === project._id ? { ...p, isFeatured: !p.isFeatured } : p,
+      ),
     );
 
-    const result = await api!.PATCH<{ project: IProject }>({
+    const result = await api.PATCH<{ project: IProject }>({
       endpoint: `projects/${project._id}`,
       body: { toggleFeatured: true },
     });
@@ -228,7 +243,9 @@ export default function ProjectsPage() {
     if ("code" in result) {
       toast.error("Failed to update");
       setProjects((prev) =>
-        prev.map((p) => (p._id === project._id ? { ...p, isFeatured: project.isFeatured } : p)),
+        prev.map((p) =>
+          p._id === project._id ? { ...p, isFeatured: project.isFeatured } : p,
+        ),
       );
     }
   };
@@ -245,7 +262,9 @@ export default function ProjectsPage() {
       toast.error("Failed to delete project");
     } else {
       setProjects((prev) => prev.filter((p) => p._id !== deleteTarget._id));
-      setOriginalOrder((prev) => prev.filter((p) => p._id !== deleteTarget._id));
+      setOriginalOrder((prev) =>
+        prev.filter((p) => p._id !== deleteTarget._id),
+      );
       toast.success("Project deleted");
     }
     setDeleting(false);
@@ -253,8 +272,12 @@ export default function ProjectsPage() {
   };
 
   const handleSaved = (updated: IProject) => {
-    setProjects((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
-    setOriginalOrder((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
+    setProjects((prev) =>
+      prev.map((p) => (p._id === updated._id ? updated : p)),
+    );
+    setOriginalOrder((prev) =>
+      prev.map((p) => (p._id === updated._id ? updated : p)),
+    );
   };
 
   if (loadingSettings || loading) {
@@ -299,7 +322,11 @@ export default function ProjectsPage() {
               onClick={handleSaveOrder}
               disabled={savingOrder}
             >
-              {savingOrder ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              {savingOrder ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
               Save Order
             </Button>
           </>
@@ -329,25 +356,38 @@ export default function ProjectsPage() {
         <div className="flex items-baseline gap-8 flex-wrap">
           <Stat label="Total" value={stats.total} />
           <Stat label="Active" value={stats.active} />
-          <Stat label="Hidden" value={stats.hidden} highlight={stats.hidden > 0} />
+          <Stat
+            label="Hidden"
+            value={stats.hidden}
+            highlight={stats.hidden > 0}
+          />
           <Stat label="Featured" value={stats.featured} />
         </div>
 
         <Separator />
 
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as VisibilityFilter)}>
+        <Tabs
+          value={filter}
+          onValueChange={(v) => setFilter(v as VisibilityFilter)}
+        >
           <TabsList variant="line">
             <TabsTrigger value="all">
               All
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.total}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.total}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="published">
               Published
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.active}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.active}
+              </span>
             </TabsTrigger>
             <TabsTrigger value="hidden">
               Hidden
-              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">{stats.hidden}</span>
+              <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
+                {stats.hidden}
+              </span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -363,7 +403,10 @@ export default function ProjectsPage() {
             modifiers={[restrictToVerticalAxis]}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={filteredProjects.map((p) => p._id)} strategy={verticalListSortingStrategy}>
+            <SortableContext
+              items={filteredProjects.map((p) => p._id)}
+              strategy={verticalListSortingStrategy}
+            >
               <div className="flex flex-col">
                 {filteredProjects.map((project) => (
                   <SortableProjectRow
@@ -408,17 +451,25 @@ export default function ProjectsPage() {
         onSaved={handleSaved}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete &ldquo;{deleteTarget?.title}&rdquo;. This action cannot be undone.
+              This will permanently delete &ldquo;{deleteTarget?.title}&rdquo;.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
               {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -441,7 +492,14 @@ function SortableProjectRow({
   onToggleFeatured: () => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: project._id,
   });
 
@@ -516,24 +574,36 @@ function ProjectRow({
             <Star className="size-3 text-yellow-500 fill-yellow-500 shrink-0" />
           )}
         </div>
-        <span className="text-xs text-muted-foreground truncate block">{project.subtitle}</span>
+        <span className="text-xs text-muted-foreground truncate block">
+          {project.subtitle}
+        </span>
       </div>
 
       <div className="flex gap-1 flex-wrap max-w-[120px] shrink-0">
         {project.tags.slice(0, 2).map((tag) => (
-          <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+          <Badge
+            key={tag}
+            variant="secondary"
+            className="text-[10px] px-1.5 py-0"
+          >
             {tag}
           </Badge>
         ))}
         {project.tags.length > 2 && (
-          <span className="text-[10px] text-muted-foreground">+{project.tags.length - 2}</span>
+          <span className="text-[10px] text-muted-foreground">
+            +{project.tags.length - 2}
+          </span>
         )}
       </div>
 
       {project.isActive ? (
-        <Badge variant="default" className="text-[10px] shrink-0">Active</Badge>
+        <Badge variant="default" className="text-[10px] shrink-0">
+          Active
+        </Badge>
       ) : (
-        <Badge variant="outline" className="text-[10px] shrink-0">Hidden</Badge>
+        <Badge variant="outline" className="text-[10px] shrink-0">
+          Hidden
+        </Badge>
       )}
 
       <DropdownMenu>
@@ -548,11 +618,21 @@ function ProjectRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
             <Pencil className="size-3.5" />
             Edit
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFeatured(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFeatured();
+            }}
+          >
             {project.isFeatured ? (
               <>
                 <StarOff className="size-3.5" />
@@ -565,7 +645,12 @@ function ProjectRow({
               </>
             )}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleActive(); }}>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleActive();
+            }}
+          >
             {project.isActive ? (
               <>
                 <EyeOff className="size-3.5" />
@@ -581,7 +666,10 @@ function ProjectRow({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
           >
             <Trash2 className="size-3.5" />
             Delete
@@ -592,11 +680,21 @@ function ProjectRow({
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function Stat({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold tabular-nums tracking-tight ${highlight ? "text-primary" : ""}`}>
+      <p
+        className={`text-lg font-semibold tabular-nums tracking-tight ${highlight ? "text-primary" : ""}`}
+      >
         {value}
       </p>
     </div>

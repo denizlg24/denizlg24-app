@@ -143,10 +143,10 @@ export function TagAutocomplete({
                   Create &ldquo;{query.trim()}&rdquo;
                 </button>
               ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {emptyMessage}
-                  </span>
-                )}
+                <span className="text-xs text-muted-foreground">
+                  {emptyMessage}
+                </span>
+              )}
             </CommandEmpty>
             {options.length > 0 && (
               <CommandGroup heading="Tags">

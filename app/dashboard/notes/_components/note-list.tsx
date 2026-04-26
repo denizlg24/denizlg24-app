@@ -48,12 +48,7 @@ interface Props {
   onSelectGroup: (group: INoteGroup) => void;
 }
 
-export function NoteList({
-  notes,
-  groups,
-  onSelect,
-  onSelectGroup,
-}: Props) {
+export function NoteList({ notes, groups, onSelect, onSelectGroup }: Props) {
   const groupMap = new Map(groups.map((group) => [group._id, group]));
 
   if (notes.length === 0) {
@@ -132,7 +127,9 @@ export function NoteList({
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
                     <span>{note.url ? "Linked note" : "Markdown note"}</span>
-                    {note.url && <span className="truncate">{safeHostname(note.url)}</span>}
+                    {note.url && (
+                      <span className="truncate">{safeHostname(note.url)}</span>
+                    )}
                   </div>
                 </div>
 

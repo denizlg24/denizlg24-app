@@ -155,7 +155,7 @@ export function WhiteboardEditor({
     } else {
       setHasChanges(false);
     }
-  }, [history.elements, history.revision]);
+  }, [history.elements]);
 
   const endpoint = todayMode ? "whiteboard/today" : `whiteboard/${id}`;
 

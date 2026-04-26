@@ -12,8 +12,7 @@ export interface GitHubRelease {
 }
 
 export function isNewerVersion(current: string, latest: string): boolean {
-  const parse = (v: string) =>
-    v.replace(/^v/, "").split(".").map(Number);
+  const parse = (v: string) => v.replace(/^v/, "").split(".").map(Number);
 
   const [cMajor, cMinor, cPatch] = parse(current);
   const [lMajor, lMinor, lPatch] = parse(latest);

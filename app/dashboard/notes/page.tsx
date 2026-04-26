@@ -30,11 +30,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
-import type { INote, INoteEdge, INoteGraph, INoteGroup } from "@/lib/data-types";
-import {
-  buildDescendantIdMap,
-  buildPathLabelMap,
-} from "@/lib/note-group-tree";
+import type {
+  INote,
+  INoteEdge,
+  INoteGraph,
+  INoteGroup,
+} from "@/lib/data-types";
+import { buildDescendantIdMap, buildPathLabelMap } from "@/lib/note-group-tree";
 import { GroupDetail } from "./_components/group-detail";
 import { GroupTreeCombobox } from "./_components/group-tree-combobox";
 import { NoteDetail } from "./_components/note-detail";
@@ -86,24 +88,27 @@ function sortNotes(notes: INote[], sort: Sort) {
     switch (sort) {
       case "updated-asc":
         return (
-          new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
+          new Date(left.updatedAt).getTime() -
+          new Date(right.updatedAt).getTime()
         );
       case "created-desc":
         return (
-          new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime()
         );
       case "created-asc":
         return (
-          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+          new Date(left.createdAt).getTime() -
+          new Date(right.createdAt).getTime()
         );
       case "title-asc":
         return left.title.localeCompare(right.title);
       case "title-desc":
         return right.title.localeCompare(left.title);
-      case "updated-desc":
       default:
         return (
-          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+          new Date(right.updatedAt).getTime() -
+          new Date(left.updatedAt).getTime()
         );
     }
   });
@@ -111,11 +116,7 @@ function sortNotes(notes: INote[], sort: Sort) {
   return items;
 }
 
-function matchesQuery(
-  note: INote,
-  query: string,
-  groupSearchLabels: string[],
-) {
+function matchesQuery(note: INote, query: string, groupSearchLabels: string[]) {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
 
@@ -171,7 +172,9 @@ export default function NotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedGroupFilters, setSelectedGroupFilters] = useState<string[]>([]);
+  const [selectedGroupFilters, setSelectedGroupFilters] = useState<string[]>(
+    [],
+  );
   const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
   const [hasUrlFilter, setHasUrlFilter] = useState<HasUrlFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -221,7 +224,10 @@ export default function NotesPage() {
   }, [notes, selectedId]);
 
   useEffect(() => {
-    if (selectedGroupId && !groups.some((group) => group._id === selectedGroupId)) {
+    if (
+      selectedGroupId &&
+      !groups.some((group) => group._id === selectedGroupId)
+    ) {
       setSelectedGroupId(null);
     }
   }, [groups, selectedGroupId]);
@@ -277,7 +283,9 @@ export default function NotesPage() {
       const previousEdges = edges;
 
       setNotes((current) => current.filter((note) => note._id !== id));
-      setEdges((current) => current.filter((edge) => edge.from !== id && edge.to !== id));
+      setEdges((current) =>
+        current.filter((edge) => edge.from !== id && edge.to !== id),
+      );
       setSelectedId(null);
 
       const result = await api.DELETE<{ success: true }>({
@@ -379,7 +387,9 @@ export default function NotesPage() {
       const previousGroups = groups;
 
       setGroups((current) =>
-        current.map((group) => (group._id === id ? { ...group, ...patch } : group)),
+        current.map((group) =>
+          group._id === id ? { ...group, ...patch } : group,
+        ),
       );
 
       const result = await api.PATCH<{ group: INoteGroup }>({
@@ -439,9 +449,9 @@ export default function NotesPage() {
 
   const allTags = useMemo(
     () =>
-      [...new Set([...tagSuggestions, ...notes.flatMap((note) => note.tags)])].sort(
-        (left, right) => left.localeCompare(right),
-      ),
+      [
+        ...new Set([...tagSuggestions, ...notes.flatMap((note) => note.tags)]),
+      ].sort((left, right) => left.localeCompare(right)),
     [notes, tagSuggestions],
   );
   const pathLabelById = useMemo(() => buildPathLabelMap(groups), [groups]);
@@ -512,7 +522,9 @@ export default function NotesPage() {
 
   const graphEdges = useMemo(() => {
     const visibleIds = new Set(sortedNotes.map((note) => note._id));
-    return edges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
+    return edges.filter(
+      (edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to),
+    );
   }, [edges, sortedNotes]);
 
   const selectedNote = useMemo(

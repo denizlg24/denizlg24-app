@@ -11,7 +11,14 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,7 +166,10 @@ function EditorInner() {
         title: draftTitle.trim(),
         description: draftDesc.trim() || undefined,
         tags: draftTags
-          ? draftTags.split(",").map((t) => t.trim()).filter(Boolean)
+          ? draftTags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
       },
     });
@@ -182,7 +192,7 @@ function EditorInner() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dirty, saving]);
+  }, [dirty, saving, handleSave]);
 
   if (!id) {
     return (
@@ -326,7 +336,11 @@ function EditorInner() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setRenameOpen(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRenameOpen(false)}
+            >
               Cancel
             </Button>
             <Button

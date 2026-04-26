@@ -1,22 +1,24 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { PiCronHistoryEntry } from "@/lib/data-types";
-import type { denizApi } from "@/lib/api-wrapper";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import type { denizApi } from "@/lib/api-wrapper";
+import type { PiCronHistoryEntry } from "@/lib/data-types";
 
 function StatusBadge({ status }: { status: number }) {
   const ok = status >= 200 && status < 300;
   return (
-    <span className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
-      ok ? "text-accent bg-accent/10" : "text-red-500 bg-red-500/10"
-    }`}>
+    <span
+      className={`text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+        ok ? "text-accent bg-accent/10" : "text-red-500 bg-red-500/10"
+      }`}
+    >
       {status}
     </span>
   );
@@ -59,7 +61,8 @@ export function JobHistoryDialog({
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm">
-            History — <span className="font-mono text-muted-foreground">{jobName}</span>
+            History —{" "}
+            <span className="font-mono text-muted-foreground">{jobName}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -75,7 +78,10 @@ export function JobHistoryDialog({
           <div className="overflow-auto flex-1 -mx-6 px-6">
             <div className="flex flex-col">
               {entries.map((entry) => (
-                <div key={entry.id} className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0">
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0"
+                >
                   <StatusBadge status={entry.status} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -94,10 +100,14 @@ export function JobHistoryDialog({
                       </span>
                     </div>
                     {entry.error && (
-                      <p className="text-[11px] text-red-400/80 font-mono mt-1 truncate">{entry.error}</p>
+                      <p className="text-[11px] text-red-400/80 font-mono mt-1 truncate">
+                        {entry.error}
+                      </p>
                     )}
                     {entry.response && !entry.error && (
-                      <p className="text-[11px] text-muted-foreground/60 font-mono mt-1 truncate max-w-full">{entry.response.slice(0, 120)}</p>
+                      <p className="text-[11px] text-muted-foreground/60 font-mono mt-1 truncate max-w-full">
+                        {entry.response.slice(0, 120)}
+                      </p>
                     )}
                   </div>
                 </div>

@@ -14,7 +14,6 @@ interface StickyColor {
   dot: string;
 }
 
-
 const STICKY_COLORS: StickyColor[] = [
   {
     name: "Sage",

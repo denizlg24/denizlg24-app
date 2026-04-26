@@ -1,11 +1,8 @@
 "use client";
 
+import { Loader2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { PiCronJob, PiCronStats, ICapability } from "@/lib/data-types";
-import type { denizApi } from "@/lib/api-wrapper";
-import { PiCronJobRow } from "./picron-job-row";
-import { JobFormDialog } from "./job-form-dialog";
-import { JobHistoryDialog } from "./job-history-dialog";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,8 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus } from "lucide-react";
-import { toast } from "sonner";
+import type { denizApi } from "@/lib/api-wrapper";
+import type { ICapability, PiCronJob, PiCronStats } from "@/lib/data-types";
+import { JobFormDialog } from "./job-form-dialog";
+import { JobHistoryDialog } from "./job-history-dialog";
+import { PiCronJobRow } from "./picron-job-row";
 
 export function PiCronDashboard({
   API,
@@ -52,20 +52,38 @@ export function PiCronDashboard({
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, [API, resourceId, capability._id]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const handleCreateJob = async (data: Parameters<typeof API.POST>[0]["body"]) => {
-    const result = await API.POST<PiCronJob>({ endpoint: `${basePath}/jobs`, body: data });
-    if ("code" in result) { toast.error("Failed to create job"); return; }
+  const handleCreateJob = async (
+    data: Parameters<typeof API.POST>[0]["body"],
+  ) => {
+    const result = await API.POST<PiCronJob>({
+      endpoint: `${basePath}/jobs`,
+      body: data,
+    });
+    if ("code" in result) {
+      toast.error("Failed to create job");
+      return;
+    }
     setJobs((prev) => [...prev, result]);
     setCreateOpen(false);
     toast.success("Job created");
   };
 
-  const handleUpdateJob = async (data: Parameters<typeof API.PUT>[0]["body"]) => {
+  const handleUpdateJob = async (
+    data: Parameters<typeof API.PUT>[0]["body"],
+  ) => {
     if (!editingJob) return;
-    const result = await API.PUT<PiCronJob>({ endpoint: `${basePath}/jobs/${editingJob.id}`, body: data });
-    if ("code" in result) { toast.error("Failed to update job"); return; }
+    const result = await API.PUT<PiCronJob>({
+      endpoint: `${basePath}/jobs/${editingJob.id}`,
+      body: data,
+    });
+    if ("code" in result) {
+      toast.error("Failed to update job");
+      return;
+    }
     setJobs((prev) => prev.map((j) => (j.id === editingJob.id ? result : j)));
     setEditingJob(null);
     toast.success("Job updated");
@@ -74,17 +92,28 @@ export function PiCronDashboard({
   const handleDeleteJob = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    const result = await API.DELETE<{ status: string }>({ endpoint: `${basePath}/jobs/${deleteTarget.id}` });
+    const result = await API.DELETE<{ status: string }>({
+      endpoint: `${basePath}/jobs/${deleteTarget.id}`,
+    });
     setDeleting(false);
-    if ("code" in result) { toast.error("Failed to delete job"); return; }
+    if ("code" in result) {
+      toast.error("Failed to delete job");
+      return;
+    }
     setJobs((prev) => prev.filter((j) => j.id !== deleteTarget.id));
     setDeleteTarget(null);
     toast.success("Job deleted");
   };
 
   const handleTrigger = async (job: PiCronJob) => {
-    const result = await API.POST<PiCronJob>({ endpoint: `${basePath}/jobs/${job.id}/trigger`, body: {} });
-    if ("code" in result) { toast.error("Failed to trigger job"); return; }
+    const result = await API.POST<PiCronJob>({
+      endpoint: `${basePath}/jobs/${job.id}/trigger`,
+      body: {},
+    });
+    if ("code" in result) {
+      toast.error("Failed to trigger job");
+      return;
+    }
     toast.success(`Triggered "${job.name}"`);
     fetchData();
   };
@@ -103,7 +132,12 @@ export function PiCronDashboard({
         <h3 className="text-xs uppercase tracking-wider text-muted-foreground/60 font-medium">
           Cron Jobs
         </h3>
-        <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-muted-foreground" onClick={() => setCreateOpen(true)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 text-xs gap-1 text-muted-foreground"
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus className="size-3" /> New Job
         </Button>
       </div>
@@ -111,28 +145,46 @@ export function PiCronDashboard({
       {stats && (
         <div className="flex items-center gap-6 mb-4 pb-4 border-b border-border/30">
           <div>
-            <p className="text-lg font-mono font-semibold tabular-nums">{stats.total_jobs}</p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">total</p>
+            <p className="text-lg font-mono font-semibold tabular-nums">
+              {stats.total_jobs}
+            </p>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">
+              total
+            </p>
           </div>
           <div>
-            <p className="text-lg font-mono font-semibold tabular-nums text-accent">{stats.active_jobs}</p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">active</p>
+            <p className="text-lg font-mono font-semibold tabular-nums text-accent">
+              {stats.active_jobs}
+            </p>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">
+              active
+            </p>
           </div>
           <div>
-            <p className="text-lg font-mono font-semibold tabular-nums">{stats.total_executions}</p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">runs</p>
+            <p className="text-lg font-mono font-semibold tabular-nums">
+              {stats.total_executions}
+            </p>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">
+              runs
+            </p>
           </div>
           <div>
-            <p className={`text-lg font-mono font-semibold tabular-nums ${stats.failed_executions_24h > 0 ? "text-red-500" : ""}`}>
+            <p
+              className={`text-lg font-mono font-semibold tabular-nums ${stats.failed_executions_24h > 0 ? "text-red-500" : ""}`}
+            >
               {stats.failed_executions_24h}
             </p>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">fails 24h</p>
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground/60">
+              fails 24h
+            </p>
           </div>
         </div>
       )}
 
       {jobs.length === 0 ? (
-        <p className="text-xs text-muted-foreground/60 text-center py-8">No cron jobs configured</p>
+        <p className="text-xs text-muted-foreground/60 text-center py-8">
+          No cron jobs configured
+        </p>
       ) : (
         <div className="flex flex-col gap-0.5">
           {jobs.map((job) => (
@@ -156,7 +208,7 @@ export function PiCronDashboard({
 
       <JobFormDialog
         open={!!editingJob}
-        key={editingJob?.id??"editDialog"}
+        key={editingJob?.id ?? "editDialog"}
         onOpenChange={(o) => !o && setEditingJob(null)}
         onSubmit={handleUpdateJob}
         editingJob={editingJob}
@@ -175,7 +227,11 @@ export function PiCronDashboard({
         />
       )}
 
-      <Dialog open={!!deleteTarget} key={deleteTarget?.id ?? "deleteDialog"} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        key={deleteTarget?.id ?? "deleteDialog"}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Job</DialogTitle>
@@ -184,8 +240,18 @@ export function PiCronDashboard({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteJob} disabled={deleting}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteJob}
+              disabled={deleting}
+            >
               {deleting ? "Deleting…" : "Delete Job"}
             </Button>
           </DialogFooter>

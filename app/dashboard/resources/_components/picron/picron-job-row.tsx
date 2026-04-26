@@ -1,17 +1,19 @@
 "use client";
 
-import type { PiCronJob } from "@/lib/data-types";
-import { Clock, History, MoreHorizontal, Pencil, Play, Trash2 } from "lucide-react";
+import { History, MoreHorizontal, Pencil, Play, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { PiCronJob } from "@/lib/data-types";
 
 function JobStatusDot({ job }: { job: PiCronJob }) {
   if (!job.enabled) {
-    return <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />;
+    return (
+      <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
+    );
   }
   if (job.last_status === null) {
     return <span className="size-1.5 rounded-full bg-amber-400 shrink-0" />;
@@ -64,13 +66,19 @@ export function PiCronJobRow({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium truncate">{job.name}</span>
           {!job.enabled && (
-            <span className="text-[9px] font-mono uppercase text-muted-foreground">paused</span>
+            <span className="text-[9px] font-mono uppercase text-muted-foreground">
+              paused
+            </span>
           )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[11px] font-mono text-muted-foreground/70">{job.expression}</span>
+          <span className="text-[11px] font-mono text-muted-foreground/70">
+            {job.expression}
+          </span>
           <span className="text-muted-foreground">·</span>
-          <span className="text-[11px] font-mono text-muted-foreground uppercase">{job.method}</span>
+          <span className="text-[11px] font-mono text-muted-foreground uppercase">
+            {job.method}
+          </span>
         </div>
       </div>
 
@@ -79,19 +87,30 @@ export function PiCronJobRow({
           <p className="text-xs font-mono text-muted-foreground tabular-nums">
             {job.last_status ?? "—"}
           </p>
-          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">status</p>
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            status
+          </p>
         </div>
         <div className="w-16">
           <p className="text-xs font-mono text-muted-foreground tabular-nums">
             {formatRelative(job.last_run)}
           </p>
-          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">last run</p>
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            last run
+          </p>
         </div>
         <div className="w-20">
           <p className="text-xs font-mono text-muted-foreground tabular-nums truncate">
-            {job.next_run ? new Date(job.next_run).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+            {job.next_run
+              ? new Date(job.next_run).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "—"}
           </p>
-          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">next</p>
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+            next
+          </p>
         </div>
       </div>
 

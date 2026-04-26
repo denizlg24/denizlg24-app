@@ -10,6 +10,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+  TimetableForm,
+  type TimetableFormValues,
+} from "@/app/dashboard/timetable/_components/timetable-form";
+import { TimetableGrid } from "@/app/dashboard/timetable/_components/timetable-grid";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,15 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  TimetableForm,
-  type TimetableFormValues,
-} from "@/app/dashboard/timetable/_components/timetable-form";
-import { TimetableGrid } from "@/app/dashboard/timetable/_components/timetable-grid";
-import { ITimetableEntry } from "@/lib/data-types";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
-import { set } from "zod";
+import type { ITimetableEntry } from "@/lib/data-types";
 
 const DAY_NAMES = [
   "Monday",
@@ -70,8 +69,9 @@ export default function TimetableManager({
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchEntries = async () => {
+    if (!API) return;
     try {
-      const result = await API!.GET<{ entries: ITimetableEntry[] }>({
+      const result = await API.GET<{ entries: ITimetableEntry[] }>({
         endpoint: "timetable",
       });
       if ("code" in result) {
@@ -87,7 +87,7 @@ export default function TimetableManager({
   useEffect(() => {
     if (!API || !initialLoading) return;
     fetchEntries().finally(() => setInitialLoading(false));
-  }, [API, initialLoading]);
+  }, [API, initialLoading, fetchEntries]);
 
   if (loadingSettings || !API || initialLoading) {
     return (

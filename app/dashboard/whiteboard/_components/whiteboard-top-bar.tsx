@@ -105,28 +105,26 @@ export function WhiteboardTopBar({
       )}
 
       {onRename ? (
-        <>
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={handleCommitRename}
-              onKeyDown={handleKeyDown}
-              className="text-xs font-medium max-w-36 bg-transparent border-b border-primary outline-none text-foreground px-0.5"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              className="text-xs text-muted-foreground font-medium max-w-28 truncate hover:text-foreground transition-colors cursor-text"
-              title="Click to rename"
-            >
-              {boardName}
-            </button>
-          )}
-        </>
+        isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleCommitRename}
+            onKeyDown={handleKeyDown}
+            className="text-xs font-medium max-w-36 bg-transparent border-b border-primary outline-none text-foreground px-0.5"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="text-xs text-muted-foreground font-medium max-w-28 truncate hover:text-foreground transition-colors cursor-text"
+            title="Click to rename"
+          >
+            {boardName}
+          </button>
+        )
       ) : (
         <span className="text-xs text-muted-foreground font-medium max-w-28 truncate">
           {boardName}

@@ -26,6 +26,10 @@ import {
 } from "./kanban-column";
 
 type FullBoard = IKanbanBoard & { columns: ColumnWithCards[] };
+type KanbanCardUpdate = Omit<Partial<IKanbanCard>, "dueDate"> & {
+  dueDate?: Date | string | null;
+};
+type EmptyApiResponse = Record<string, never>;
 
 interface KanbanBoardProps {
   API: denizApi;
@@ -168,7 +172,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
           : c,
       ),
     );
-    const result = await API.PATCH<{}>({
+    const result = await API.PATCH<EmptyApiResponse>({
       endpoint: `kanban/boards/${boardId}/columns/${columnId}`,
       body: updates,
     });
@@ -194,7 +198,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
   const handleDeleteColumn = async (columnId: string) => {
     setColumns((cols) => cols.filter((c) => c._id !== columnId));
-    const result = await API.DELETE<{}>({
+    const result = await API.DELETE<EmptyApiResponse>({
       endpoint: `kanban/boards/${boardId}/columns/${columnId}`,
     });
     if ("code" in result) {
@@ -223,9 +227,9 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
   const handleUpdateCard = async (
     cardId: string,
-    updates: Partial<IKanbanCard>,
+    updates: KanbanCardUpdate,
   ) => {
-    const result = await API.PATCH<IKanbanCard>({
+    const result = await API.PATCH<{ card: IKanbanCard }>({
       endpoint: `kanban/boards/${boardId}/cards/${cardId}`,
       body: updates,
     });
@@ -234,6 +238,8 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
       return;
     }
 
+    const updatedCard = result.card;
+
     if (updates.columnId) {
       fetchBoard();
     } else {
@@ -241,18 +247,59 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
         cols.map((col) => ({
           ...col,
           cards: col.cards.map((c) =>
-            c._id === cardId ? { ...c, ...updates } : c,
+            c._id === cardId ? { ...c, ...updatedCard } : c,
           ),
         })),
       );
     }
     setSelectedCard((prev) =>
-      prev?._id === cardId ? { ...prev, ...updates } : prev,
+      prev?._id === cardId ? { ...prev, ...updatedCard } : prev,
     );
   };
 
+  const handleClearColumn = async (columnId: string) => {
+    const snapshot = columns.find((c) => c._id === columnId);
+    setColumns((cols) =>
+      cols.map((col) => (col._id === columnId ? { ...col, cards: [] } : col)),
+    );
+    const result = await API.DELETE<{ deletedCount: number }>({
+      endpoint: `kanban/boards/${boardId}/columns/${columnId}/cards`,
+    });
+    if ("code" in result) {
+      toast.error("Failed to clear column");
+      if (snapshot) {
+        setColumns((cols) =>
+          cols.map((col) => (col._id === columnId ? snapshot : col)),
+        );
+      } else {
+        fetchBoard();
+      }
+    }
+  };
+
+  const handleToggleCardDone = async (card: IKanbanCard) => {
+    const isDone = card.labels.some((label) => label.toLowerCase() === "done");
+    if (isDone) {
+      await handleUpdateCard(card._id, {
+        labels: card.labels.filter((label) => label.toLowerCase() !== "done"),
+      });
+      return;
+    }
+
+    const doneColumn = columns.find(
+      (col) => col.title.trim().toLowerCase() === "done",
+    );
+    await handleUpdateCard(card._id, {
+      labels: [...card.labels, "done"],
+      dueDate: null,
+      ...(doneColumn && doneColumn._id !== card.columnId
+        ? { columnId: doneColumn._id, order: doneColumn.cards.length }
+        : {}),
+    });
+  };
+
   const handleDeleteCard = async (cardId: string) => {
-    const result = await API.DELETE<{}>({
+    const result = await API.DELETE<EmptyApiResponse>({
       endpoint: `kanban/boards/${boardId}/cards/${cardId}`,
     });
     if ("code" in result) {
@@ -337,7 +384,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
         })),
       );
 
-      const result = await API.PATCH<{}>({
+      const result = await API.PATCH<EmptyApiResponse>({
         endpoint: `kanban/boards/${boardId}/cards/reorder`,
         body: { items: allCards },
       });
@@ -361,7 +408,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
 
       setColumns(reordered);
 
-      const result = await API.PATCH<{}>({
+      const result = await API.PATCH<EmptyApiResponse>({
         endpoint: `kanban/boards/${boardId}/columns/reorder`,
         body: {
           items: reordered.map((c) => ({ _id: c._id, order: c.order })),
@@ -380,7 +427,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
       <div className="flex gap-4 p-4 h-full items-start w-full">
         {CARD_COUNTS.map((cardCount, i) => (
           <div
-            key={i}
+            key={`column-skeleton-${cardCount}`}
             className="min-w-64 flex-1 flex flex-col rounded-lg border bg-muted/30 animate-pulse"
           >
             <div className="flex items-center gap-2 p-3 border-b">
@@ -392,7 +439,7 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
             <div className="flex flex-col gap-2 p-2">
               {Array.from({ length: cardCount }).map((_, j) => (
                 <div
-                  key={j}
+                  key={`card-skeleton-${cardCount}-${60 + ((i * 3 + j * 7) % 30)}`}
                   className="flex flex-col gap-2 p-3 rounded-md border bg-card"
                 >
                   <div
@@ -435,6 +482,8 @@ export function KanbanBoard({ API, boardId }: KanbanBoardProps) {
             onAddCard={handleAddCard}
             onUpdateColumn={handleUpdateColumn}
             onDeleteColumn={handleDeleteColumn}
+            onClearColumn={handleClearColumn}
+            onToggleCardDone={handleToggleCardDone}
           />
         ))}
 

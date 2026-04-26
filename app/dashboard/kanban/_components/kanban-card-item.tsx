@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
-import { IKanbanCard, KanbanPriority } from "@/lib/data-types";
-import { Calendar, FileText } from "lucide-react";
 import { format } from "date-fns";
+import { Calendar, CheckCircle2, FileText } from "lucide-react";
+import { useRef } from "react";
+import type { IKanbanCard, KanbanPriority } from "@/lib/data-types";
 
 const PRIORITY_CONFIG: Record<
   KanbanPriority,
@@ -40,6 +40,7 @@ interface KanbanCardItemProps {
   onDragOver: (beforeCardId: string | null) => void;
   onDrop: () => void;
   onClick: () => void;
+  onToggleDone: () => void;
 }
 
 export function KanbanCardItem({
@@ -50,6 +51,7 @@ export function KanbanCardItem({
   onDragOver,
   onDrop,
   onClick,
+  onToggleDone,
 }: KanbanCardItemProps) {
   const isDraggingRef = useRef(false);
 
@@ -94,6 +96,7 @@ export function KanbanCardItem({
   const isPastDue = card.dueDate && new Date(card.dueDate) < new Date();
   const priorityConfig = PRIORITY_CONFIG[card.priority];
   const hasFooter = !!card.dueDate || !!priorityConfig;
+  const isDone = card.labels.some((label) => label.toLowerCase() === "done");
 
   return (
     <div
@@ -112,6 +115,24 @@ export function KanbanCardItem({
       onClick={handleClick}
       className="group bg-card rounded-xl border shadow-sm p-4 cursor-pointer select-none transition-all duration-150 hover:shadow-md active:opacity-60"
     >
+      <button
+        type="button"
+        aria-label={isDone ? "Mark card as not done" : "Mark card as done"}
+        title={isDone ? "Mark as not done" : "Mark as done"}
+        className={`float-right -mt-1 -mr-1 ml-2 size-7 rounded-full flex items-center justify-center transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          isDone
+            ? "text-primary opacity-100"
+            : "text-muted-foreground opacity-0"
+        }`}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleDone();
+        }}
+      >
+        <CheckCircle2 className="size-4" />
+      </button>
+
       {card.labels && card.labels.length > 0 && (
         <div className="flex gap-1.5 flex-wrap mb-2.5">
           {card.labels.slice(0, 4).map((label) => (

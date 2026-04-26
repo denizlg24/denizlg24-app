@@ -9,7 +9,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { IAuthenticatorAccount, IAuthenticatorCode } from "@/lib/data-types";
+import type {
+  IAuthenticatorAccount,
+  IAuthenticatorCode,
+} from "@/lib/data-types";
 import { CountdownRing } from "./countdown-ring";
 
 interface AuthenticatorAccountRowProps {
@@ -73,7 +76,10 @@ export function AuthenticatorAccountRow({
       </button>
 
       {codeData && (
-        <CountdownRing remaining={codeData.remaining} period={codeData.period} />
+        <CountdownRing
+          remaining={codeData.remaining}
+          period={codeData.period}
+        />
       )}
 
       <DropdownMenu>
