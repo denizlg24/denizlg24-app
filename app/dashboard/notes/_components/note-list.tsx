@@ -73,7 +73,7 @@ export function NoteList({ notes, groups, onSelect, onSelectGroup }: Props) {
 
         <div className="divide-y">
           {notes.map((note) => {
-            const noteGroups = note.groupIds
+            const noteGroups = (note.groupIds ?? [])
               .map((groupId) => groupMap.get(groupId))
               .filter((group): group is INoteGroup => Boolean(group));
 
@@ -166,12 +166,12 @@ export function NoteList({ notes, groups, onSelect, onSelectGroup }: Props) {
                 </div>
 
                 <div className="flex flex-wrap content-start gap-1">
-                  {note.tags.length === 0 ? (
+                  {(note.tags ?? []).length === 0 ? (
                     <span className="text-[10px] text-muted-foreground">
                       None
                     </span>
                   ) : (
-                    note.tags.map((tag) => (
+                    (note.tags ?? []).map((tag) => (
                       <Badge
                         key={tag}
                         variant="outline"

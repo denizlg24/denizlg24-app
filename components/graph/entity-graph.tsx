@@ -60,12 +60,39 @@ export function EntityGraph<
   const data = useMemo(() => {
     const scheme = themeScheme();
     const visibleItemIds = new Set(items.map((item) => item._id));
-    const groupMemberCount = new Map<string, number>();
+    const directMemberCount = new Map<string, number>();
 
     for (const item of items) {
       for (const groupId of getItemGroupIds(item)) {
-        groupMemberCount.set(groupId, (groupMemberCount.get(groupId) ?? 0) + 1);
+        directMemberCount.set(
+          groupId,
+          (directMemberCount.get(groupId) ?? 0) + 1,
+        );
       }
+    }
+
+    const childrenByParent = new Map<string, TGroup[]>();
+    for (const group of groups) {
+      const parentId = group.parentId ?? null;
+      if (!parentId) continue;
+      const list = childrenByParent.get(parentId) ?? [];
+      list.push(group);
+      childrenByParent.set(parentId, list);
+    }
+
+    const subtreeMemberCount = new Map<string, number>();
+    const computeSubtree = (groupId: string): number => {
+      const cached = subtreeMemberCount.get(groupId);
+      if (cached !== undefined) return cached;
+      let total = directMemberCount.get(groupId) ?? 0;
+      for (const child of childrenByParent.get(groupId) ?? []) {
+        total += computeSubtree(child._id);
+      }
+      subtreeMemberCount.set(groupId, total);
+      return total;
+    };
+    for (const group of groups) {
+      computeSubtree(group._id);
     }
 
     const edgeCount = new Map<string, number>();
@@ -89,14 +116,20 @@ export function EntityGraph<
           item,
         };
       }),
-      ...groups.map((group) => ({
-        id: `group:${group._id}`,
-        label: group.name,
-        type: "group" as const,
-        val: 4 + (groupMemberCount.get(group._id) ?? 0) * 1.2,
-        color: group.color ?? classColor(group.name, scheme),
-        group,
-      })),
+      ...groups.map((group) => {
+        const isRoot = !group.parentId;
+        const subtree = subtreeMemberCount.get(group._id) ?? 0;
+        const base = isRoot ? 14 : 5;
+        const perMember = isRoot ? 2.2 : 1.2;
+        return {
+          id: `group:${group._id}`,
+          label: group.name,
+          type: "group" as const,
+          val: base + subtree * perMember,
+          color: group.color ?? classColor(group.name, scheme),
+          group,
+        };
+      }),
     ];
 
     const links: KnowledgeGraphLinkData[] = [];

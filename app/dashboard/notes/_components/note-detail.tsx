@@ -165,7 +165,7 @@ export function NoteDetail({
 
   const noteGroups = useMemo(
     () =>
-      note.groupIds
+      (note.groupIds ?? [])
         .map((groupId) => groups.find((group) => group._id === groupId))
         .filter((group): group is INoteGroup => Boolean(group)),
     [groups, note.groupIds],
@@ -318,7 +318,7 @@ export function NoteDetail({
 
               <PropertyRow icon={<TagIcon className="size-3" />} label="tags">
                 <TagAutocomplete
-                  value={note.tags}
+                  value={note.tags ?? []}
                   suggestions={suggestions}
                   onChange={(next) => {
                     void onPatch({ tags: next }).then(() => {
@@ -342,7 +342,7 @@ export function NoteDetail({
               >
                 <GroupTreeCombobox
                   groups={groups}
-                  value={note.groupIds}
+                  value={note.groupIds ?? []}
                   onChange={(next) => void onPatch({ groupIds: next })}
                   placeholder="Add group…"
                   searchPlaceholder="Search group hierarchy…"

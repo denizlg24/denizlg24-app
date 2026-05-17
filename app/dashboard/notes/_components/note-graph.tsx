@@ -25,7 +25,7 @@ export function NoteGraph({
       groups={groups}
       edges={edges}
       getItemLabel={(note) => note.title}
-      getItemGroupIds={(note) => note.groupIds}
+      getItemGroupIds={(note) => note.groupIds ?? []}
       getItemColor={(note, scheme) =>
         note.class
           ? classColor(note.class, scheme)

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useUserSettings } from "@/context/user-context";
 import { denizApi } from "@/lib/api-wrapper";
 import type { INote, INoteEdge, INoteGroup } from "@/lib/data-types";
+import { classifyNoteLocally } from "@/lib/semantic/classify-note";
 import { NoteDetail } from "../_components/note-detail";
 
 function createDraftNote(): INote {
@@ -35,6 +36,7 @@ export default function NewNotePage() {
   const [groups, setGroups] = useState<INoteGroup[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!api) return;
@@ -55,6 +57,19 @@ export default function NewNotePage() {
 
   const handleDraftPatch = useCallback(
     async (body: Record<string, unknown>) => {
+      if (savedNoteId && api) {
+        const result = await api.PATCH<{ note: INote }>({
+          endpoint: `notes/${savedNoteId}`,
+          body,
+        });
+        if ("code" in result) {
+          toast.error(result.message);
+          return null;
+        }
+        setDraftNote(result.note);
+        return result.note;
+      }
+
       let nextNote: INote | null = null;
 
       setDraftNote((current) => {
@@ -95,7 +110,7 @@ export default function NewNotePage() {
 
       return nextNote;
     },
-    [],
+    [api, savedNoteId],
   );
 
   const handleCreateNote = useCallback(
@@ -135,27 +150,63 @@ export default function NewNotePage() {
         return;
       }
 
-      toast.success("Note created");
-      router.push(`/dashboard/notes?note=${result.note._id}`);
+      setSavedNoteId(result.note._id);
+      setDraftNote(result.note);
+      setGroups(result.groups);
+
+      try {
+        const classified = await classifyNoteLocally({
+          api,
+          note: result.note,
+          groups: result.groups,
+        });
+        setDraftNote(classified.note);
+        setGroups(classified.groups);
+        toast.success("Note created and classified");
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? `Note created, local classification failed: ${error.message}`
+            : "Note created, local classification failed",
+        );
+      }
     },
-    [api, draftNote, router, submitting],
+    [api, draftNote, groups, submitting],
   );
+
+  const handleDelete = useCallback(async () => {
+    if (!savedNoteId || !api) {
+      router.push("/dashboard/notes");
+      return;
+    }
+    const result = await api.DELETE<{ success: true }>({
+      endpoint: `notes/${savedNoteId}`,
+    });
+    if ("code" in result) {
+      toast.error(result.message);
+      return;
+    }
+    toast.success("Note deleted");
+    router.push("/dashboard/notes");
+  }, [api, router, savedNoteId]);
+
+  const isSaved = savedNoteId !== null;
 
   return (
     <NoteDetail
       note={draftNote}
-      allNotes={[]}
+      allNotes={isSaved ? [draftNote] : []}
       groups={groups}
       edges={[]}
       suggestions={suggestions}
       onPatch={handleDraftPatch}
-      onDelete={async () => {}}
+      onDelete={handleDelete}
       onBack={() => router.push("/dashboard/notes")}
       onSelectNote={() => {}}
       onSuggestionsChange={setSuggestions}
-      onUpdated={() => {}}
-      api={null}
-      mode="draft"
+      onUpdated={(note) => setDraftNote(note)}
+      api={isSaved ? api : null}
+      mode={isSaved ? "existing" : "draft"}
       onSaveDraft={handleCreateNote}
       savingDraft={submitting}
     />

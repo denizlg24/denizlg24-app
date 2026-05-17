@@ -141,8 +141,13 @@ export interface INote {
   publishedDate?: string;
   tags: string[];
   groupIds: string[];
+  manualGroupIds?: string[];
   status: "open" | "archived";
   class?: string;
+  semanticStatus?: "pending" | "embedded" | "stale" | "failed";
+  semanticContentHash?: string;
+  semanticUpdatedAt?: string;
+  semanticError?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -154,6 +159,13 @@ export interface INoteGroup {
   color?: string;
   parentId?: string | null;
   autoCreated: boolean;
+  kind?: "manual" | "generated" | "system";
+  source?: "user" | "llm" | "semantic" | "migration";
+  lockedByUser?: boolean;
+  semanticRunId?: string;
+  semanticClusterKey?: string;
+  confidence?: number;
+  aliases?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -164,6 +176,14 @@ export interface INoteEdge {
   to: string;
   strength: number;
   reason?: string;
+  source?: "manual" | "llm" | "semantic" | "migration";
+  model?: string;
+  runId?: string;
+  metadata?: {
+    similarity?: number;
+    sharedGroupIds?: string[];
+    explanation?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -172,7 +192,83 @@ export interface INoteGraph {
   notes: INote[];
   groups: INoteGroup[];
   edges: INoteEdge[];
-  stats: { total: number; groups: number; edges: number };
+  stats: {
+    total: number;
+    groups: number;
+    edges: number;
+    semanticPending?: number;
+    semanticStale?: number;
+    suggestionsPending?: number;
+  };
+  semantic?: {
+    latestRun?: {
+      _id: string;
+      status: "running" | "completed" | "failed";
+      model: string;
+      completedAt?: string;
+      edgeCount: number;
+      clusterCount: number;
+    };
+  };
+}
+
+export interface INoteEmbedding {
+  noteId: string;
+  model: string;
+  dimension: number;
+  vector: number[];
+  contentHash: string;
+  updatedAt: string;
+}
+
+export interface ISemanticRun {
+  _id: string;
+  status: "running" | "completed" | "failed";
+  model: string;
+  initiatedBy: "desktop" | "script";
+  noteCount: number;
+  embeddedCount: number;
+  staleCount: number;
+  edgeCount: number;
+  clusterCount: number;
+  parameters: {
+    topK: number;
+    minSimilarity: number;
+    strongSimilarity: number;
+    clusterMinSize: number;
+    maxGroupsPerNote: number;
+  };
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface ISemanticSuggestion {
+  _id: string;
+  runId: string;
+  type:
+    | "join-group"
+    | "create-group"
+    | "rename-group"
+    | "move-group"
+    | "add-tags"
+    | "add-edge"
+    | "archive-edge"
+    | "cluster-label";
+  status: "pending" | "accepted" | "dismissed" | "superseded";
+  noteId?: string;
+  groupId?: string;
+  targetGroupId?: string;
+  proposedParentId?: string | null;
+  proposedName?: string;
+  proposedDescription?: string;
+  proposedTags?: string[];
+  proposedRelatedNoteIds?: string[];
+  confidence: number;
+  reason: string;
+  source: "semantic" | "llm-label";
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BirthdayParts {

@@ -8,7 +8,18 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ForceGraphProps, NodeObject } from "react-force-graph-2d";
+import type {
+  ForceGraphMethods,
+  ForceGraphProps,
+  NodeObject,
+} from "react-force-graph-2d";
+import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  type SimulationLinkDatum,
+  type SimulationNodeDatum,
+} from "d3-force";
 
 export type KnowledgeGraphNodeData<TItem = unknown, TGroup = unknown> = {
   id: string;
@@ -30,10 +41,17 @@ export type KnowledgeGraphLinkData = {
 type GraphNode<TItem, TGroup> = NodeObject<
   KnowledgeGraphNodeData<TItem, TGroup>
 >;
+type ForceGraphRef = ForceGraphMethods<
+  KnowledgeGraphNodeData,
+  KnowledgeGraphLinkData
+>;
+
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
 }) as ComponentType<
-  ForceGraphProps<KnowledgeGraphNodeData, KnowledgeGraphLinkData>
+  ForceGraphProps<KnowledgeGraphNodeData, KnowledgeGraphLinkData> & {
+    ref?: React.Ref<ForceGraphRef>;
+  }
 >;
 
 interface Theme {
@@ -85,10 +103,70 @@ export function KnowledgeGraph<TItem, TGroup>({
   onRelationClick,
 }: Props<TItem, TGroup>) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<ForceGraphRef | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [theme, setTheme] = useState<Theme | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const graphData = useMemo(() => ({ nodes, links }), [nodes, links]);
+
+  useEffect(() => {
+    type SimNode = SimulationNodeDatum & { val: number };
+    type SimLink = SimulationLinkDatum<SimNode> & {
+      type: "membership" | "relation";
+    };
+
+    const nodeRadius = (node: SimNode | string | number) => {
+      if (typeof node !== "object" || node === null) return NODE_REL_SIZE;
+      return Math.sqrt(node.val ?? 1) * NODE_REL_SIZE;
+    };
+
+    const apply = () => {
+      const fg = graphRef.current;
+      if (!fg) return false;
+
+      fg.d3Force(
+        "collide",
+        forceCollide<SimNode>()
+          .radius((node) => Math.sqrt(node.val) * NODE_REL_SIZE + 4)
+          .strength(0.9) as never,
+      );
+
+      fg.d3Force(
+        "charge",
+        forceManyBody<SimNode>().strength(
+          (node) => -30 - Math.sqrt(node.val) * 8,
+        ) as never,
+      );
+
+      const linkForce = fg.d3Force("link") as ReturnType<
+        typeof forceLink<SimNode, SimLink>
+      > | null;
+      if (!linkForce) return false;
+
+      linkForce
+        .distance((link) => nodeRadius(link.source) + nodeRadius(link.target) + 18)
+        .strength((link) => (link.type === "membership" ? 0.4 : 0.7));
+
+      fg.d3ReheatSimulation();
+      return true;
+    };
+
+    let raf = 0;
+    let cancelled = false;
+    let attempts = 0;
+    const tick = () => {
+      if (cancelled) return;
+      attempts += 1;
+      const ok = apply();
+      if (ok && attempts >= 2) return;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [nodes, links]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -121,6 +199,7 @@ export function KnowledgeGraph<TItem, TGroup>({
     <div ref={containerRef} className="h-full w-full bg-background">
       {size.width > 0 && theme && (
         <ForceGraph2D
+          ref={graphRef}
           graphData={graphData}
           width={size.width}
           height={size.height}

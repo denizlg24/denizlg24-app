@@ -94,13 +94,14 @@ export function GroupDetail({
   const members = useMemo(
     () =>
       notes.filter((note) =>
-        note.groupIds.some((groupId) => subtreeIds.has(groupId)),
+        (note.groupIds ?? []).some((groupId) => subtreeIds.has(groupId)),
       ),
     [notes, subtreeIds],
   );
 
   const directMemberCount = useMemo(
-    () => notes.filter((note) => note.groupIds.includes(group._id)).length,
+    () =>
+      notes.filter((note) => (note.groupIds ?? []).includes(group._id)).length,
     [notes, group._id],
   );
 
@@ -221,7 +222,15 @@ export function GroupDetail({
                 ...parentOptions,
               ]}
               value={[parent ? parent._id : NONE_VALUE]}
-              onChange={(value) => handleParentChange(value[0])}
+              onChange={(next) => {
+                const currentId = parent ? parent._id : NONE_VALUE;
+                if (next.length === 0) {
+                  handleParentChange(NONE_VALUE);
+                  return;
+                }
+                const added = next.find((id) => id !== currentId);
+                handleParentChange(added ?? NONE_VALUE);
+              }}
               placeholder="None"
               searchPlaceholder="Search group hierarchy…"
               emptyMessage="No groups yet"

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BrainCircuit,
   FilePlus2,
   FileText,
   FolderPlus,
@@ -37,11 +38,13 @@ import type {
   INoteGroup,
 } from "@/lib/data-types";
 import { buildDescendantIdMap, buildPathLabelMap } from "@/lib/note-group-tree";
+import { classifyNoteLocally } from "@/lib/semantic/classify-note";
 import { GroupDetail } from "./_components/group-detail";
 import { GroupTreeCombobox } from "./_components/group-tree-combobox";
 import { NoteDetail } from "./_components/note-detail";
 import { NoteGraph } from "./_components/note-graph";
 import { NoteList } from "./_components/note-list";
+import { SemanticPanel } from "./_components/semantic-panel";
 
 type View = "graph" | "list";
 type Sort =
@@ -51,6 +54,20 @@ type Sort =
   | "created-asc"
   | "title-asc"
   | "title-desc";
+
+const AUTO_CLASSIFY_FIELDS = new Set([
+  "title",
+  "content",
+  "url",
+  "description",
+  "siteName",
+  "class",
+  "tags",
+]);
+
+function shouldAutoClassify(body: Record<string, unknown>) {
+  return Object.keys(body ?? {}).some((key) => AUTO_CLASSIFY_FIELDS.has(key));
+}
 type HasUrlFilter = "all" | "with-url" | "without-url";
 type StatusFilter = "all" | INote["status"];
 
@@ -128,7 +145,7 @@ function matchesQuery(note: INote, query: string, groupSearchLabels: string[]) {
     note.siteName,
     note.class,
     ...groupSearchLabels,
-    ...note.tags,
+    ...(note.tags ?? []),
   ]
     .filter((value): value is string => Boolean(value))
     .some((value) => value.toLowerCase().includes(normalized));
@@ -139,7 +156,7 @@ function collectVisibleGroups(notes: INote[], groups: INoteGroup[]) {
   const visible = new Set<string>();
 
   for (const note of notes) {
-    for (const groupId of note.groupIds) {
+    for (const groupId of note.groupIds ?? []) {
       let currentId: string | null | undefined = groupId;
       while (currentId) {
         if (visible.has(currentId)) break;
@@ -180,6 +197,7 @@ export default function NotesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<Sort>("updated-desc");
   const [importingLink, setImportingLink] = useState(false);
+  const [semanticOpen, setSemanticOpen] = useState(false);
 
   const load = useCallback(
     async (silent = false) => {
@@ -255,6 +273,32 @@ export default function NotesPage() {
     setSelectedId(next._id);
   }, []);
 
+  const autoClassifyNote = useCallback(
+    async (note: INote, toastId?: string | number) => {
+      if (!api) return { note, classified: false };
+
+      try {
+        const result = await classifyNoteLocally({
+          api,
+          note,
+          groups,
+        });
+        applyUpdatedNote(result.note);
+        setGroups(result.groups ?? []);
+        return { note: result.note, classified: true };
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? `Local classification failed: ${error.message}`
+            : "Local classification failed",
+          toastId ? { id: toastId } : undefined,
+        );
+        return { note, classified: false };
+      }
+    },
+    [api, applyUpdatedNote, groups],
+  );
+
   const handlePatchNote = useCallback(
     async (id: string, body: Record<string, unknown>) => {
       if (!api) return null;
@@ -270,9 +314,12 @@ export default function NotesPage() {
       }
 
       applyUpdatedNote(result.note);
+      if (shouldAutoClassify(body)) {
+        void autoClassifyNote(result.note);
+      }
       return result.note;
     },
-    [api, applyUpdatedNote],
+    [api, applyUpdatedNote, autoClassifyNote],
   );
 
   const handleDeleteNote = useCallback(
@@ -317,7 +364,7 @@ export default function NotesPage() {
         edges: INoteEdge[];
       }>({
         endpoint: "notes",
-        body: { url },
+        body: { url, skipCategorize: true },
       });
 
       setImportingLink(false);
@@ -327,23 +374,27 @@ export default function NotesPage() {
         return;
       }
 
-      setGroups(result.groups);
+      setGroups(result.groups ?? []);
       setEdges((current) => [
         ...current.filter(
           (edge) =>
             edge.from !== result.note._id && edge.to !== result.note._id,
         ),
-        ...result.edges,
+        ...(result.edges ?? []),
       ]);
       setTagSuggestions((current) =>
-        [...new Set([...current, ...result.note.tags])].sort((left, right) =>
-          left.localeCompare(right),
+        [...new Set([...current, ...(result.note.tags ?? [])])].sort(
+          (left, right) => left.localeCompare(right),
         ),
       );
       applyUpdatedNote(result.note);
-      toast.success("Link imported", { id: toastId });
+      const { classified } = await autoClassifyNote(result.note);
+      toast.success(
+        classified ? "Link imported and classified" : "Link imported",
+        { id: toastId },
+      );
     },
-    [api, applyUpdatedNote, importingLink],
+    [api, applyUpdatedNote, autoClassifyNote, importingLink],
   );
 
   const handleCategorizeNote = useCallback(
@@ -365,14 +416,14 @@ export default function NotesPage() {
       }
 
       applyUpdatedNote(result.note);
-      setGroups(result.groups);
+      setGroups(result.groups ?? []);
       setEdges((current) => [
         ...current.filter((edge) => edge.from !== id && edge.to !== id),
-        ...result.edges,
+        ...(result.edges ?? []),
       ]);
       setTagSuggestions((current) =>
-        [...new Set([...current, ...result.note.tags])].sort((left, right) =>
-          left.localeCompare(right),
+        [...new Set([...current, ...(result.note.tags ?? [])])].sort(
+          (left, right) => left.localeCompare(right),
         ),
       );
       toast.success("Note categorized");
@@ -425,7 +476,7 @@ export default function NotesPage() {
       setNotes((current) =>
         current.map((note) => ({
           ...note,
-          groupIds: note.groupIds.filter((groupId) => groupId !== id),
+          groupIds: (note.groupIds ?? []).filter((groupId) => groupId !== id),
         })),
       );
       setSelectedGroupId(null);
@@ -450,7 +501,10 @@ export default function NotesPage() {
   const allTags = useMemo(
     () =>
       [
-        ...new Set([...tagSuggestions, ...notes.flatMap((note) => note.tags)]),
+        ...new Set([
+          ...tagSuggestions,
+          ...notes.flatMap((note) => note.tags ?? []),
+        ]),
       ].sort((left, right) => left.localeCompare(right)),
     [notes, tagSuggestions],
   );
@@ -473,7 +527,7 @@ export default function NotesPage() {
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
-      const groupSearchLabels = note.groupIds
+      const groupSearchLabels = (note.groupIds ?? [])
         .map((groupId) => pathLabelById.get(groupId))
         .filter((label): label is string => Boolean(label));
 
@@ -486,14 +540,16 @@ export default function NotesPage() {
 
       if (
         selectedGroupScope.size > 0 &&
-        !note.groupIds.some((groupId) => selectedGroupScope.has(groupId))
+        !(note.groupIds ?? []).some((groupId) =>
+          selectedGroupScope.has(groupId),
+        )
       ) {
         return false;
       }
 
       if (
         selectedTagFilters.length > 0 &&
-        !selectedTagFilters.every((tag) => note.tags.includes(tag))
+        !selectedTagFilters.every((tag) => (note.tags ?? []).includes(tag))
       ) {
         return false;
       }
@@ -588,7 +644,10 @@ export default function NotesPage() {
           setSelectedId(note._id);
         }}
         onSuggestionsChange={setTagSuggestions}
-        onUpdated={applyUpdatedNote}
+        onUpdated={(note) => {
+          applyUpdatedNote(note);
+          void autoClassifyNote(note);
+        }}
         api={api}
         onCategorize={() => handleCategorizeNote(selectedNote._id)}
       />
@@ -614,7 +673,7 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div className="flex h-12 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <FileText className="size-4" />
@@ -642,6 +701,17 @@ export default function NotesPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => setSemanticOpen(true)}
+            title="Semantic notes"
+          >
+            <BrainCircuit className="size-3.5" />
+            Semantic
+          </Button>
 
           <Button
             size="sm"
@@ -827,6 +897,13 @@ export default function NotesPage() {
           />
         )}
       </div>
+      {api && semanticOpen && (
+        <SemanticPanel
+          api={api}
+          onClose={() => setSemanticOpen(false)}
+          onChanged={() => void load(true)}
+        />
+      )}
     </div>
   );
 }
@@ -864,26 +941,8 @@ function NotesLoadingSkeleton() {
         <Skeleton className="h-7 w-40" />
       </div>
 
-      <div className="flex-1 overflow-hidden p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-2 rounded-md border bg-card p-3"
-            >
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-5/6" />
-              <div className="mt-1 flex gap-1.5">
-                <Skeleton className="h-4 w-12 rounded-full" />
-                <Skeleton
-                  className="h-4 rounded-full"
-                  style={{ width: `${36 + ((i * 13) % 30)}px` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     </div>
   );
