@@ -837,25 +837,53 @@ function NotesLoadingSkeleton() {
       <div className="flex h-12 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <FileText className="size-4" />
-          <Skeleton className="h-4 w-24" />
+          <h1 className="text-sm font-medium">Notes</h1>
+          <Skeleton className="h-3 w-28" />
+        </div>
+
+        <div className="flex items-center gap-2 grow ml-2">
+          <Skeleton className="h-7 grow" />
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-7 w-9" />
+          <Skeleton className="h-7 w-20" />
+          <Skeleton className="h-7 w-16" />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 w-full">
+        <div className="flex items-center gap-2">
+          <FolderTree className="size-3.5 text-muted-foreground" />
+          <Skeleton className="h-7 w-44" />
         </div>
         <div className="flex items-center gap-2">
-          <Skeleton className="h-7 w-72" />
-          <Skeleton className="h-7 w-16" />
-          <Skeleton className="h-7 w-24" />
-          <Skeleton className="h-7 w-20" />
+          <Tags className="size-3.5 text-muted-foreground" />
+          <Skeleton className="h-7 w-44" />
         </div>
+        <Skeleton className="ml-auto h-7 w-32" />
+        <Skeleton className="h-7 w-32" />
+        <Skeleton className="h-7 w-40" />
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b px-4 py-2 w-full">
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="h-7 w-20" />
-        <Skeleton className="ml-auto h-7 w-24" />
-        <Skeleton className="h-7 w-36" />
-      </div>
-
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div className="flex-1 overflow-hidden p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex flex-col gap-2 rounded-md border bg-card p-3"
+            >
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-5/6" />
+              <div className="mt-1 flex gap-1.5">
+                <Skeleton className="h-4 w-12 rounded-full" />
+                <Skeleton
+                  className="h-4 rounded-full"
+                  style={{ width: `${36 + ((i * 13) % 30)}px` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

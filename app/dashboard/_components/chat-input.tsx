@@ -7,6 +7,7 @@ import {
   Loader2,
   Paperclip,
   Settings,
+  Square,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -47,6 +48,8 @@ export function ChatInput({
   model,
   onModelChange,
   disabled,
+  streaming,
+  onAbort,
   docked,
   modelLabel,
   toolsEnabled,
@@ -62,6 +65,8 @@ export function ChatInput({
   model: string;
   onModelChange: (model: string) => void;
   disabled?: boolean;
+  streaming?: boolean;
+  onAbort?: () => void;
   docked?: boolean;
   modelLabel?: string;
   toolsEnabled?: boolean;
@@ -290,13 +295,25 @@ export function ChatInput({
               {modelLabel}
             </span>
           )}
-          <button
-            onClick={onSend}
-            disabled={disabled || !canSend}
-            className="shrink-0 mr-2 mb-2 flex items-center justify-center w-7 h-7 rounded-full bg-foreground text-background transition-opacity disabled:opacity-30 hover:opacity-80"
-          >
-            <ArrowUp className="w-4 h-4" />
-          </button>
+          {streaming ? (
+            <button
+              type="button"
+              onClick={onAbort}
+              className="shrink-0 mr-2 mb-2 flex items-center justify-center w-7 h-7 rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
+              aria-label="Stop response"
+              title="Stop response"
+            >
+              <Square className="w-3 h-3 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={onSend}
+              disabled={disabled || !canSend}
+              className="shrink-0 mr-2 mb-2 flex items-center justify-center w-7 h-7 rounded-full bg-foreground text-background transition-opacity disabled:opacity-30 hover:opacity-80"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

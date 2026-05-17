@@ -4,8 +4,8 @@ import { pdf } from "@react-pdf/renderer";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import {
-  ChevronLeftCircle,
-  ChevronRightCircle,
+  ChevronDownCircle,
+  ChevronUpCircle,
   ClipboardX,
   Download,
   Edit2,
@@ -349,8 +349,20 @@ export const NoteEditor = ({
 
   return (
     <div className="w-full relative flex-1 min-h-0 flex flex-col">
-      {toolbarOpen ? (
-        <div className="flex flex-col gap-1 items-center absolute sm:right-2 right-0 sm:top-4 z-90 px-1 py-2 border shadow rounded-full bg-surface">
+      <div
+        className={`fixed left-1/2 -translate-x-1/2 bottom-4 z-90 flex flex-row items-center rounded-full transition-[background-color,border-color,box-shadow] duration-300 ease-out ${
+          toolbarOpen
+            ? "px-2 py-1 border shadow bg-surface"
+            : "p-0 border-transparent bg-transparent shadow-none"
+        }`}
+      >
+        <div
+          className={`flex flex-row items-center gap-1 overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out ${
+            toolbarOpen
+              ? "max-w-[600px] opacity-100 mr-1"
+              : "max-w-0 opacity-0 mr-0"
+          }`}
+        >
           <Button
             variant="outline"
             size="icon-sm"
@@ -534,25 +546,16 @@ export const NoteEditor = ({
           >
             <ClipboardX />
           </Button>
-          <Button
-            variant={"outline"}
-            size={"icon-sm"}
-            className="rounded-full"
-            onClick={() => setToolbarOpen(false)}
-          >
-            <ChevronRightCircle />
-          </Button>
         </div>
-      ) : (
         <Button
           variant={"outline"}
           size={"icon-sm"}
-          className="absolute sm:top-4 sm:right-2 right-0 rounded-full z-90"
-          onClick={() => setToolbarOpen(true)}
+          className="rounded-full"
+          onClick={() => setToolbarOpen((prev) => !prev)}
         >
-          <ChevronLeftCircle />
+          {toolbarOpen ? <ChevronDownCircle /> : <ChevronUpCircle />}
         </Button>
-      )}
+      </div>
       {!togglePreview && (
         <div className="relative flex-1 min-h-0 flex flex-col">
           {showOverlay && (

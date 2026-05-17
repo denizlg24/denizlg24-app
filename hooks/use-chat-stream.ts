@@ -30,6 +30,12 @@ export interface BackoffState {
   maxAttempts: number;
 }
 
+export interface MaxIterationsState {
+  active: boolean;
+  iterations: number;
+  hasUnansweredTools: boolean;
+}
+
 export function useChatStream(API: denizApi | null) {
   const [streamSegments, setStreamSegments] = useState<IChatContentSegment[]>(
     [],
@@ -44,6 +50,11 @@ export function useChatStream(API: denizApi | null) {
     attempt: 0,
     maxAttempts: 0,
   });
+  const [maxIterations, setMaxIterations] = useState<MaxIterationsState>({
+    active: false,
+    iterations: 0,
+    hasUnansweredTools: false,
+  });
   const abortRef = useRef<(() => void) | null>(null);
 
   const abort = useCallback(() => {
@@ -53,7 +64,7 @@ export function useChatStream(API: denizApi | null) {
   }, []);
 
   const streamChat = useCallback(
-    (body: {
+    async (body: {
       conversationId?: string;
       message?: string | unknown[];
       model: string;
@@ -61,188 +72,201 @@ export function useChatStream(API: denizApi | null) {
       webSearchEnabled?: boolean;
       toolApprovals?: Record<string, boolean>;
     }): Promise<StreamResult | StreamError | null> => {
-      if (!API) return Promise.resolve(null);
+      if (!API) return null;
 
-      return new Promise(async (resolve) => {
-        setIsStreaming(true);
-        setStreamSegments([]);
-        setPendingConfirmations([]);
-
-        let aborted = false;
-        abortRef.current = () => {
-          aborted = true;
-        };
-
-        const segments: IChatContentSegment[] = [];
-        const pendingActions: IChatPendingAction[] = [];
-        let accumulated = "";
-
-        const pushUpdate = () => setStreamSegments([...segments]);
-
-        const appendText = (text: string) => {
-          const last = segments[segments.length - 1];
-          if (last?.type === "text") {
-            last.text += text;
-          } else {
-            segments.push({ type: "text", text });
-          }
-          accumulated += text;
-          pushUpdate();
-        };
-
-        const addToolCall = (tc: IChatToolCall) => {
-          const last = segments[segments.length - 1];
-          if (last?.type === "tool_group") {
-            last.calls.push(tc);
-          } else {
-            segments.push({ type: "tool_group", calls: [tc] });
-          }
-          pushUpdate();
-        };
-
-        const updateToolCall = (
-          toolId: string,
-          update: Partial<IChatToolCall>,
-        ) => {
-          for (const seg of segments) {
-            if (seg.type !== "tool_group") continue;
-            const tc = seg.calls.find((c) => c.toolId === toolId);
-            if (tc) {
-              Object.assign(tc, update);
-              pushUpdate();
-              return;
-            }
-          }
-        };
-
-        try {
-          const result = await API.POST_STREAM({
-            endpoint: "chat",
-            body,
-          });
-
-          if ("code" in result) {
-            setIsStreaming(false);
-            resolve({ error: result.message ?? "Request failed" });
-            return;
-          }
-
-          const reader = result.body?.getReader();
-          if (!reader) {
-            setIsStreaming(false);
-            resolve({ error: "No response body received" });
-            return;
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (true) {
-            if (aborted) {
-              reader.cancel();
-              break;
-            }
-
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const json = line.slice(6);
-              try {
-                const event = JSON.parse(json);
-
-                if (event.type === "delta") {
-                  appendText(event.text);
-                } else if (event.type === "tool_call") {
-                  addToolCall({
-                    toolId: event.toolId,
-                    toolName: event.toolName,
-                    input: event.input,
-                    status: "calling",
-                  });
-                } else if (event.type === "tool_result") {
-                  updateToolCall(event.toolId, {
-                    result: event.result,
-                    isError: event.isError,
-                    status: event.isError ? "error" : "done",
-                  });
-                } else if (event.type === "tool_confirmation_required") {
-                  updateToolCall(event.toolId, {
-                    status: "pending_approval",
-                  });
-
-                  const pa: IChatPendingAction = {
-                    toolId: event.toolId,
-                    toolName: event.toolName,
-                    input: event.input,
-                    status: "pending",
-                  };
-                  pendingActions.push(pa);
-                  setPendingConfirmations([...pendingActions]);
-                } else if (event.type === "rate_limit_backoff") {
-                  setBackoff({
-                    active: true,
-                    retryAfterMs: event.retryAfterMs,
-                    attempt: event.attempt,
-                    maxAttempts: event.maxAttempts,
-                  });
-                  setTimeout(() => {
-                    setBackoff((prev) => ({ ...prev, active: false }));
-                  }, event.retryAfterMs);
-                } else if (event.type === "paused") {
-                  setIsStreaming(false);
-                  resolve({
-                    content: accumulated,
-                    usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-                    segments: [...segments],
-                    pendingActions,
-                    paused: true,
-                  });
-                  return;
-                } else if (event.type === "done") {
-                  setIsStreaming(false);
-                  resolve({
-                    content: accumulated,
-                    usage: event.usage,
-                    segments: [...segments],
-                    pendingActions,
-                  });
-                  return;
-                } else if (event.type === "error") {
-                  setIsStreaming(false);
-                  resolve({
-                    error: event.error ?? "An unknown error occurred",
-                  });
-                  return;
-                }
-              } catch {}
-            }
-          }
-
-          setIsStreaming(false);
-          resolve(
-            aborted
-              ? null
-              : {
-                  content: accumulated,
-                  usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
-                  segments: [...segments],
-                  pendingActions,
-                },
-          );
-        } catch (e) {
-          setIsStreaming(false);
-          resolve({
-            error:
-              e instanceof Error ? e.message : "An unexpected error occurred",
-          });
-        }
+      setIsStreaming(true);
+      setStreamSegments([]);
+      setPendingConfirmations([]);
+      setMaxIterations({
+        active: false,
+        iterations: 0,
+        hasUnansweredTools: false,
       });
+
+      let aborted = false;
+      const controller = new AbortController();
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+      abortRef.current = () => {
+        aborted = true;
+        controller.abort();
+        reader?.cancel().catch(() => {});
+      };
+      const segments: IChatContentSegment[] = [];
+      const pendingActions: IChatPendingAction[] = [];
+      let accumulated = "";
+
+      const pushUpdate = () => setStreamSegments([...segments]);
+
+      const appendText = (text: string) => {
+        const last = segments[segments.length - 1];
+        if (last?.type === "text") {
+          last.text += text;
+        } else {
+          segments.push({ type: "text", text });
+        }
+        accumulated += text;
+        pushUpdate();
+      };
+
+      const addToolCall = (tc: IChatToolCall) => {
+        const last = segments[segments.length - 1];
+        if (last?.type === "tool_group") {
+          last.calls.push(tc);
+        } else {
+          segments.push({ type: "tool_group", calls: [tc] });
+        }
+        pushUpdate();
+      };
+
+      const updateToolCall = (
+        toolId: string,
+        update: Partial<IChatToolCall>,
+      ) => {
+        for (const seg of segments) {
+          if (seg.type !== "tool_group") continue;
+          const tc = seg.calls.find((c) => c.toolId === toolId);
+          if (tc) {
+            Object.assign(tc, update);
+            pushUpdate();
+            return;
+          }
+        }
+      };
+
+      try {
+        const result = await API.POST_STREAM({
+          endpoint: "chat",
+          body,
+          signal: controller.signal,
+        });
+
+        if ("code" in result) {
+          setIsStreaming(false);
+          return { error: result.message ?? "Request failed" };
+        }
+
+        reader = result.body?.getReader();
+        if (!reader) {
+          setIsStreaming(false);
+          return { error: "No response body received" };
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          if (aborted) {
+            await reader.cancel();
+            break;
+          }
+
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const json = line.slice(6);
+            let event: { type: string; [k: string]: unknown };
+            try {
+              event = JSON.parse(json);
+            } catch (err) {
+              console.warn("Failed to parse SSE event:", err, json);
+              continue;
+            }
+
+            if (event.type === "delta") {
+              appendText(event.text as string);
+            } else if (event.type === "tool_call") {
+              addToolCall({
+                toolId: event.toolId as string,
+                toolName: event.toolName as string,
+                input: event.input as Record<string, unknown>,
+                status: "calling",
+              });
+            } else if (event.type === "tool_result") {
+              updateToolCall(event.toolId as string, {
+                result: event.result as string,
+                isError: event.isError as boolean,
+                status: event.isError ? "error" : "done",
+              });
+            } else if (event.type === "tool_confirmation_required") {
+              updateToolCall(event.toolId as string, {
+                status: "pending_approval",
+              });
+              const pa: IChatPendingAction = {
+                toolId: event.toolId as string,
+                toolName: event.toolName as string,
+                input: event.input as Record<string, unknown>,
+                status: "pending",
+              };
+              pendingActions.push(pa);
+              setPendingConfirmations([...pendingActions]);
+            } else if (event.type === "rate_limit_backoff") {
+              const retryAfterMs = event.retryAfterMs as number;
+              setBackoff({
+                active: true,
+                retryAfterMs,
+                attempt: event.attempt as number,
+                maxAttempts: event.maxAttempts as number,
+              });
+              setTimeout(() => {
+                setBackoff((prev) => ({ ...prev, active: false }));
+              }, retryAfterMs);
+            } else if (event.type === "max_iterations_reached") {
+              setMaxIterations({
+                active: true,
+                iterations: event.iterations as number,
+                hasUnansweredTools: Boolean(event.hasUnansweredTools),
+              });
+            } else if (event.type === "persist_warning") {
+              console.warn("Persist warning from server:", event.error);
+            } else if (event.type === "paused") {
+              setIsStreaming(false);
+              return {
+                content: accumulated,
+                usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+                segments: [...segments],
+                pendingActions,
+                paused: true,
+              };
+            } else if (event.type === "done") {
+              setIsStreaming(false);
+              return {
+                content: accumulated,
+                usage: event.usage as StreamResult["usage"],
+                segments: [...segments],
+                pendingActions,
+              };
+            } else if (event.type === "error") {
+              setIsStreaming(false);
+              return {
+                error: (event.error as string) ?? "An unknown error occurred",
+              };
+            }
+          }
+        }
+
+        setIsStreaming(false);
+        return aborted
+          ? null
+          : {
+              content: accumulated,
+              usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 },
+              segments: [...segments],
+              pendingActions,
+            };
+      } catch (e) {
+        setIsStreaming(false);
+        if (aborted) return null;
+        return {
+          error:
+            e instanceof Error ? e.message : "An unexpected error occurred",
+        };
+      }
     },
     [API],
   );
@@ -255,5 +279,7 @@ export function useChatStream(API: denizApi | null) {
     pendingConfirmations,
     setPendingConfirmations,
     backoff,
+    maxIterations,
+    setMaxIterations,
   };
 }

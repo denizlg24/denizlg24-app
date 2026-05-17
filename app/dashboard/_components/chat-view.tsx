@@ -43,6 +43,7 @@ import { ChatMessage } from "./chat-message";
 import { DashboardSummary } from "./dashboard-summary";
 
 const MODEL_LABELS: Record<string, string> = {
+  "claude-opus-4-7": "Opus 4.7",
   "claude-opus-4-6": "Opus 4.6",
   "claude-sonnet-4-6": "Sonnet 4.6",
   "claude-haiku-4-5": "Haiku 4.5",
@@ -330,6 +331,8 @@ export function ChatView() {
     pendingConfirmations,
     setPendingConfirmations,
     backoff,
+    maxIterations,
+    setMaxIterations,
   } = useChatStream(API);
   const now = useClock();
   const suggestion = useSuggestion();
@@ -431,7 +434,7 @@ export function ChatView() {
     if (!userScrolledUp.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, []);
+  }, [messages, streamSegments]);
 
   const loadConversation = async (meta: IConversationMeta) => {
     if (!API) return;
@@ -754,10 +757,7 @@ export function ChatView() {
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUserMsg || !conversationId) return;
 
-    const messageContent =
-      typeof lastUserMsg.content === "string"
-        ? lastUserMsg.content
-        : lastUserMsg.content;
+    const messageContent = lastUserMsg.content;
 
     userScrolledUp.current = false;
 
@@ -992,7 +992,7 @@ export function ChatView() {
           </SheetContent>
         </Sheet>
 
-        <div className="flex flex-col items-center justify-center h-full px-4 py-8 overflow-y-auto relative">
+        <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-4 py-8 relative">
           <Button
             variant="ghost"
             size="icon"
@@ -1029,6 +1029,8 @@ export function ChatView() {
               model={model}
               onModelChange={setModel}
               disabled={isStreaming}
+              streaming={isStreaming}
+              onAbort={abort}
               toolsEnabled={toolsEnabled}
               onToolsEnabledChange={setToolsEnabled}
               webSearchEnabled={webSearchEnabled}
@@ -1137,7 +1139,7 @@ export function ChatView() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex flex-col h-full">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b">
           <Button
             variant="ghost"
@@ -1158,7 +1160,10 @@ export function ChatView() {
           <span className="text-sm text-foreground/70 truncate">{title}</span>
         </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
+        <div
+          ref={scrollRef}
+          className="flex-1 min-h-0 overflow-y-auto px-4 py-6"
+        >
           <div className="max-w-3xl mx-auto">
             {messages.map((msg, i) => {
               const isLastAssistant =
@@ -1215,6 +1220,29 @@ export function ChatView() {
           </div>
         )}
 
+        {maxIterations.active && (
+          <div className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-md border border-orange-500/20 bg-orange-500/5 px-3 py-2 text-xs text-orange-700">
+            <span>
+              Reached max tool iterations ({maxIterations.iterations}).
+              {maxIterations.hasUnansweredTools
+                ? " Some tool calls were not completed."
+                : ""}
+            </span>
+            <button
+              onClick={() =>
+                setMaxIterations({
+                  active: false,
+                  iterations: 0,
+                  hasUnansweredTools: false,
+                })
+              }
+              className="text-orange-600/60 hover:text-orange-700"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         <ChatInput
           value={input}
           onChange={setInput}
@@ -1222,6 +1250,8 @@ export function ChatView() {
           model={model}
           onModelChange={setModel}
           disabled={isStreaming}
+          streaming={isStreaming}
+          onAbort={abort}
           docked
           modelLabel={MODEL_LABELS[model] ?? model}
           toolsEnabled={toolsEnabled}

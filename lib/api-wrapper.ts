@@ -90,9 +90,11 @@ export class denizApi {
   public async POST_STREAM({
     endpoint,
     body,
+    signal,
   }: {
     endpoint: string;
-    body: any;
+    body: unknown;
+    signal?: AbortSignal;
   }): Promise<Response | AuthError | ApiError> {
     try {
       const res = await fetch(`${BASE_URL}/${endpoint}`, {
@@ -102,6 +104,7 @@ export class denizApi {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
+        signal,
       });
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
