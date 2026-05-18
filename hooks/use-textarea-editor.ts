@@ -49,6 +49,34 @@ function applyEdit(
   textarea.setSelectionRange(cursorStart, cursorEnd ?? cursorStart);
 }
 
+function scrollCursorIntoView(
+  textarea: HTMLTextAreaElement,
+  cursorPos: number,
+) {
+  if (cursorPos >= textarea.value.length) {
+    textarea.scrollTop = textarea.scrollHeight;
+    return;
+  }
+
+  const lineHeight = parseInt(getComputedStyle(textarea).lineHeight, 10) || 20;
+  const viewportPadding = lineHeight * 2;
+  const lineNumber = textarea.value.slice(0, cursorPos).split("\n").length - 1;
+  const cursorTop = lineNumber * lineHeight;
+  const cursorBottom = cursorTop + lineHeight;
+  const visibleTop = textarea.scrollTop + viewportPadding;
+  const visibleBottom =
+    textarea.scrollTop + textarea.clientHeight - viewportPadding;
+
+  if (cursorTop < visibleTop) {
+    textarea.scrollTop = Math.max(0, cursorTop - viewportPadding);
+  } else if (cursorBottom > visibleBottom) {
+    textarea.scrollTop = Math.max(
+      0,
+      cursorBottom - textarea.clientHeight + viewportPadding,
+    );
+  }
+}
+
 function findAllOccurrences(text: string, word: string): MultiSelection[] {
   const results: MultiSelection[] = [];
   let pos = 0;
@@ -625,10 +653,12 @@ export function useTextareaEditor(
           const continuation = `\n${indent}${marker} `;
           const newText =
             text.slice(0, selStart) + continuation + text.slice(selEnd);
+          const nextCursor = selStart + continuation.length;
           setContent(newText);
-          requestAnimationFrame(() =>
-            applyEdit(textarea, newText, selStart + continuation.length),
-          );
+          requestAnimationFrame(() => {
+            applyEdit(textarea, newText, nextCursor);
+            scrollCursorIntoView(textarea, nextCursor);
+          });
           return;
         }
 
@@ -656,10 +686,12 @@ export function useTextareaEditor(
           const continuation = `\n${indent}${nextNum}. `;
           const newText =
             text.slice(0, selStart) + continuation + text.slice(selEnd);
+          const nextCursor = selStart + continuation.length;
           setContent(newText);
-          requestAnimationFrame(() =>
-            applyEdit(textarea, newText, selStart + continuation.length),
-          );
+          requestAnimationFrame(() => {
+            applyEdit(textarea, newText, nextCursor);
+            scrollCursorIntoView(textarea, nextCursor);
+          });
           return;
         }
       }

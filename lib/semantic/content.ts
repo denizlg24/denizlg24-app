@@ -30,13 +30,14 @@ export function buildSemanticInput(note: INote, groups: INoteGroup[]) {
 
   return [
     `passage: ${normalizeText(note.title)}`,
-    normalizeText(note.description),
-    normalizeText(note.siteName),
-    domain,
-    normalizeText(note.content).slice(0, 4000),
+    note.class ? `class: ${normalizeText(note.class)}` : "",
     tags.length > 0 ? `tags: ${[...tags].sort().join(", ")}` : "",
     groupPaths.length > 0 ? `groups: ${groupPaths.join(" | ")}` : "",
-    note.class ? `class: ${normalizeText(note.class)}` : "",
+    note.url ? `url: ${normalizeText(note.url)}` : "",
+    domain ? `domain: ${domain}` : "",
+    normalizeText(note.description),
+    normalizeText(note.siteName),
+    normalizeText(note.content).slice(0, 4000),
   ]
     .filter(Boolean)
     .join("\n\n");

@@ -564,7 +564,7 @@ export const NoteEditor = ({
               className="absolute inset-0 overflow-y-auto pointer-events-none z-0 editor-overlay"
               aria-hidden="true"
             >
-              <div className="font-mono text-sm px-3 py-2 whitespace-pre-wrap wrap-break-word text-transparent">
+              <div className="font-mono text-sm px-3 pt-2 pb-28 whitespace-pre-wrap wrap-break-word text-transparent">
                 {(() => {
                   const regions: Array<{
                     start: number;
@@ -664,7 +664,7 @@ export const NoteEditor = ({
               }
             }}
             id="content"
-            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-1 selection:bg-blue-400/30 selection:text-foreground ${showOverlay ? "bg-transparent! selection:bg-transparent!" : ""}`}
+            className={`font-mono text-sm flex-1 min-h-0 overflow-y-auto rounded-none border-none! outline-none! ring-0! shadow-none! resize-none! relative z-1 px-3 pt-2 pb-28 selection:bg-blue-400/30 selection:text-foreground ${showOverlay ? "bg-transparent! selection:bg-transparent!" : ""}`}
           />
         </div>
       )}

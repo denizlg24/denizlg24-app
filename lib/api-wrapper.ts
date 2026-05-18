@@ -20,6 +20,31 @@ export class denizApi {
     this.apiKey = apiKey;
   }
 
+  private async errorFromResponse(res: Response): Promise<ApiError> {
+    const fallback = `Request failed with HTTP ${res.status}`;
+
+    try {
+      const contentType = res.headers.get("content-type") ?? "";
+
+      if (contentType.includes("application/json")) {
+        const errorData = await res.json();
+        return {
+          message:
+            errorData.message ?? errorData.error ?? errorData.title ?? fallback,
+          code: res.status,
+        };
+      }
+
+      const text = (await res.text()).trim();
+      return {
+        message: text ? `${fallback}: ${text.slice(0, 180)}` : fallback,
+        code: res.status,
+      };
+    } catch {
+      return { message: fallback, code: res.status };
+    }
+  }
+
   public async GET<T>({
     endpoint,
   }: {
@@ -36,12 +61,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
@@ -70,12 +90,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       return res;
@@ -110,12 +125,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       return res;
@@ -147,12 +157,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
@@ -185,12 +190,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
@@ -223,12 +223,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
@@ -260,12 +255,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message:
-              errorData.message ?? errorData.error ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
@@ -294,11 +284,7 @@ export class denizApi {
         if (res.status === 401 || res.status === 403) {
           return { message: "API key is invalid", code: 401 };
         } else {
-          const errorData = await res.json();
-          return {
-            message: errorData.message ?? "An error occurred.",
-            code: res.status,
-          };
+          return this.errorFromResponse(res);
         }
       }
       const data = await res.json();
