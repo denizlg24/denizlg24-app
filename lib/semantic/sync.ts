@@ -10,13 +10,17 @@ import {
   SEMANTIC_HASHING_MODEL,
   SEMANTIC_MAX_GROUPS_PER_NOTE,
   SEMANTIC_MIN_SIMILARITY,
-  SEMANTIC_MODEL,
   SEMANTIC_STRONG_SIMILARITY,
+  SEMANTIC_SYNC_MODEL,
   SEMANTIC_TOP_K,
   type SemanticEmbeddingProvider,
 } from "./constants";
-import { buildContentHash, buildSemanticInput } from "./content";
-import { embedTexts } from "./embedding";
+import {
+  buildContentHash,
+  buildSemanticInput,
+  buildSemanticInputParts,
+} from "./content";
+import { embedWeightedSemanticParts } from "./embedding";
 import { buildSemanticEdges, buildSuggestions } from "./graph";
 
 interface SemanticNotesResponse {
@@ -56,7 +60,7 @@ export async function runSemanticSync({
   provider?: SemanticEmbeddingProvider;
 }) {
   const preferredModel =
-    provider === "hashing" ? SEMANTIC_HASHING_MODEL : SEMANTIC_MODEL;
+    provider === "hashing" ? SEMANTIC_HASHING_MODEL : SEMANTIC_SYNC_MODEL;
   let activeModel = preferredModel;
   onProgress?.({ stage: "Creating semantic run" });
   const runResult = await api.POST<{ run: ISemanticRun }>({
@@ -95,6 +99,7 @@ export async function runSemanticSync({
       .map((note) => ({
         note,
         input: buildSemanticInput(note, groups),
+        parts: buildSemanticInputParts(note, groups, { maxContentChunks: 2 }),
         contentHash: buildContentHash(note, groups, activeModel),
       }))
       .filter((item) => {
@@ -118,40 +123,46 @@ export async function runSemanticSync({
         current: embeddedCount,
         total: pending.length,
       });
-      let result: Awaited<ReturnType<typeof embedTexts>>;
+      const payload: {
+        noteId: string;
+        vector: number[];
+        contentHash: string;
+        inputTextPreview: string;
+      }[] = [];
+      let resultModel = activeModel;
+      let resultDimension = 0;
       try {
-        result = await embedTexts(
-          batch.map((item) => item.input),
-          {
+        for (const item of batch) {
+          const result = await embedWeightedSemanticParts(item.parts, {
             provider,
-            allowFallback: true,
-            onFallback: (error) => {
-              console.warn("Falling back to hashing embeddings:", error);
-            },
-          },
-        );
+            model: SEMANTIC_SYNC_MODEL,
+            allowFallback: false,
+          });
+          resultModel = result.model;
+          resultDimension = result.dimension;
+          payload.push({
+            noteId: item.note._id,
+            vector: result.embedding,
+            contentHash: item.contentHash,
+            inputTextPreview: item.input.slice(0, 500),
+          });
+        }
       } catch (error) {
-        console.error("[semantic] embedTexts failed", error, {
+        console.error("[semantic] embedding failed", error, {
           provider,
           batchSize: batch.length,
           inputPreview: batch[0]?.input?.slice(0, 200),
         });
         throw error;
       }
-      activeModel = result.model;
-      const payload = batch.map((item, index) => ({
-        noteId: item.note._id,
-        vector: result.embeddings[index],
-        contentHash: item.contentHash,
-        inputTextPreview: item.input.slice(0, 500),
-      }));
+      activeModel = resultModel;
 
       const uploadResult = await api.POST<{ updated: number }>({
         endpoint: "semantic/embeddings/bulk",
         body: {
           runId,
-          model: result.model,
-          dimension: result.dimension,
+          model: resultModel,
+          dimension: resultDimension,
           embeddings: payload,
         },
       });
@@ -160,8 +171,8 @@ export async function runSemanticSync({
       for (const item of payload) {
         uploadedEmbeddings.push({
           noteId: item.noteId,
-          model: result.model,
-          dimension: result.dimension,
+          model: resultModel,
+          dimension: resultDimension,
           vector: item.vector,
           contentHash: item.contentHash,
           updatedAt: new Date().toISOString(),

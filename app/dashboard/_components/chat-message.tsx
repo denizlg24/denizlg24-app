@@ -96,6 +96,7 @@ const TOOL_LABELS: Record<string, string> = {
   create_note: "Creating note",
   update_note: "Updating note",
   delete_note: "Deleting note",
+  semantic_classify_note: "Classifying note",
   get_timetable: "Fetched timetable",
   create_timetable_entry: "Creating timetable entry",
   update_timetable_entry: "Updating timetable entry",

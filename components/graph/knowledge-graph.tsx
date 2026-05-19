@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  forceCollide,
+  type forceLink,
+  forceManyBody,
+  type SimulationLinkDatum,
+  type SimulationNodeDatum,
+} from "d3-force";
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
@@ -13,13 +20,6 @@ import type {
   ForceGraphProps,
   NodeObject,
 } from "react-force-graph-2d";
-import {
-  forceCollide,
-  forceLink,
-  forceManyBody,
-  type SimulationLinkDatum,
-  type SimulationNodeDatum,
-} from "d3-force";
 
 export type KnowledgeGraphNodeData<TItem = unknown, TGroup = unknown> = {
   id: string;
@@ -144,10 +144,11 @@ export function KnowledgeGraph<TItem, TGroup>({
       if (!linkForce) return false;
 
       linkForce
-        .distance((link) => nodeRadius(link.source) + nodeRadius(link.target) + 18)
+        .distance(
+          (link) => nodeRadius(link.source) + nodeRadius(link.target) + 18,
+        )
         .strength((link) => (link.type === "membership" ? 0.4 : 0.7));
 
-      fg.d3ReheatSimulation();
       return true;
     };
 
@@ -158,7 +159,10 @@ export function KnowledgeGraph<TItem, TGroup>({
       if (cancelled) return;
       attempts += 1;
       const ok = apply();
-      if (ok && attempts >= 2) return;
+      if (ok && attempts >= 2) {
+        graphRef.current?.d3ReheatSimulation();
+        return;
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

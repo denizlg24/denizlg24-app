@@ -654,6 +654,10 @@ export function ChatView() {
           streamResult.pendingActions.length > 0
             ? streamResult.pendingActions
             : undefined,
+        clientToolResults:
+          streamResult.paused && streamResult.clientToolResults.length > 0
+            ? streamResult.clientToolResults
+            : undefined,
         createdAt: new Date().toISOString(),
       };
 
@@ -666,9 +670,18 @@ export function ChatView() {
 
     userScrolledUp.current = false;
 
+    // Recover any client tool results that were computed during the
+    // pause — the server needs them alongside toolApprovals to build a
+    // single user turn covering every pending tool_use.
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    const carriedClientToolResults = lastAssistant?.clientToolResults;
+
     const streamResult = await streamChat({
       conversationId,
       toolApprovals,
+      clientToolResults: carriedClientToolResults,
       model,
       toolsEnabled,
       webSearchEnabled,
@@ -716,6 +729,10 @@ export function ChatView() {
               streamResult.pendingActions.length > 0
                 ? streamResult.pendingActions
                 : undefined,
+            clientToolResults:
+              streamResult.paused && streamResult.clientToolResults.length > 0
+                ? streamResult.clientToolResults
+                : undefined,
           };
         } else {
           updated.push({
@@ -729,6 +746,10 @@ export function ChatView() {
             pendingActions:
               streamResult.pendingActions.length > 0
                 ? streamResult.pendingActions
+                : undefined,
+            clientToolResults:
+              streamResult.paused && streamResult.clientToolResults.length > 0
+                ? streamResult.clientToolResults
                 : undefined,
             createdAt: new Date().toISOString(),
           });
@@ -787,6 +808,10 @@ export function ChatView() {
         pendingActions:
           streamResult.pendingActions.length > 0
             ? streamResult.pendingActions
+            : undefined,
+        clientToolResults:
+          streamResult.paused && streamResult.clientToolResults.length > 0
+            ? streamResult.clientToolResults
             : undefined,
         createdAt: new Date().toISOString(),
       };

@@ -595,6 +595,12 @@ export interface IChatMessageAttachment {
   name: string;
 }
 
+export interface IChatClientToolResult {
+  toolUseId: string;
+  content: string;
+  isError?: boolean;
+}
+
 export interface IChatMessage {
   role: "user" | "assistant";
   content: string | unknown[];
@@ -606,6 +612,7 @@ export interface IChatMessage {
   toolCalls?: IChatToolCall[];
   segments?: IChatContentSegment[];
   pendingActions?: IChatPendingAction[];
+  clientToolResults?: IChatClientToolResult[];
   error?: string;
   attachments?: IChatMessageAttachment[];
   createdAt: string;

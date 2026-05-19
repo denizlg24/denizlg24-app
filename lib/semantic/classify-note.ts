@@ -1,7 +1,12 @@
 import type { denizApi } from "@/lib/api-wrapper";
 import type { INote, INoteGroup } from "@/lib/data-types";
-import { buildContentHash, buildSemanticInput } from "./content";
-import { embedTexts } from "./embedding";
+import { SEMANTIC_CLASSIFICATION_MODEL } from "./constants";
+import {
+  buildContentHash,
+  buildSemanticInput,
+  buildSemanticInputParts,
+} from "./content";
+import { embedWeightedSemanticParts } from "./embedding";
 
 interface ClassifyNoteResponse {
   note: INote;
@@ -25,16 +30,22 @@ export async function classifyNoteLocally({
   api,
   note,
   groups,
+  signal,
 }: {
   api: denizApi;
   note: INote;
   groups: INoteGroup[];
+  signal?: AbortSignal;
 }) {
   const input = buildSemanticInput(note, groups);
-  const embedding = await embedTexts([input], {
+  const parts = buildSemanticInputParts(note, groups);
+  if (signal?.aborted) throw new Error("Aborted");
+  const embedding = await embedWeightedSemanticParts(parts, {
     provider: "transformers-local",
+    model: SEMANTIC_CLASSIFICATION_MODEL,
     allowFallback: false,
   });
+  if (signal?.aborted) throw new Error("Aborted");
   const contentHash = buildContentHash(note, groups, embedding.model);
 
   const result = await api.POST<ClassifyNoteResponse>({
@@ -42,7 +53,7 @@ export async function classifyNoteLocally({
     body: {
       model: embedding.model,
       dimension: embedding.dimension,
-      vector: embedding.embeddings[0],
+      vector: embedding.embedding,
       contentHash,
       inputTextPreview: input.slice(0, 500),
     },
