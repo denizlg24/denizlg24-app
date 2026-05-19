@@ -1,7 +1,7 @@
 import { fetch } from "@tauri-apps/plugin-http";
 
 const BASE_URL =
-  "http://localhost:3001/api/admin" /*"https://denizlg24.com/api/admin"*/;
+  /*"http://localhost:3001/api/admin"*/ "https://denizlg24.com/api/admin";
 
 export interface AuthError {
   message: "API key is invalid";
