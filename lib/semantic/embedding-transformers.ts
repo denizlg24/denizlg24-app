@@ -17,6 +17,16 @@ const MODEL_DIMENSIONS = new Map([
   [SEMANTIC_CLASSIFICATION_MODEL, SEMANTIC_CLASSIFICATION_DIMENSION],
   [SEMANTIC_SYNC_MODEL, SEMANTIC_SYNC_DIMENSION],
 ]);
+const LOCAL_MODEL_PATH = "/models/";
+const CACHE_KEY = "deniz-semantic-transformers-v1";
+
+function configureTransformersEnv() {
+  env.allowLocalModels = true;
+  env.allowRemoteModels = false;
+  env.localModelPath = LOCAL_MODEL_PATH;
+  env.cacheKey = CACHE_KEY;
+  env.useBrowserCache = typeof caches !== "undefined";
+}
 
 async function getExtractor(model: string): Promise<FeatureExtractionPipeline> {
   const existing = extractorPromises.get(model);
@@ -24,9 +34,7 @@ async function getExtractor(model: string): Promise<FeatureExtractionPipeline> {
 
   const extractorPromise = (async () => {
     try {
-      env.allowLocalModels = true;
-      env.allowRemoteModels = true;
-      env.useBrowserCache = true;
+      configureTransformersEnv();
       console.log("[semantic] creating pipeline for", model);
       const extractor = await pipeline("feature-extraction", model);
       console.log("[semantic] pipeline ready", model);
