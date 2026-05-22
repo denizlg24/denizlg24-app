@@ -119,10 +119,8 @@ export function useChatStream(API: denizApi | null) {
       const pendingActions: IChatPendingAction[] = [];
       // Seed with results carried in from a prior pause so they round-trip
       // through every re-pause until the conversation can complete.
-      const accumulatedClientToolResults: ClientToolResult[] = body
-        .clientToolResults
-        ? [...body.clientToolResults]
-        : [];
+      const accumulatedClientToolResults: ClientToolResult[] =
+        body.clientToolResults ? [...body.clientToolResults] : [];
       let clientToolRequests: ClientToolRequest[] = [];
       let accumulated = "";
 
@@ -198,7 +196,9 @@ export function useChatStream(API: denizApi | null) {
             ok: true,
             noteId: result.note._id,
             assignedGroupIds: result.classification.assignedGroupIds,
-            bestSimilarity: result.classification.bestSimilarity,
+            suggestedGroupIds: result.classification.suggestedGroupIds,
+            suggestedTags: result.classification.suggestedTags,
+            mode: result.classification.mode,
           });
 
           updateToolCall(request.toolId, {

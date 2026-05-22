@@ -144,6 +144,9 @@ export interface INote {
   manualGroupIds?: string[];
   status: "open" | "archived";
   class?: string;
+  semanticKeywords?: string[];
+  semanticSummary?: string;
+  semanticModel?: string;
   semanticStatus?: "pending" | "embedded" | "stale" | "failed";
   semanticContentHash?: string;
   semanticUpdatedAt?: string;
@@ -210,15 +213,6 @@ export interface INoteGraph {
       clusterCount: number;
     };
   };
-}
-
-export interface INoteEmbedding {
-  noteId: string;
-  model: string;
-  dimension: number;
-  vector: number[];
-  contentHash: string;
-  updatedAt: string;
 }
 
 export interface ISemanticRun {

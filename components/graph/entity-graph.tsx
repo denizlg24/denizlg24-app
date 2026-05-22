@@ -95,12 +95,24 @@ export function EntityGraph<
       computeSubtree(group._id);
     }
 
-    const edgeCount = new Map<string, number>();
+    const undirectedEdges: EntityGraphEdge[] = [];
+    const seenPairs = new Set<string>();
     for (const edge of edges) {
-      if (visibleItemIds.has(edge.from) && visibleItemIds.has(edge.to)) {
-        edgeCount.set(edge.from, (edgeCount.get(edge.from) ?? 0) + 1);
-        edgeCount.set(edge.to, (edgeCount.get(edge.to) ?? 0) + 1);
-      }
+      if (!visibleItemIds.has(edge.from) || !visibleItemIds.has(edge.to)) continue;
+      if (edge.from === edge.to) continue;
+      const key =
+        edge.from < edge.to
+          ? `${edge.from}|${edge.to}`
+          : `${edge.to}|${edge.from}`;
+      if (seenPairs.has(key)) continue;
+      seenPairs.add(key);
+      undirectedEdges.push(edge);
+    }
+
+    const edgeCount = new Map<string, number>();
+    for (const edge of undirectedEdges) {
+      edgeCount.set(edge.from, (edgeCount.get(edge.from) ?? 0) + 1);
+      edgeCount.set(edge.to, (edgeCount.get(edge.to) ?? 0) + 1);
     }
 
     const nodes: KnowledgeGraphNodeData<TItem, TGroup>[] = [
@@ -161,15 +173,13 @@ export function EntityGraph<
       }
     }
 
-    for (const edge of edges) {
-      if (visibleItemIds.has(edge.from) && visibleItemIds.has(edge.to)) {
-        links.push({
-          source: edge.from,
-          target: edge.to,
-          type: "relation",
-          strength: edge.strength,
-        });
-      }
+    for (const edge of undirectedEdges) {
+      links.push({
+        source: edge.from,
+        target: edge.to,
+        type: "relation",
+        strength: edge.strength,
+      });
     }
 
     return { nodes, links };

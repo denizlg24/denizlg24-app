@@ -214,10 +214,10 @@ export function KnowledgeGraph<TItem, TGroup>({
           linkColor={(link) =>
             link.type === "membership"
               ? `${theme.mutedForeground}44`
-              : `${theme.mutedForeground}66`
+              : `${theme.mutedForeground}22`
           }
           linkWidth={(link) =>
-            link.type === "relation" ? Math.max(0.9, link.strength * 1.8) : 0.5
+            link.type === "membership" ? 0.5 : 0.3
           }
           cooldownTicks={180}
           onNodeHover={(node) => {

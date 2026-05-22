@@ -18,7 +18,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fortune-sheet/react": "^1.0.4",
     "@hookform/resolvers": "^5.2.2",
-    "@huggingface/transformers": "^4.2.0",
     "@react-pdf/renderer": "^4.3.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-table": "^8.21.3",
