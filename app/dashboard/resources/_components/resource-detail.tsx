@@ -17,6 +17,7 @@ import type { ICapability, IResource } from "@/lib/data-types";
 import { AddCapabilityDialog } from "./add-capability-dialog";
 import { CapabilitySection } from "./capability-section";
 import { PiCronDashboard } from "./picron/picron-dashboard";
+import { SubResourcesSection } from "./sub-resources-section";
 import { UptimeBar } from "./uptime-bar";
 
 function getMetricColor(percent: number | null): string {
@@ -341,6 +342,10 @@ export function ResourceDetail({
             </div>
           </div>
         )}
+
+        <div className="mb-8">
+          <SubResourcesSection resourceId={resource._id} API={API} />
+        </div>
 
         <div className="mb-8">
           <CapabilitySection

@@ -520,6 +520,38 @@ export interface ResourceUptimeData {
   dailyHistory: DailyUptimeEntry[];
 }
 
+export interface ISubResourceHttpCheck {
+  type: "http";
+  url: string;
+  expectStatus: number | null;
+  expectJsonPath: string | null;
+  expectEquals: string | null;
+}
+
+export interface ISubResourceTcpCheck {
+  type: "tcp";
+  host: string;
+  port: number;
+}
+
+export type SubResourceCheck = ISubResourceHttpCheck | ISubResourceTcpCheck;
+
+export interface ISubResource {
+  _id: string;
+  parentResourceId: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  isPublic: boolean;
+  check: SubResourceCheck;
+  lastCheckedAt: string | null;
+  lastStatus: "healthy" | "unhealthy" | null;
+  lastResponseTimeMs: number | null;
+  uptime: ResourceUptimeData | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface PiCronJob {
   id: string;
   name: string;
